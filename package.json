@@ -1,0 +1,32 @@
+{
+  "name": "refui",
+  "version": "0.0.1",
+  "description": "The JavaScript framework that refuels your UI projects, across web, native, and embedded",
+  "main": "src/main.js",
+  "scripts": {},
+  "keywords": [
+    "refui",
+    "refuel",
+    "ef",
+    "framework",
+    "frontend",
+    "native",
+    "embedded",
+    "signal",
+    "dom",
+    "ui"
+  ],
+  "exports": {
+    ".": "./src/main.js",
+    "./dom": "./src/renderer-dom.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "repository": "SudoMaker/rEFui",
+  "author": "Yukino Song <yukino@sudomaker.com>",
+  "license": "MIT",
+  "bugs": "https://github.com/SudoMaker/rEFui/issues",
+  "homepage": "https://github.com/SudoMaker/rEFui"
+}
