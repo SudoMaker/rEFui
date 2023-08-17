@@ -44,6 +44,8 @@ DOMRenderer.render(app, document.body)
 
 by using [DOMiNATIVE](https://github.com/SudoMaker/dominative) alongside with [NativeScript](https://nativescript.org/)
 
+[DEMO](https://stackblitz.com/edit/refui-nativescript?file=app%2Fapp.jsx)
+
 ```jsx
 import { Application } from '@nativescript/core'
 import { document } from 'dominative'
