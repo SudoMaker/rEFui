@@ -7,8 +7,8 @@ let currentDisposers = null
 let currentResolve = null
 let currentTick = null
 
-const signalQueue = new Set()
-const effectQueue = new Set()
+let signalQueue = new Set()
+let effectQueue = new Set()
 let runQueue = new Set()
 
 // Scheduler part
@@ -32,14 +32,19 @@ const flushQueue = (queue, sorted) => {
 		} else {
 			runQueue = new Set([].concat(...queueArr.map(i => [...i])))
 		}
-
 		for (let i of runQueue) i()
 		runQueue.clear()
 	}
 }
 
-const flushSignalQueue = flushQueue.bind(null, signalQueue, true)
-const flushEffectQueue = flushQueue.bind(null, effectQueue)
+const flushSignalQueue = () => {
+	flushQueue(signalQueue, true)
+	signalQueue = new Set()
+}
+const flushEffectQueue = () => {
+	flushQueue(effectQueue)
+	effectQueue = new Set()
+}
 
 const tick = () => {
 	if (!ticking) {
@@ -297,8 +302,8 @@ const tpl = (strs, ...exprs) => {
 
 const onCondition = (sig, compute) => {
 	let currentVal = null
-	const conditionMap = new Map()
-	const conditionValMap = new Map()
+	let conditionMap = new Map()
+	let conditionValMap = new Map()
 	sig.connect(
 		pure(() => {
 			const newVal = sig.peek()
@@ -320,8 +325,8 @@ const onCondition = (sig, compute) => {
 
 	if (currentDisposers) {
 		_onDispose(() => {
-			conditionMap.clear()
-			conditionValMap.clear()
+			conditionMap = new Map()
+			conditionValMap = new Map()
 		})
 	}
 
