@@ -161,23 +161,44 @@ const createDOMRenderer = ({
 		if (optionsArr.length) {
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
-			return (node, cb) =>
-				node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
-		} else return (node, cb) => node.addEventListener(eventName, cb)
+			return (node, cb) => {
+				if (cb) node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
+			}
+		} else return (node, cb) => {
+			if (cb) node.addEventListener(eventName, cb)
+		}
 	})
 	const addListener = (node, event, cb) => {
 		getListenerAdder(event)(node, cb)
 	}
 
 	const setAttr = (node, attr, val) => {
-		if (isSignal(val)) val.connect(() => node.setAttribute(attr, val.peek()))
-		else if (typeof val === 'function') watch(() => node.setAttribute(attr, val()))
+		if (typeof val === 'undefined') return
+		if (isSignal(val)) val.connect(() => {
+			const newVal = val.peek()
+			if (typeof newVal === 'undefined') node.removeAttribute(attr)
+			else node.setAttribute(attr, newVal)
+		})
+		else if (typeof val === 'function') watch(() => {
+			const newVal = val()
+			if (typeof newVal === 'undefined') node.removeAttribute(attr)
+			else node.setAttribute(attr, newVal)
+		})
 		else node.setAttribute(attr, val)
 	}
 	// eslint-disable-next-line max-params
 	const setAttrNS = (node, attr, val, ns) => {
-		if (isSignal(val)) val.connect(() => node.setAttributeNS(ns, attr, val.peek()))
-		else if (typeof val === 'function') watch(() => node.setAttributeNS(ns, attr, val()))
+		if (typeof val === 'undefined') return
+		if (isSignal(val)) val.connect(() => {
+			const newVal = val.peek()
+			if (typeof newVal === 'undefined') node.removeAttributeNS(ns, attr)
+			else node.setAttributeNS(ns, attr, newVal)
+		})
+		else if (typeof val === 'function') watch(() => {
+			const newVal = val()
+			if (typeof newVal === 'undefined') node.removeAttributeNS(ns, attr)
+			else node.setAttributeNS(ns, attr, newVal)
+		})
 		else node.setAttributeNS(ns, attr, val)
 	}
 
@@ -200,6 +221,7 @@ const createDOMRenderer = ({
 		}
 
 		return (node, val) => {
+			if (typeof val === 'undefined') return
 			if (isSignal(val)) val.connect(() => (node[prop] = val.peek()))
 			else node[prop] = val
 		}
