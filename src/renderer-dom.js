@@ -162,10 +162,31 @@ const createDOMRenderer = ({
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
 			return (node, cb) => {
-				if (cb) node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
+				if (!cb) return
+				if (isSignal(cb)) {
+					let currentHandler = null
+					cb.connect(() => {
+						let newHandler = cb.peek()
+						if (currentHandler) node.removeEventListener(eventName, currentHandler, options)
+						if (newHandler) {
+							newHandler = eventCallbackFallback(node, eventName, newHandler, options)
+							node.addEventListener(eventName, newHandler, options)
+						}
+						currentHandler = newHandler
+					})
+				} else node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
 			}
 		} else return (node, cb) => {
-			if (cb) node.addEventListener(eventName, cb)
+			if (!cb) return
+			if (isSignal(cb)) {
+				let currentHandler = null
+				cb.connect(() => {
+					const newHandler = cb.peek()
+					if (currentHandler) node.removeEventListener(eventName, currentHandler)
+					if (newHandler) node.addEventListener(eventName, newHandler)
+					currentHandler = newHandler
+				})
+			} else node.addEventListener(eventName, cb)
 		}
 	})
 	const addListener = (node, event, cb) => {
