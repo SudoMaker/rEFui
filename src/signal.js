@@ -300,6 +300,18 @@ const tpl = (strs, ...exprs) => {
 	return signal(null, () => String.raw(raw, ...exprs))
 }
 
+const connect = (sigs, effect) => {
+	const prevEffect = currentEffect
+	currentEffect = effect
+	for (let sig of sigs) {
+		sig.connect(effect)
+	}
+	effect()
+	currentEffect = prevEffect
+}
+
+const extract = (sig, ...extractions) => extractions.map(i => signal(sig, val => val && val[i]))
+
 const onCondition = (sig, compute) => {
 	let currentVal = null
 	let conditionMap = new Map()
@@ -393,6 +405,8 @@ export {
 	signal,
 	isSignal,
 	computed,
+	connect,
+	extract,
 	tpl,
 	watch,
 	peek,
