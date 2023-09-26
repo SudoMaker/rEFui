@@ -107,7 +107,11 @@ const createDOMRenderer = ({
 	const createTextNode = (text) => {
 		if (isSignal(text)) {
 			const node = doc.createTextNode('')
-			text.connect(() => (node.data = text.peek()))
+			text.connect(() => {
+				const newData = text.peek()
+				if (typeof newData === 'undefined') node.data = ''
+				else node.data = newData
+			})
 			return node
 		}
 
