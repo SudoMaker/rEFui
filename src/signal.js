@@ -156,7 +156,7 @@ const Signal = class {
 
 		this._ = internal
 
-		if (computed) {
+		if (compute) {
 			watch(pure(() => this.set(value)))
 		} else if (isSignal(value)) {
 			value.connect(pure(this.set.bind(this, value)))
