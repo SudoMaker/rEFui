@@ -105,32 +105,34 @@ const Fn = class Fn extends Component {
 				R.removeNode(fragment)
 			}
 
-			watch(() => {
-				const newBuilder = handler()
-				if (newBuilder === currentBuilder) return
-				currentBuilder = newBuilder
-				if (currentDispose) currentDispose()
-				if (newBuilder) {
-					let newResult = null
-					const dispose = collectDisposers(
-						[],
-						() => {
-							newResult = newBuilder(R)
-							if (newResult) {
-								R.appendNode(fragment, newResult)
+			nextTick(() => {
+				watch(() => {
+					const newBuilder = handler()
+					if (newBuilder === currentBuilder) return
+					currentBuilder = newBuilder
+					if (currentDispose) currentDispose()
+					if (newBuilder) {
+						let newResult = null
+						const dispose = collectDisposers(
+							[],
+							() => {
+								newResult = newBuilder(R)
+								if (newResult) {
+									R.appendNode(fragment, newResult)
+								}
+							},
+							() => {
+								removeFromArr(disposers, dispose)
+								if (newResult) {
+									nextTick(() => R.removeNode(newResult))
+								}
 							}
-						},
-						() => {
-							removeFromArr(disposers, dispose)
-							if (newResult) {
-								nextTick(() => R.removeNode(newResult))
-							}
-						}
-					)
-					disposers.push(dispose)
-					currentDispose = dispose
-					nextTick(apply)
-				}
+						)
+						disposers.push(dispose)
+						currentDispose = dispose
+						nextTick(apply)
+					}
+				})
 			})
 
 			return anchor
