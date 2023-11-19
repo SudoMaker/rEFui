@@ -31,7 +31,9 @@ Apply order:
 3. Create with namespace
 */
 
-const defaultTagNamespaceMap = {}
+const defaultTagNamespaceMap = {
+	svg: 'svg'
+}
 const defaultTagAliases = {}
 const defaultPropAliases = {
 	class: 'attr:class'
@@ -91,11 +93,17 @@ const createDOMRenderer = ({
 
 	const isNode = node => !!(node && node.cloneNode)
 
-	const getNodeCreator = cached((tagName) => {
-		let nsuri = tagNamespaceMap[tagName]
-		if (nsuri) nsuri = namespaces[nsuri] || nsuri
+	const getNodeCreator = cached((tagNameRaw) => {
+		let [nsuri, tagName] = tagNameRaw.split(':')
+		if (!tagName) {
+			tagName = nsuri
+			nsuri = tagNamespaceMap[tagName]
+		}
 		tagName = tagAliases[tagName] || tagName
-		if (nsuri) return () => doc.createElementNS(nsuri, tagName)
+		if (nsuri) {
+			nsuri = namespaces[nsuri] || nsuri
+			return () => doc.createElementNS(nsuri, tagName)
+		}
 		return () => doc.createElement(tagName)
 	})
 
@@ -238,7 +246,7 @@ const createDOMRenderer = ({
 					return (node, val) => setAttr(node, key, val)
 				}
 				default: {
-					const nsuri = namespaces[nsuri] || nsuri
+					const nsuri = namespaces[prefix] || prefix
 					return (node, val) => setAttrNS(node, key, val, nsuri)
 				}
 			}
