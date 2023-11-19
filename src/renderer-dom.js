@@ -159,10 +159,9 @@ const createDOMRenderer = ({
 	}
 
 	const getListenerAdder = cached((event) => {
-		let [options, eventName] = event.split('--')
-		const optionsArr = options.split('-')
-		if (!eventName) eventName = optionsArr.pop()
-		if (optionsArr.length) {
+		const [eventName, optionsStr] = event.split('--')
+		if (optionsStr) {
+			const optionsArr = optionsStr.split('-')
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
 			return (node, cb) => {
