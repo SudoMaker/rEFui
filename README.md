@@ -115,6 +115,14 @@ DOMRenderer.render(new App(), document)
 
 Set these values accordingly to your transpiler configuration, or add the above comments to the top of your JSX file.
 
+## Built-in Components
+
+See [Components](Components.md)
+
+## Renderers
+
+- [DOM](DOMRenderer.md)
+
 ## Prebuilt version
 
 You're building your app with a toolchain/compiler/transpiler anyways, so there's no need to provide a prebuilt version.
