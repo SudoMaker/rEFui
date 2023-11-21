@@ -304,21 +304,22 @@ const For = class For extends Component {
 }
 
 const If = class extends Fn {
-	static init({ condition, else: otherwise }, handler) {
+	static init({ condition, else: otherwise }, handler, elseBranch) {
+		const ifNot = otherwise || elseBranch
 		if (isSignal(condition))
 			return super.init(null, () => {
 				if (condition.value) return handler
-				else return otherwise
+				else return ifNot
 			})
 
 		if (typeof condition === 'function')
 			return super.init(null, () => {
 				if (condition()) return handler
-				else return otherwise
+				else return ifNot
 			})
 
 		if (condition) return handler
-		return otherwise
+		return ifNot
 	}
 }
 
