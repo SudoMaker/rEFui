@@ -17,7 +17,9 @@ const scheduleSignal = signalEffects => signalQueue.add(signalEffects)
 const scheduleEffect = effects => effectQueue.add(effects)
 
 const flushQueue = (queue, sorted) => {
+	while (queue.size) {
 		const queueArr = Array.from(queue)
+		queue.clear()
 
 		if (sorted && queueArr.length > 1) {
 			queueArr.sort((a, b) => a._id - b._id)
@@ -30,8 +32,9 @@ const flushQueue = (queue, sorted) => {
 		} else {
 			runQueue = new Set([].concat(...queueArr.map(i => [...i])))
 		}
-		for (let i of Array.from(runQueue)) i()
-		runQueue = new Set()
+		for (let i of runQueue) i()
+		runQueue.clear()
+	}
 }
 
 const tick = () => {
@@ -46,9 +49,9 @@ const nextTick = cb => tick().then(cb)
 
 const flushQueues = () => {
 	flushQueue(signalQueue, true)
-	signalQueue = new Set()
+	signalQueue = new Set(signalQueue)
 	flushQueue(effectQueue)
-	effectQueue = new Set()
+	effectQueue = new Set(effectQueue)
 	return Promise.resolve().then(() => {
 		if (signalQueue.size || effectQueue.size) {
 			return flushQueues()
