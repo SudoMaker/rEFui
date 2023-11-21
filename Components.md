@@ -1,6 +1,14 @@
 ### If
+
+Note: `else` prop has higher priority than the second branch
 ```jsx
-<If condition={value} else={() => <span>Condition not met!</span>}>{() => <span>Condition met!</span>}</If>
+<If condition={value} else={() => <span>Condition not met!</span>}>
+	{/*if condition*/
+		() => <span>Condition met!</span>
+	}{/*else*/
+		() =><span>Condition not met!</span>
+	}
+</If>
 ```
 
 ### For
