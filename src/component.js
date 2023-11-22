@@ -13,7 +13,7 @@ const build = (component, renderer) => component[SymbolBuild](renderer)
 
 const dispose = val => val._.dispose()
 
-const getSelf = () => currentCtx && currentCtx.self
+const getCurrentSelf = () => currentCtx && currentCtx.self
 
 const Component = class Component {
 	static init() {
@@ -477,4 +477,4 @@ const createComponent = init => class extends Component {
 	}
 }
 
-export { Component, Fn, For, If, Render, createPortal, createCache, createComponent, expose, build, dispose, getSelf }
+export { Component, Fn, For, If, Render, createPortal, createCache, createComponent, expose, build, dispose, getCurrentSelf }
