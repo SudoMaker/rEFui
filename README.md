@@ -15,12 +15,12 @@ npm i refui
 ### Web
 
 ```jsx
-import { signal, createComponent } from 'refui'
+import { signal } from 'refui'
 import { createDOMRenderer } from 'refui/dom'
 
 const DOMRenderer = createDOMRenderer()
 
-const App = createComponent(() => {
+const App = () => {
 	const count = signal(0)
 	const increment = () => {
 		count.value += 1
@@ -32,11 +32,9 @@ const App = createComponent(() => {
 			<button on:click={increment}>Click me! Count is {count}</button>
 		</>
 	)
-})
+}
 
-const app = new App()
-
-DOMRenderer.render(app, document.body)
+DOMRenderer.render(document.body, App)
 
 ```
 
@@ -49,12 +47,12 @@ by using [DOMiNATIVE](https://github.com/SudoMaker/dominative) alongside with [N
 ```jsx
 import { Application } from '@nativescript/core'
 import { document } from 'dominative'
-import { signal, createComponent } from 'refui'
+import { signal } from 'refui'
 import { createDOMRenderer } from 'refui/dom'
 
 const DOMRenderer = createDOMRenderer({doc: document})
 
-const App = createComponent(() => {
+const App = () => {
 	const count = signal(0)
 	const increment = () => {
 		count.value += 1
@@ -68,9 +66,9 @@ const App = createComponent(() => {
 			</stacklayout>
 		</>
 	)
-})
+}
 
-DOMRenderer.render(new App(), document.body)
+DOMRenderer.render(document.body, App)
 
 const create = () => document
 
@@ -83,12 +81,12 @@ by using CheeseDOM alongside with Resonance
 
 ```jsx
 import { document } from 'cheesedom'
-import { signal, createComponent, t } from 'refui'
+import { signal, t } from 'refui'
 import { createDOMRenderer } from 'refui/dom'
 
 const DOMRenderer = createDOMRenderer({doc: document})
 
-const App = createComponent(() => {
+const App = () => {
 	const count = signal(0)
 	const increment = () => {
 		count.value += 1
@@ -101,9 +99,9 @@ const App = createComponent(() => {
 			</button>
 		</>
 	)
-})
+}
 
-DOMRenderer.render(new App(), document)
+DOMRenderer.render(document, App)
 ```
 
 ## JSX configurations
