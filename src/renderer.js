@@ -1,5 +1,4 @@
-import { isSignal } from './signal.js'
-import { build } from './component.js'
+import { Component, build } from './component.js'
 
 const Fragment = '<>'
 
@@ -21,14 +20,21 @@ const createRenderer = (nodeOps) => {
 		return normalizedChildren
 	}
 
-	const createElement = (tagName, props, ...children) => {
-		if (typeof tagName === 'string') {
+	const createComponent = (init, props = {}, ...children) => {
+		const component = new Component(init, props || {}, ...children)
+		if (props.$ref) props.$ref.value = component
+		return component
+	}
+
+	const createElement = (tag, props, ...children) => {
+		if (typeof tag === 'string') {
 			const normalizedChildren = normalizeChildren(children)
-			const node = tagName === Fragment ? createFragment(normalizedChildren) : createNode(tagName)
+			const node = tag === Fragment ? createFragment(normalizedChildren) : createNode(tag)
 
 			if (props) {
+				console.log('props', tag, props)
 				setProps(node, props)
-				if (props.$ref && isSignal(props.$ref)) props.$ref.value = node
+				if (props.$ref) props.$ref.value = node
 			}
 
 			if (normalizedChildren.length) appendNode(node, ...normalizedChildren)
@@ -36,22 +42,22 @@ const createRenderer = (nodeOps) => {
 			return node
 		}
 
-		const component = new tagName(props || {}, ...children)
-
-		if (props && isSignal(props.$ref)) props.$ref.value = component
+		const component = createComponent(tag, props, ...children)
 
 		return build(component, renderer)
 	}
 
-	const render = (component, target) => {
+	const render = (target, ...args) => {
+		const component = createComponent(...args)
 		const node = build(component, renderer)
-		if (node && target) appendNode(target, node)
-		return node
+		if (target && node) appendNode(target, node)
+		return component
 	}
 
 	const renderer = {
 		...nodeOps,
 		normalizeChildren,
+		createComponent,
 		createElement,
 		Fragment,
 		render,
