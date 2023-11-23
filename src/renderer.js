@@ -32,7 +32,6 @@ const createRenderer = (nodeOps) => {
 			const node = tag === Fragment ? createFragment(normalizedChildren) : createNode(tag)
 
 			if (props) {
-				console.log('props', tag, props)
 				setProps(node, props)
 				if (props.$ref) props.$ref.value = node
 			}
