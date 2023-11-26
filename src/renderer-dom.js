@@ -64,7 +64,7 @@ const createDOMRenderer = ({
 				}
 			}
 		}
-		const testEvent = '__ef_event_option_test__'
+		const testEvent = '__refui_event_option_test__'
 		doc.addEventListener(testEvent, nop, options)
 		doc.removeEventListener(testEvent, nop, options)
 	} catch (e) {
@@ -205,30 +205,30 @@ const createDOMRenderer = ({
 	}
 
 	const setAttr = (node, attr, val) => {
-		if (typeof val === 'undefined') return
+		if (val === undefined || val === null) return
 		if (isSignal(val)) val.connect(() => {
 			const newVal = val.peek()
-			if (typeof newVal === 'undefined') node.removeAttribute(attr)
+			if (newVal === undefined || newVal === null) node.removeAttribute(attr)
 			else node.setAttribute(attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
 			const newVal = val()
-			if (typeof newVal === 'undefined') node.removeAttribute(attr)
+			if (newVal === undefined || newVal === null) node.removeAttribute(attr)
 			else node.setAttribute(attr, newVal)
 		})
 		else node.setAttribute(attr, val)
 	}
 	// eslint-disable-next-line max-params
 	const setAttrNS = (node, attr, val, ns) => {
-		if (typeof val === 'undefined') return
+		if (val === undefined || val === null) return
 		if (isSignal(val)) val.connect(() => {
 			const newVal = val.peek()
-			if (typeof newVal === 'undefined') node.removeAttributeNS(ns, attr)
+			if (newVal === undefined || newVal === null) node.removeAttributeNS(ns, attr)
 			else node.setAttributeNS(ns, attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
 			const newVal = val()
-			if (typeof newVal === 'undefined') node.removeAttributeNS(ns, attr)
+			if (newVal === undefined || newVal === null) node.removeAttributeNS(ns, attr)
 			else node.setAttributeNS(ns, attr, newVal)
 		})
 		else node.setAttributeNS(ns, attr, val)
@@ -253,7 +253,6 @@ const createDOMRenderer = ({
 		}
 
 		return (node, val) => {
-			if (typeof val === 'undefined') return
 			if (isSignal(val)) val.connect(() => (node[prop] = val.peek()))
 			else node[prop] = val
 		}

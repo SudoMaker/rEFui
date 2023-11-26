@@ -10,7 +10,7 @@ const createRenderer = (nodeOps) => {
 
 		if (children.length) {
 			for (let child of children) {
-				if (typeof child !== 'undefined') {
+				if (child !== null && child !== undefined) {
 					if (isNode(child)) normalizedChildren.push(child)
 					else normalizedChildren.push(createTextNode(child))
 				}
