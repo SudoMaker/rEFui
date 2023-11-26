@@ -115,6 +115,7 @@ const Fn = (_, handler) => {
 						() => {
 							newResult = newBuilder(R)
 							if (newResult) {
+								if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
 								R.appendNode(fragment, newResult)
 							}
 						},
