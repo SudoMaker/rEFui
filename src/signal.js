@@ -172,6 +172,10 @@ const Signal = class {
 		this.set(val)
 	}
 
+	then(cb) {
+		return Promise.resolve(this.get()).then(cb)
+	}
+
 	get() {
 		this.connect(currentEffect)
 		return this._.value
