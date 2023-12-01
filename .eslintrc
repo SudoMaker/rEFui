@@ -23,7 +23,7 @@
         "array-callback-return": "error",
         "arrow-body-style": "error",
         "arrow-parens": [
-            "error",
+            "off",
             "as-needed",
             {
                 "requireForBlockBody": true

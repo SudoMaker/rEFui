@@ -19,7 +19,10 @@
   ],
   "exports": {
     ".": "./src/main.js",
-    "./dom": "./src/renderer-dom.js",
+    "./dom": "./src/renderers/dom.js",
+    "./browser": "./src/presets/browser.js",
+    "./renderers": "./src/renderers",
+    "./presets": "./src/presets",
     "./package.json": "./package.json"
   },
   "files": [

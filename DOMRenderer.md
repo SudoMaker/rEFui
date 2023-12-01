@@ -1,12 +1,18 @@
 ## Setting attributes
 
-Props are default to DOM object properties, setting attributes should add the `attr:` prefix
+Props are default to DOM object properties, setting attributes should add the `attr:` prefix.
+
+Props containing `-` are considered as attributes as well. You can override the behavior by adding `prop:` prefix to them.
 
 Usage: `attr:attribute-to-be-set="value"`
 
 Example:
 ```jsx
-<div attr:aria-hidden="true"/>
+<>
+	<input type="checkbox" attr:checked="true"/>
+	<div data-tooltip="Hello"/>
+	<div prop:my-weird-prop={variable}/>
+</>
 ```
 
 ## Event handling
