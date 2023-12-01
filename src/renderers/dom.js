@@ -189,32 +189,38 @@ const createDOMRenderer = ({
 	}
 
 	const setAttr = (node, attr, val) => {
-		if (val === undefined || val === null) return
+		if (val === undefined || val === null || val === false) return
 		if (isSignal(val)) val.connect(() => {
 			const newVal = val.peek()
-			if (newVal === undefined || newVal === null) node.removeAttribute(attr)
+			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
+			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
 			const newVal = val()
-			if (newVal === undefined || newVal === null) node.removeAttribute(attr)
+			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
+			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
 		})
+		else if (val === true) node.setAttribute(attr, '')
 		else node.setAttribute(attr, val)
 	}
 	// eslint-disable-next-line max-params
 	const setAttrNS = (node, attr, val, ns) => {
-		if (val === undefined || val === null) return
+		if (val === undefined || val === null || val === false) return
 		if (isSignal(val)) val.connect(() => {
 			const newVal = val.peek()
-			if (newVal === undefined || newVal === null) node.removeAttributeNS(ns, attr)
+			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
+			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
 			const newVal = val()
-			if (newVal === undefined || newVal === null) node.removeAttributeNS(ns, attr)
+			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
+			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
 		})
+		else if (val === true) node.setAttributeNS(ns, attr, '')
 		else node.setAttributeNS(ns, attr, val)
 	}
 
