@@ -253,6 +253,7 @@ const createDOMRenderer = ({
 		}
 
 		return (node, val) => {
+			if (val === undefined || val === null) return
 			if (isSignal(val)) val.connect(() => (node[prop] = val.peek()))
 			else node[prop] = val
 		}
