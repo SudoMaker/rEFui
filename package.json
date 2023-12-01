@@ -21,8 +21,8 @@
     ".": "./src/main.js",
     "./dom": "./src/renderers/dom.js",
     "./browser": "./src/presets/browser.js",
-    "./renderers": "./src/renderers",
-    "./presets": "./src/presets",
+    "./renderers/": "./src/renderers/",
+    "./presets/": "./src/presets/",
     "./package.json": "./package.json"
   },
   "files": [
