@@ -4,6 +4,8 @@ Props are default to DOM object properties, setting attributes should add the `a
 
 Props containing `-` are considered as attributes as well. You can override the behavior by adding `prop:` prefix to them.
 
+Boolean values are rendered as toggling the prop on and off.
+
 Usage: `attr:attribute-to-be-set="value"`
 
 Example:
@@ -45,3 +47,11 @@ Examples:
 ```jsx
 <input on:input={(event) => console.log(event.target.value)}/>
 ```
+
+## Defaults
+
+We provide presets for conveinence.
+
+### Browser
+
+- Check [here](Presets.md#browser)
