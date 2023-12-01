@@ -1,4 +1,5 @@
 import { Component, build } from './component.js'
+import { isSignal } from './signal.js'
 
 const Fragment = '<>'
 
@@ -10,23 +11,26 @@ const createRenderer = (nodeOps) => {
 
 		if (children.length) {
 			let mergedTextBuffer = ''
+			const flushTextBuffer = () => {
+				if (mergedTextBuffer) {
+					normalizedChildren.push(createTextNode(mergedTextBuffer))
+					mergedTextBuffer = ''
+				}
+			}
 			for (let child of children) {
 				if (child !== null && child !== undefined) {
 					if (isNode(child)) {
-						// eslint-disable-next-line max-depth
-						if (mergedTextBuffer) {
-							normalizedChildren.push(createTextNode(mergedTextBuffer))
-							mergedTextBuffer = ''
-						}
+						flushTextBuffer()
 						normalizedChildren.push(child)
+					} else if (isSignal(child)) {
+						flushTextBuffer()
+						normalizedChildren.push(createTextNode(child))
 					} else {
 						mergedTextBuffer += child
 					}
 				}
 			}
-			if (mergedTextBuffer) {
-				normalizedChildren.push(createTextNode(mergedTextBuffer))
-			}
+			flushTextBuffer()
 		}
 
 		return normalizedChildren
