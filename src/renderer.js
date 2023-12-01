@@ -9,11 +9,23 @@ const createRenderer = (nodeOps) => {
 		const normalizedChildren = []
 
 		if (children.length) {
+			let mergedTextBuffer = ''
 			for (let child of children) {
 				if (child !== null && child !== undefined) {
-					if (isNode(child)) normalizedChildren.push(child)
-					else normalizedChildren.push(createTextNode(child))
+					if (isNode(child)) {
+						// eslint-disable-next-line max-depth
+						if (mergedTextBuffer) {
+							normalizedChildren.push(createTextNode(mergedTextBuffer))
+							mergedTextBuffer = ''
+						}
+						normalizedChildren.push(child)
+					} else {
+						mergedTextBuffer += child
+					}
 				}
+			}
+			if (mergedTextBuffer) {
+				normalizedChildren.push(createTextNode(mergedTextBuffer))
 			}
 		}
 

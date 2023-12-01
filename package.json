@@ -1,6 +1,6 @@
 {
   "name": "refui",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "The JavaScript framework that refuels your UI projects, across web, native, and embedded",
   "main": "src/main.js",
   "type": "module",
@@ -19,7 +19,10 @@
   ],
   "exports": {
     ".": "./src/main.js",
-    "./dom": "./src/renderer-dom.js",
+    "./dom": "./src/renderers/dom.js",
+    "./browser": "./src/presets/browser.js",
+    "./renderers": "./src/renderers",
+    "./presets": "./src/presets",
     "./package.json": "./package.json"
   },
   "files": [

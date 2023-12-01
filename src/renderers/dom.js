@@ -1,6 +1,6 @@
-import { isSignal, watch, nextTick } from './signal.js'
-import { createRenderer } from './renderer.js'
-import { nop, cached } from './utils.js'
+import { isSignal, watch, nextTick } from '../signal.js'
+import { createRenderer } from '../renderer.js'
+import { nop, cached } from '../utils.js'
 
 /*
 const NODE_TYPES = {
@@ -16,14 +16,6 @@ const NODE_TYPES = {
 }
 */
 
-const defaultNamespaces = {
-	xml: 'http://www.w3.org/XML/1998/namespace',
-	html: 'http://www.w3.org/1999/xhtml',
-	svg: 'http://www.w3.org/2000/svg',
-	math: 'http://www.w3.org/1998/Math/MathML',
-	xlink: 'http://www.w3.org/1999/xlink'
-}
-
 /*
 Apply order:
 1. Get namespace
@@ -31,20 +23,12 @@ Apply order:
 3. Create with namespace
 */
 
-const defaultTagNamespaceMap = {
-	svg: 'svg'
-}
-const defaultTagAliases = {}
-const defaultPropAliases = {
-	class: 'attr:class'
-}
-
 const createDOMRenderer = ({
 	doc = document,
-	namespaces = defaultNamespaces,
-	tagNamespaceMap = defaultTagNamespaceMap,
-	tagAliases = defaultTagAliases,
-	propAliases = defaultPropAliases
+	namespaces = {},
+	tagNamespaceMap = {},
+	tagAliases = {},
+	propAliases = {}
 } = {}) => {
 	let eventPassiveSupported = false
 	let eventOnceSupported = false
@@ -239,17 +223,22 @@ const createDOMRenderer = ({
 		const [prefix, key] = prop.split(':')
 		if (key) {
 			switch (prefix) {
+				default: {
+					const nsuri = namespaces[prefix] || prefix
+					return (node, val) => setAttrNS(node, key, val, nsuri)
+				}
 				case 'on': {
 					return (node, val) => addListener(node, key, val)
 				}
 				case 'attr': {
 					return (node, val) => setAttr(node, key, val)
 				}
-				default: {
-					const nsuri = namespaces[prefix] || prefix
-					return (node, val) => setAttrNS(node, key, val, nsuri)
+				case 'prop': {
+					prop = key
 				}
 			}
+		} else if (prop.indexOf('-') > -1) {
+			return (node, val) => setAttr(node, prop, val)
 		}
 
 		return (node, val) => {
@@ -279,4 +268,4 @@ const createDOMRenderer = ({
 	return createRenderer(nodeOps)
 }
 
-export { createDOMRenderer, defaultNamespaces, defaultTagAliases, defaultTagNamespaceMap, defaultPropAliases }
+export { createDOMRenderer }

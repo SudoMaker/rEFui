@@ -17,8 +17,9 @@ npm i refui
 ```jsx
 import { signal } from 'refui'
 import { createDOMRenderer } from 'refui/dom'
+import { defaults } from 'refui/browser'
 
-const DOMRenderer = createDOMRenderer()
+const DOMRenderer = createDOMRenderer(defaults)
 
 const App = () => {
 	const count = signal(0)
