@@ -37,8 +37,9 @@ const createRenderer = (nodeOps) => {
 	}
 
 	const createComponent = (init, props = {}, ...children) => {
-		const component = new Component(init, props || {}, ...children)
-		if (props.$ref) props.$ref.value = component
+		const { $ref, ..._props } = props
+		const component = new Component(init, _props, ...children)
+		if ($ref) $ref.value = component
 		return component
 	}
 
@@ -48,8 +49,9 @@ const createRenderer = (nodeOps) => {
 			const node = tag === Fragment ? createFragment(normalizedChildren) : createNode(tag)
 
 			if (props) {
-				setProps(node, props)
-				if (props.$ref) props.$ref.value = node
+				const { $ref, ..._props } = props
+				setProps(node, _props)
+				if ($ref) $ref.value = node
 			}
 
 			if (normalizedChildren.length) appendNode(node, ...normalizedChildren)
