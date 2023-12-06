@@ -1,6 +1,6 @@
 {
   "name": "refui",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "The JavaScript framework that refuels your UI projects, across web, native, and embedded",
   "main": "src/main.js",
   "type": "module",
