@@ -92,13 +92,13 @@ const Fn = (_, handler) => {
 	return (R) => {
 		if (!handler) return
 
-		const anchor = R.createAnchor('Fn')
+		const backAnchor = R.createAnchor('Fn')
 		const fragment = R.createFragment()
 		let currentBuilder = null
 		let currentDispose = null
 
 		const apply = () => {
-			R.insertBefore(fragment, anchor)
+			R.insertBefore(fragment, backAnchor)
 			R.removeNode(fragment)
 		}
 
@@ -133,23 +133,23 @@ const Fn = (_, handler) => {
 			})
 		})
 
-		return anchor
+		return backAnchor
 	}
 }
 
 const For = ({ entries, track, indexed }, item) => {
 	let currentData = []
 
-	const kv = track && new Map()
-	const ks = indexed && new Map()
-	const nodeCache = new Map()
-	const disposers = new Map()
+	let kv = track && new Map()
+	let ks = indexed && new Map()
+	let nodeCache = new Map()
+	let disposers = new Map()
 
 	const _clear = () => {
 		for (let [, dispose] of disposers) dispose(true)
-		nodeCache.clear()
-		disposers.clear()
-		if (ks) ks.clear()
+		nodeCache = new Map()
+		disposers = new Map()
+		if (ks) ks = new Map()
 	}
 
 	const flushKS = () => {
@@ -170,7 +170,7 @@ const For = ({ entries, track, indexed }, item) => {
 	const clear = () => {
 		if (!currentData.length) return
 		_clear()
-		if (kv) kv.clear()
+		if (kv) kv = new Map()
 		currentData = []
 		if (entries.value.length) entries.value = []
 	}
@@ -184,11 +184,12 @@ const For = ({ entries, track, indexed }, item) => {
 	})
 
 	return (R) => {
-		const anchor = R.createAnchor('For')
+		const frontAnchor = R.createAnchor('ForBegin')
+		const backAnchor = R.createAnchor('ForEnd')
 		const fragment = R.createFragment()
 
 		const apply = () => {
-			R.insertBefore(fragment, anchor)
+			R.insertBefore(fragment, backAnchor)
 			R.removeNode(fragment)
 		}
 
@@ -222,20 +223,22 @@ const For = ({ entries, track, indexed }, item) => {
 			return node
 		}
 
+		// eslint-disable-next-line complexity
 		watch(() => {
+			/* eslint-disable max-depth */
 			const data = read(entries)
 			if (!data || !data.length) return clear()
 
 			let oldData = currentData
 			if (track) {
-				kv.clear()
+				kv = new Map()
 				const key = read(track)
 				currentData = data.map((i) => {
 					const itemKey = i[key]
 					kv.set(itemKey, i)
 					return itemKey
 				})
-			} else currentData = [...entries]
+			} else currentData = [...data]
 
 			let newData = [...currentData]
 
@@ -252,38 +255,136 @@ const For = ({ entries, track, indexed }, item) => {
 						}
 					}
 
+					R.insertBefore(frontAnchor, getItemNode(oldData[0]))
+
 					let newDataCursor = 0
-					let oldDataCursor = 0
 
-					while (oldDataCursor < oldData.length) {
-						const newItemKey = newData[newDataCursor]
-						const oldItemKey = oldData[oldDataCursor]
+					while (newDataCursor < newData.length) {
+						let newItemKey = newData[newDataCursor]
 
-						newDataCursor += 1
+						const frontSet = []
+						const backSet = []
+						const lastBackChunk = []
 
-						if (newItemKey !== oldItemKey) {
-							const newNode = getItemNode(newItemKey)
-							const oldNode = nodeCache.get(oldItemKey)
-							const prevIndex = oldData.indexOf(newItemKey)
-							/* eslint-disable max-depth */
-							if (prevIndex > -1) {
-								if (oldNode && newNode) R.swapNodes(oldNode, newNode)
-								oldData[prevIndex] = oldItemKey
+						let advanced = 0
+
+						for (let oldItemKey of oldData) {
+							if (oldItemKey === newItemKey || !oldData.includes(newItemKey)) {
+								if (lastBackChunk.length) {
+									backSet.push(0)
+									frontSet.push(0)
+									backSet.push(...lastBackChunk)
+									lastBackChunk.length = 0
+								}
+								if (frontSet.length || backSet.length || lastBackChunk.length) frontSet.push(oldItemKey)
+								newDataCursor += 1
+								advanced += 1
+								newItemKey = newData[newDataCursor]
 							} else {
-								if (oldNode && newNode) R.insertBefore(newNode, oldNode)
-								// eslint-disable-next-line no-continue
-								continue
+								if (!backSet.length && !lastBackChunk.length) {
+									R.insertBefore(frontAnchor, getItemNode(oldItemKey))
+									console.log('relocated', advanced, oldItemKey, newItemKey)
+								}
+								lastBackChunk.push(oldItemKey)
 							}
 						}
 
-						oldDataCursor += 1
+						console.log('front', frontSet)
+						console.log('back', backSet)
+						console.log('lastChunk', lastBackChunk)
+
+						if (frontSet.length < backSet.length) {
+							if (frontSet.length > 3) {
+								R.appendNode(fragment, ...frontSet.map(getItemNode))
+								R.insertBefore(fragment, frontAnchor)
+								console.log('front more')
+							} else {
+								for (let itemKey of frontSet) {
+									R.insertBefore(getItemNode(itemKey), frontAnchor)
+								}
+								console.log('front less')
+							}
+						} else {
+							let tmpBackAnchor = backAnchor
+							if (lastBackChunk.length) tmpBackAnchor = getItemNode(lastBackChunk[0])
+							if (backSet.length) {
+								if (backSet.length > 3) {
+									R.appendNode(fragment, ...backSet.filter(i => !!i).map(getItemNode))
+									R.insertBefore(fragment, tmpBackAnchor)
+									console.log('back more')
+								} else {
+									for (let itemKey of backSet) {
+										R.insertBefore(getItemNode(itemKey), tmpBackAnchor)
+									}
+									console.log('back less')
+								}
+
+								R.insertBefore(frontAnchor, getItemNode(backSet[0]))
+							} else {
+								R.insertBefore(frontAnchor, tmpBackAnchor)
+							}
+
+							let needFlush = false
+
+							for (let itemKey of frontSet) {
+								if (nodeCache.has(itemKey)) {
+									if (needFlush) {
+										R.insertBefore(fragment, getItemNode(itemKey))
+										needFlush = false
+									}
+								} else {
+									needFlush = true
+									R.appendNode(fragment, getItemNode(itemKey))
+								}
+							}
+
+							if (needFlush) {
+								R.insertBefore(fragment, frontAnchor)
+								console.log('flushed')
+							}
+						}
+
+						// backSet.push(...lastBackChunk)
+
+						oldData = [...backSet.filter(i => !!i), ...lastBackChunk]
 					}
 
-					if (newDataCursor) newData = newData.slice(newDataCursor)
-				}
-			}
+					R.removeNode(frontAnchor)
+					R.removeNode(fragment)
 
-			if (newData.length) {
+					// let newDataCursor = 0
+					// let oldDataCursor = 0
+
+					// while (oldDataCursor < oldData.length) {
+					// 	const newItemKey = newData[newDataCursor]
+					// 	const oldItemKey = oldData[oldDataCursor]
+
+					// 	newDataCursor += 1
+
+					// 	if (newItemKey !== oldItemKey) {
+					// 		const newNode = getItemNode(newItemKey)
+					// 		const oldNode = getItemNode(oldItemKey)
+					// 		const prevIndex = oldData.indexOf(newItemKey)
+					// 		/* eslint-disable max-depth */
+					// 		if (prevIndex > -1) {
+					// 			if (oldNode && newNode) R.swapNodes(oldNode, newNode)
+					// 			oldData[prevIndex] = oldItemKey
+					// 			oldData[oldDataCursor] = newItemKey
+					// 		} else {
+					// 			if (oldNode && newNode) R.insertBefore(newNode, oldNode)
+					// 			// eslint-disable-next-line no-continue
+					// 			continue
+					// 		}
+					// 	}
+
+					// 	oldDataCursor += 1
+					// }
+
+					// if (newDataCursor) newData = newData.slice(newDataCursor)
+				}
+			} else {
+
+			// if (newData.length) {
 				for (let newItemKey of newData) {
 					const node = getItemNode(newItemKey)
 					if (node) R.appendNode(fragment, node)
@@ -294,7 +395,7 @@ const For = ({ entries, track, indexed }, item) => {
 			flushKS()
 		})
 
-		return anchor
+		return backAnchor
 	}
 }
 
@@ -316,10 +417,9 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	return ifNot
 }
 
-const Render = ({ item }, fallback) => ({ c, render }) => c(Fn, null, () => {
-	const component = read(item)
-	if (component) return () => render(component)
-	if (fallback) return fallback
+const Render = ({ $component, ...props }, ...children) => ({ c }) => c(Fn, null, () => {
+	const component = read($component)
+	if (component) return () => c(component, props, ...children)
 })
 
 const createPortal = () => {

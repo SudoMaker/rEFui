@@ -36,7 +36,8 @@ const createRenderer = (nodeOps) => {
 		return normalizedChildren
 	}
 
-	const createComponent = (init, props = {}, ...children) => {
+	const createComponent = (init, props, ...children) => {
+		if (props === null || props === undefined) props = {}
 		const { $ref, ..._props } = props
 		const component = new Component(init, _props, ...children)
 		if ($ref) $ref.value = component
