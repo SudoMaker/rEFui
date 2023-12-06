@@ -142,30 +142,6 @@ const createDOMRenderer = ({
 		if (ref.$) ref = ref.$.anchorStart
 		ref.parentNode.insertBefore(node, ref)
 	}
-	const swapAnchor = doc.createTextNode('')
-	const swapNodes = (front, back) => {
-		let frontSibling = front.nextSibling
-		if (front.$) {
-			const frontChildren = front.$.children
-			if (frontChildren.length) {
-				frontSibling = frontChildren[frontChildren.length - 1]
-			} else {
-				frontSibling = front.$.anchorStart.nextSibling
-			}
-		}
-
-		if (
-			(frontSibling === back) ||
-			(back.$ && frontSibling === back.$.anchorStart)
-		) {
-			insertBefore(back, front)
-			return
-		}
-
-		insertBefore(swapAnchor, back)
-		insertBefore(back, front)
-		swapAnchor.parentNode.replaceChild(front, swapAnchor)
-	}
 
 	const getListenerAdder = cached((event) => {
 		const [eventName, optionsStr] = event.split('--')
@@ -284,8 +260,7 @@ const createDOMRenderer = ({
 		setProps,
 		insertBefore,
 		appendNode,
-		removeNode,
-		swapNodes
+		removeNode
 	}
 
 	return createRenderer(nodeOps)

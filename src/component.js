@@ -276,7 +276,6 @@ const For = ({ entries, track, indexed }, item) => {
 
 						let oldDataCursor = 0
 						let oldItemKey = oldData[0]
-						// let oldItemNode = null
 
 						let newItemKey = currentData[newDataCursor]
 
