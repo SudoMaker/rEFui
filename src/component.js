@@ -187,8 +187,6 @@ const For = ({ entries, track, indexed }, item) => {
 		const backAnchor = R.createAnchor('For')
 		const fragment = R.createFragment()
 
-		R.appendNode(fragment, backAnchor)
-
 		const apply = () => {
 			R.insertBefore(fragment, backAnchor)
 			R.removeNode(fragment)
@@ -257,6 +255,7 @@ const For = ({ entries, track, indexed }, item) => {
 					}
 
 					const newDataKeys = [...new Set([...oldData, ...currentData])].slice(oldData.length)
+					const hasNewKeys = !!newDataKeys.length
 
 					let newDataCursor = 0
 
@@ -266,8 +265,6 @@ const For = ({ entries, track, indexed }, item) => {
 							if (newDataCursor) newData = currentData.slice(newDataCursor)
 							break
 						}
-						// console.log(newDataCursor)
-						let newItemKey = currentData[newDataCursor]
 
 						const frontSet = []
 						const backSet = []
@@ -278,19 +275,28 @@ const For = ({ entries, track, indexed }, item) => {
 						let prevChunk = frontChunk
 
 						let oldDataCursor = 0
+						let oldItemKey = oldData[0]
+						// let oldItemNode = null
+
+						let newItemKey = currentData[newDataCursor]
 
 						while (oldDataCursor < oldData.length) {
-							const oldItemKey = oldData[oldDataCursor]
-							const isNewKey = newDataKeys.includes(newItemKey)
+							const isNewKey = hasNewKeys && newDataKeys.includes(newItemKey)
 							if (isNewKey || oldItemKey === newItemKey) {
 								if (prevChunk !== frontChunk) {
 									backSet.push(backChunk)
 									backChunk = []
 									prevChunk = frontChunk
 								}
+
 								frontChunk.push(newItemKey)
 
-								if (!isNewKey) oldDataCursor += 1
+								if (isNewKey) {
+									R.insertBefore(getItemNode(newItemKey), getItemNode(oldItemKey))
+								} else {
+									oldDataCursor += 1
+									oldItemKey = oldData[oldDataCursor]
+								}
 								newDataCursor += 1
 								newItemKey = currentData[newDataCursor]
 							} else {
@@ -301,6 +307,7 @@ const For = ({ entries, track, indexed }, item) => {
 								}
 								backChunk.push(oldItemKey)
 								oldDataCursor += 1
+								oldItemKey = oldData[oldDataCursor]
 							}
 						}
 
@@ -309,21 +316,7 @@ const For = ({ entries, track, indexed }, item) => {
 						}
 
 						backSet.push(backChunk)
-						const firstChunk = frontSet.shift()
-
-						if (firstChunk.length) {
-							let beforeAnchor = backAnchor
-							if (backSet[0].length) beforeAnchor = getItemNode(backSet[0][0])
-							for (let itemKey of firstChunk.reverse()) {
-								if (newDataKeys.includes(itemKey)) {
-									const node = getItemNode(itemKey)
-									R.insertBefore(node, beforeAnchor)
-									beforeAnchor = node
-								} else {
-									beforeAnchor = getItemNode(itemKey)
-								}
-							}
-						}
+						frontSet.shift()
 
 						for (let i = 0; i < frontSet.length; i++) {
 							const fChunk = frontSet[i]
@@ -331,7 +324,7 @@ const For = ({ entries, track, indexed }, item) => {
 
 							if (fChunk.length < bChunk.length) {
 								const beforeAnchor = getItemNode(bChunk[0])
-								backSet[i + 1].unshift(...bChunk)
+								backSet[i + 1] = bChunk.concat(backSet[i + 1])
 								bChunk.length = 0
 
 								for (let itemKey of fChunk) {
@@ -349,7 +342,7 @@ const For = ({ entries, track, indexed }, item) => {
 							}
 						}
 
-						oldData = backSet.flat()
+						oldData = [].concat(...backSet)
 					}
 				}
 			} else {
