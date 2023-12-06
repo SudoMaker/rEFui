@@ -130,7 +130,6 @@ const createDOMRenderer = ({
 			return
 		}
 		if (node.parentNode) node.parentNode.removeChild(node)
-		// node.remove()
 	}
 	const appendNode = (parent, ...nodes) => {
 		for (let node of nodes) {
@@ -142,12 +141,6 @@ const createDOMRenderer = ({
 		if (node.$) removeNode(node)
 		if (ref.$) ref = ref.$.anchorStart
 		ref.parentNode.insertBefore(node, ref)
-	}
-	const swapAnchor = doc.createTextNode('')
-	const swapNodes = (front, back) => {
-		insertBefore(swapAnchor, back)
-		insertBefore(back, front)
-		swapAnchor.parentNode.replaceChild(front, swapAnchor)
 	}
 
 	const getListenerAdder = cached((event) => {
@@ -267,8 +260,7 @@ const createDOMRenderer = ({
 		setProps,
 		insertBefore,
 		appendNode,
-		removeNode,
-		swapNodes
+		removeNode
 	}
 
 	return createRenderer(nodeOps)
