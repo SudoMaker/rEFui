@@ -184,8 +184,7 @@ const For = ({ entries, track, indexed }, item) => {
 	})
 
 	return (R) => {
-		const frontAnchor = R.createAnchor('ForBegin')
-		const backAnchor = R.createAnchor('ForEnd')
+		const backAnchor = R.createAnchor('For')
 		const fragment = R.createFragment()
 
 		const apply = () => {
@@ -255,8 +254,6 @@ const For = ({ entries, track, indexed }, item) => {
 						}
 					}
 
-					R.insertBefore(frontAnchor, getItemNode(oldData[0]))
-
 					let newDataCursor = 0
 
 					while (newDataCursor < newData.length) {
@@ -264,127 +261,67 @@ const For = ({ entries, track, indexed }, item) => {
 
 						const frontSet = []
 						const backSet = []
-						const lastBackChunk = []
 
-						let advanced = 0
+						let frontChunk = []
+						let backChunk = []
+
+						let prevChunk = frontChunk
 
 						for (let oldItemKey of oldData) {
 							if (oldItemKey === newItemKey || !oldData.includes(newItemKey)) {
-								if (lastBackChunk.length) {
-									backSet.push(0)
-									frontSet.push(0)
-									backSet.push(...lastBackChunk)
-									lastBackChunk.length = 0
+								if (prevChunk !== frontChunk) {
+									backSet.push(backChunk)
+									backChunk = []
+									prevChunk = frontChunk
 								}
-								if (frontSet.length || backSet.length || lastBackChunk.length) frontSet.push(oldItemKey)
+								frontChunk.push(oldItemKey)
 								newDataCursor += 1
-								advanced += 1
 								newItemKey = newData[newDataCursor]
 							} else {
-								if (!backSet.length && !lastBackChunk.length) {
-									R.insertBefore(frontAnchor, getItemNode(oldItemKey))
-									console.log('relocated', advanced, oldItemKey, newItemKey)
+								if (prevChunk !== backChunk) {
+									frontSet.push(frontChunk)
+									frontChunk = []
+									prevChunk = backChunk
 								}
-								lastBackChunk.push(oldItemKey)
+								backChunk.push(oldItemKey)
 							}
 						}
 
-						console.log('front', frontSet)
-						console.log('back', backSet)
-						console.log('lastChunk', lastBackChunk)
+						if (prevChunk === frontChunk) {
+							frontSet.push(frontChunk)
+						}
 
-						if (frontSet.length < backSet.length) {
-							if (frontSet.length > 3) {
-								R.appendNode(fragment, ...frontSet.map(getItemNode))
-								R.insertBefore(fragment, frontAnchor)
-								console.log('front more')
+						backSet.push(backChunk)
+						frontSet.shift()
+
+						for (let i = 0; i < frontSet.length; i++) {
+							const fChunk = frontSet[i]
+							const bChunk = backSet[i]
+
+							if (fChunk.length < bChunk.length) {
+								const beforeAnchor = getItemNode(bChunk[0])
+								backSet[i + 1].unshift(...bChunk)
+								bChunk.length = 0
+
+								for (let itemKey of fChunk) {
+									R.insertBefore(getItemNode(itemKey), beforeAnchor)
+								}
 							} else {
-								for (let itemKey of frontSet) {
-									R.insertBefore(getItemNode(itemKey), frontAnchor)
-								}
-								console.log('front less')
-							}
-						} else {
-							let tmpBackAnchor = backAnchor
-							if (lastBackChunk.length) tmpBackAnchor = getItemNode(lastBackChunk[0])
-							if (backSet.length) {
-								if (backSet.length > 3) {
-									R.appendNode(fragment, ...backSet.filter(i => !!i).map(getItemNode))
-									R.insertBefore(fragment, tmpBackAnchor)
-									console.log('back more')
-								} else {
-									for (let itemKey of backSet) {
-										R.insertBefore(getItemNode(itemKey), tmpBackAnchor)
-									}
-									console.log('back less')
+								let beforeAnchor = backAnchor
+								if (backSet[i + 1].length) {
+									beforeAnchor = getItemNode(backSet[i + 1][0])
 								}
 
-								R.insertBefore(frontAnchor, getItemNode(backSet[0]))
-							} else {
-								R.insertBefore(frontAnchor, tmpBackAnchor)
-							}
-
-							let needFlush = false
-
-							for (let itemKey of frontSet) {
-								if (nodeCache.has(itemKey)) {
-									if (needFlush) {
-										R.insertBefore(fragment, getItemNode(itemKey))
-										needFlush = false
-									}
-								} else {
-									needFlush = true
-									R.appendNode(fragment, getItemNode(itemKey))
+								for (let itemKey of bChunk) {
+									R.insertBefore(getItemNode(itemKey), beforeAnchor)
 								}
-							}
-
-							if (needFlush) {
-								R.insertBefore(fragment, frontAnchor)
-								console.log('flushed')
 							}
 						}
 
-						// backSet.push(...lastBackChunk)
-
-						oldData = [...backSet.filter(i => !!i), ...lastBackChunk]
+						oldData = backSet.flat()
 					}
-
-					R.removeNode(frontAnchor)
-					R.removeNode(fragment)
-
-					// let newDataCursor = 0
-					// let oldDataCursor = 0
-
-					// while (oldDataCursor < oldData.length) {
-					// 	const newItemKey = newData[newDataCursor]
-					// 	const oldItemKey = oldData[oldDataCursor]
-
-					// 	newDataCursor += 1
-
-					// 	if (newItemKey !== oldItemKey) {
-					// 		const newNode = getItemNode(newItemKey)
-					// 		const oldNode = getItemNode(oldItemKey)
-					// 		const prevIndex = oldData.indexOf(newItemKey)
-					// 		/* eslint-disable max-depth */
-					// 		if (prevIndex > -1) {
-					// 			if (oldNode && newNode) R.swapNodes(oldNode, newNode)
-					// 			oldData[prevIndex] = oldItemKey
-					// 			oldData[oldDataCursor] = newItemKey
-					// 		} else {
-					// 			if (oldNode && newNode) R.insertBefore(newNode, oldNode)
-					// 			// eslint-disable-next-line no-continue
-					// 			continue
-					// 		}
-					// 	}
-
-					// 	oldDataCursor += 1
-					// }
-
-					// if (newDataCursor) newData = newData.slice(newDataCursor)
 				}
 			} else {
-
-			// if (newData.length) {
 				for (let newItemKey of newData) {
 					const node = getItemNode(newItemKey)
 					if (node) R.appendNode(fragment, node)
