@@ -82,6 +82,14 @@ const Component = class Component {
 	}
 }
 
+const createComponent = (init, props, ...children) => {
+	if (props === null || props === undefined) props = {}
+	const { $ref, ..._props } = props
+	const component = new Component(init, _props, ...children)
+	if ($ref) $ref.value = component
+	return component
+}
+
 const Fn = (_, handler) => {
 	const disposers = []
 	onDispose(() => {
@@ -425,7 +433,7 @@ const createCache = (tpl) => {
 		if (!newData.length) return
 		for (let i of newData) {
 			let component = componentCache.pop()
-			if (!component) component = new tpl(i)
+			if (!component) component = createComponent(tpl, i)
 			componentsArr.push(component)
 			component.update(i)
 			dataArr.push(i)
@@ -485,7 +493,7 @@ const createCache = (tpl) => {
 		return R.c(For, { entries: components }, (row) => {
 			let node = cache.get(row)
 			if (!node) {
-				node = untrack(() => R.render(row))
+				node = untrack(() => build(row, R))
 				cache.set(row, node)
 			}
 			return node
@@ -506,4 +514,17 @@ const createCache = (tpl) => {
 	}
 }
 
-export { Component, Fn, For, If, Render, createPortal, createCache, expose, build, dispose, getCurrentSelf }
+export {
+	Component,
+	Fn,
+	For,
+	If,
+	Render,
+	createComponent,
+	createPortal,
+	createCache,
+	expose,
+	build,
+	dispose,
+	getCurrentSelf
+}
