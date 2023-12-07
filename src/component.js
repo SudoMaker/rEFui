@@ -16,7 +16,7 @@ const dispose = val => val._.dispose()
 const getCurrentSelf = () => currentCtx && currentCtx.self
 
 const Component = class Component {
-	constructor(init, ...args) {
+	constructor(tpl, ...args) {
 		const ctx = {
 			exposed: {},
 			disposers: [],
@@ -29,7 +29,7 @@ const Component = class Component {
 		currentCtx = ctx
 
 		ctx.dispose = collectDisposers(ctx.disposers, () => {
-			ctx.build = init(...args)
+			ctx.build = tpl(...args)
 		})
 
 		currentCtx = prevCtx
@@ -82,10 +82,10 @@ const Component = class Component {
 	}
 }
 
-const createComponent = (init, props, ...children) => {
+const createComponent = (tpl, props, ...children) => {
 	if (props === null || props === undefined) props = {}
 	const { $ref, ..._props } = props
-	const component = new Component(init, _props, ...children)
+	const component = new Component(tpl, _props, ...children)
 	if ($ref) $ref.value = component
 	return component
 }
@@ -389,9 +389,15 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	return ifNot
 }
 
-const Render = ({ $component, ...props }, ...children) => ({ c }) => c(Fn, null, () => {
+const Dynamic = ({ $tpl, $$ref, ...props }, ...children) => ({ c }) => c(Fn, null, () => {
+	const component = read($tpl)
+	if (component) return () => c(component, { $ref: $$ref, ...props }, ...children)
+	else if ($$ref) $$ref.value = null
+})
+
+const Render = ({ $component }) => (R) => R.c(Fn, null, () => {
 	const component = read($component)
-	if (component) return () => c(component, props, ...children)
+	if (component !== null && component !== undefined) return build($component, R)
 })
 
 const createPortal = () => {
@@ -519,6 +525,7 @@ export {
 	Fn,
 	For,
 	If,
+	Dynamic,
 	Render,
 	createComponent,
 	createPortal,

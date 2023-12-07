@@ -37,8 +37,8 @@ Note: define return renderers outside of the `Fn` scope can reduce re-renders if
 
 ### Cached
 
-### Render
+### Dynamic
 
-### Component
+### Render
 
 ### Portal
