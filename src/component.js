@@ -1,4 +1,4 @@
-import { collectDisposers, nextTick, read, peek, watch, untrack, onDispose, signal, isSignal } from './signal.js'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, signal, isSignal } from './signal.js'
 import { removeFromArr } from './utils.js'
 
 const SymbolBuild = Symbol('build')
@@ -16,7 +16,7 @@ const dispose = val => val._.dispose()
 const getCurrentSelf = () => currentCtx && currentCtx.self
 
 const Component = class Component {
-	constructor(init, ...args) {
+	constructor(tpl, ...args) {
 		const ctx = {
 			exposed: {},
 			disposers: [],
@@ -29,7 +29,7 @@ const Component = class Component {
 		currentCtx = ctx
 
 		ctx.dispose = collectDisposers(ctx.disposers, () => {
-			ctx.build = init(...args)
+			ctx.build = tpl(...args)
 		})
 
 		currentCtx = prevCtx
@@ -80,6 +80,14 @@ const Component = class Component {
 		disposers.push(dispose)
 		return built
 	}
+}
+
+const createComponent = (tpl, props, ...children) => {
+	if (props === null || props === undefined) props = {}
+	const { $ref, ..._props } = props
+	const component = new Component(tpl, _props, ...children)
+	if ($ref) $ref.value = component
+	return component
 }
 
 const Fn = (_, handler) => {
@@ -381,129 +389,31 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	return ifNot
 }
 
-const Render = ({ $component, ...props }, ...children) => ({ c }) => c(Fn, null, () => {
+const Dynamic = ({ $tpl, ...props }, ...children) => {
+	const current = signal(null)
+	expose({ current })
+	return ({ c }) => c(Fn, null, () => {
+		const component = read($tpl)
+		if (component) return () => c(component, { $ref: current, ...props }, ...children)
+		else current.value = null
+	})
+}
+
+const Render = ({ $component }) => (R) => R.c(Fn, null, () => {
 	const component = read($component)
-	if (component) return () => c(component, props, ...children)
+	if (component !== null && component !== undefined) return build($component, R)
 })
 
-const createPortal = () => {
-	let currentOutlet = null
-	const nodes = signal([])
-	const outletView = R => R.c(For, { entries: nodes }, child => child)
-	const Inlet = (_, ...children) => ({ normalizeChildren }) => {
-		const normalizedChildren = normalizeChildren(children)
-		nodes.peek().push(...normalizedChildren)
-		nodes.trigger()
-		onDispose(() => {
-			const arr = nodes.peek()
-			for (let i of normalizedChildren) {
-				removeFromArr(arr, i)
-			}
-			nodes.value = [...nodes.peek()]
-		})
-	}
-	const Outlet = (_, fallback) => {
-		if (currentOutlet) dispose(currentOutlet)
-		currentOutlet = getCurrentSelf()
-		return ({ c }) => c(Fn, null, () => {
-			if (nodes.value.length) return outletView
-			if (fallback) return fallback
-		})
-	}
-
-	return [Inlet, Outlet]
+export {
+	Component,
+	Fn,
+	For,
+	If,
+	Dynamic,
+	Render,
+	createComponent,
+	expose,
+	build,
+	dispose,
+	getCurrentSelf
 }
-
-const createCache = (tpl) => {
-	let dataArr = []
-	const componentsArr = []
-	const components = signal(componentsArr)
-	let componentCache = []
-
-	const getIndex = handler => dataArr.findIndex(handler)
-	const add = (...newData) => {
-		if (!newData.length) return
-		for (let i of newData) {
-			let component = componentCache.pop()
-			if (!component) component = new tpl(i)
-			componentsArr.push(component)
-			component.update(i)
-			dataArr.push(i)
-		}
-		components.trigger()
-	}
-	const replace = (newData) => {
-		let idx = 0
-		dataArr = newData.slice()
-		const newDataLength = newData.length
-		const componentsLength = componentsArr.length
-		while (idx < newDataLength && idx < componentsLength) {
-			componentsArr[idx].update(newData[idx])
-			idx += 1
-		}
-		if (idx < newDataLength) {
-			add(...newData.slice(idx))
-		} else if (idx < componentsLength) {
-			componentsArr.length = idx
-			components.trigger()
-		}
-	}
-	const get = idx => dataArr[idx]
-	const set = (idx, data) => {
-		const component = componentsArr[idx]
-		if (component) {
-			component.update(data)
-			dataArr[idx] = data
-		}
-	}
-	const del = (idx) => {
-		const component = componentsArr[idx]
-		if (component) {
-			componentCache.push(component)
-			componentsArr.splice(idx, 1)
-			dataArr.splice(idx, 1)
-			components.trigger()
-		}
-	}
-	const clear = () => {
-		componentCache = componentCache.concat(componentsArr)
-		componentsArr.length = 0
-		dataArr.length = 0
-		components.trigger()
-	}
-	const size = () => componentsArr.length
-
-	const dispose = () => {
-		clear()
-		for (let i of componentsArr) dispose(i)
-	}
-
-	onDispose(dispose)
-
-	const Cached = () => (R) => {
-		const cache = new WeakMap()
-		return R.c(For, { entries: components }, (row) => {
-			let node = cache.get(row)
-			if (!node) {
-				node = untrack(() => R.render(row))
-				cache.set(row, node)
-			}
-			return node
-		})
-	}
-
-	return {
-		getIndex,
-		add,
-		replace,
-		get,
-		set,
-		del,
-		clear,
-		size,
-		dispose,
-		Cached
-	}
-}
-
-export { Component, Fn, For, If, Render, createPortal, createCache, expose, build, dispose, getCurrentSelf }

@@ -1,4 +1,4 @@
-import { Component, build } from './component.js'
+import { build, createComponent } from './component.js'
 import { isSignal } from './signal.js'
 
 const Fragment = '<>'
@@ -36,14 +36,6 @@ const createRenderer = (nodeOps) => {
 		return normalizedChildren
 	}
 
-	const createComponent = (init, props, ...children) => {
-		if (props === null || props === undefined) props = {}
-		const { $ref, ..._props } = props
-		const component = new Component(init, _props, ...children)
-		if ($ref) $ref.value = component
-		return component
-	}
-
 	const createElement = (tag, props, ...children) => {
 		if (typeof tag === 'string') {
 			const normalizedChildren = normalizeChildren(children)
@@ -75,7 +67,6 @@ const createRenderer = (nodeOps) => {
 	const renderer = {
 		...nodeOps,
 		normalizeChildren,
-		createComponent,
 		createElement,
 		Fragment,
 		render,
