@@ -1,4 +1,4 @@
-import { collectDisposers, nextTick, read, peek, watch, untrack, onDispose, signal, isSignal } from './signal.js'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, signal, isSignal } from './signal.js'
 import { removeFromArr } from './utils.js'
 
 const SymbolBuild = Symbol('build')
@@ -389,136 +389,20 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	return ifNot
 }
 
-const Dynamic = ({ $tpl, $$ref, ...props }, ...children) => ({ c }) => c(Fn, null, () => {
-	const component = read($tpl)
-	if (component) return () => c(component, { $ref: $$ref, ...props }, ...children)
-	else if ($$ref) $$ref.value = null
-})
+const Dynamic = ({ $tpl, ...props }, ...children) => {
+	const current = signal(null)
+	expose({ current })
+	return ({ c }) => c(Fn, null, () => {
+		const component = read($tpl)
+		if (component) return () => c(component, { $ref: current, ...props }, ...children)
+		else current.value = null
+	})
+}
 
 const Render = ({ $component }) => (R) => R.c(Fn, null, () => {
 	const component = read($component)
 	if (component !== null && component !== undefined) return build($component, R)
 })
-
-const createPortal = () => {
-	let currentOutlet = null
-	const nodes = signal([])
-	const outletView = R => R.c(For, { entries: nodes }, child => child)
-	const Inlet = (_, ...children) => ({ normalizeChildren }) => {
-		const normalizedChildren = normalizeChildren(children)
-		nodes.peek().push(...normalizedChildren)
-		nodes.trigger()
-		onDispose(() => {
-			const arr = nodes.peek()
-			for (let i of normalizedChildren) {
-				removeFromArr(arr, i)
-			}
-			nodes.value = [...nodes.peek()]
-		})
-	}
-	const Outlet = (_, fallback) => {
-		if (currentOutlet) dispose(currentOutlet)
-		currentOutlet = getCurrentSelf()
-		return ({ c }) => c(Fn, null, () => {
-			if (nodes.value.length) return outletView
-			if (fallback) return fallback
-		})
-	}
-
-	return [Inlet, Outlet]
-}
-
-const createCache = (tpl) => {
-	let dataArr = []
-	const componentsArr = []
-	const components = signal(componentsArr)
-	let componentCache = []
-
-	const getIndex = handler => dataArr.findIndex(handler)
-	const add = (...newData) => {
-		if (!newData.length) return
-		for (let i of newData) {
-			let component = componentCache.pop()
-			if (!component) component = createComponent(tpl, i)
-			componentsArr.push(component)
-			component.update(i)
-			dataArr.push(i)
-		}
-		components.trigger()
-	}
-	const replace = (newData) => {
-		let idx = 0
-		dataArr = newData.slice()
-		const newDataLength = newData.length
-		const componentsLength = componentsArr.length
-		while (idx < newDataLength && idx < componentsLength) {
-			componentsArr[idx].update(newData[idx])
-			idx += 1
-		}
-		if (idx < newDataLength) {
-			add(...newData.slice(idx))
-		} else if (idx < componentsLength) {
-			componentsArr.length = idx
-			components.trigger()
-		}
-	}
-	const get = idx => dataArr[idx]
-	const set = (idx, data) => {
-		const component = componentsArr[idx]
-		if (component) {
-			component.update(data)
-			dataArr[idx] = data
-		}
-	}
-	const del = (idx) => {
-		const component = componentsArr[idx]
-		if (component) {
-			componentCache.push(component)
-			componentsArr.splice(idx, 1)
-			dataArr.splice(idx, 1)
-			components.trigger()
-		}
-	}
-	const clear = () => {
-		componentCache = componentCache.concat(componentsArr)
-		componentsArr.length = 0
-		dataArr.length = 0
-		components.trigger()
-	}
-	const size = () => componentsArr.length
-
-	const dispose = () => {
-		clear()
-		for (let i of componentsArr) dispose(i)
-	}
-
-	onDispose(dispose)
-
-	const Cached = () => (R) => {
-		const cache = new WeakMap()
-		return R.c(For, { entries: components }, (row) => {
-			let node = cache.get(row)
-			if (!node) {
-				node = untrack(() => build(row, R))
-				cache.set(row, node)
-			}
-			return node
-		})
-	}
-
-	return {
-		getIndex,
-		add,
-		replace,
-		get,
-		set,
-		del,
-		clear,
-		size,
-		dispose,
-		Cached
-	}
-}
 
 export {
 	Component,
@@ -528,8 +412,6 @@ export {
 	Dynamic,
 	Render,
 	createComponent,
-	createPortal,
-	createCache,
 	expose,
 	build,
 	dispose,
