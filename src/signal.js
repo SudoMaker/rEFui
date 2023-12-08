@@ -267,6 +267,8 @@ const read = (val) => {
 	return val
 }
 
+const readAll = (vals, handler) => handler(...vals.map(read))
+
 const peek = (val) => {
 	if (isSignal(val)) return val.peek()
 	return val
@@ -417,6 +419,7 @@ export {
 	peek,
 	poke,
 	read,
+	readAll,
 	write,
 	listen,
 	scheduleEffect as schedule,
