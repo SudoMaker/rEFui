@@ -302,6 +302,7 @@ const listen = (vals, cb) => {
 const signal = (value, compute) => new Signal(value, compute)
 
 const computed = fn => signal(null, fn)
+const merge = (vals, handler) => computed(() => readAll(vals, handler))
 const tpl = (strs, ...exprs) => {
 	const raw = { raw: strs }
 	return signal(null, () => String.raw(raw, ...exprs))
@@ -420,6 +421,7 @@ export {
 	poke,
 	read,
 	readAll,
+	merge,
 	write,
 	listen,
 	scheduleEffect as schedule,
