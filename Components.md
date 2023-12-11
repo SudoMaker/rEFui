@@ -1,9 +1,13 @@
+## Basic Components
+
 ### If
 
 Note: `else` prop has higher priority than the second branch
 ```jsx
+import { If } from 'refui'
+
 <If condition={value} else={() => <span>Condition not met!</span>}>
-	{/*if condition*/
+	{/*if condition is truthy*/
 		() => <span>Condition met!</span>
 	}{/*else*/
 		() =><span>Condition not met!</span>
@@ -13,13 +17,18 @@ Note: `else` prop has higher priority than the second branch
 
 ### For
 ```jsx
-<For entries={iterable}>{(item) => <div>{item}</div>}</For>
+import { For } from 'refui'
+
+<For entries={iterable}>{(item) => <div>{item.name}</div>}</For>
+// name will not be changed if modified directly on item
 ```
 
 ### Fn
 
 Note: define return renderers outside of the `Fn` scope can reduce re-renders if condition doesn't change its match reult.
 ```jsx
+import { Fn } from 'refui'
+
 <Fn>{() => {
 	switch (condition.value) {
 		case 123: {
@@ -35,9 +44,29 @@ Note: define return renderers outside of the `Fn` scope can reduce re-renders if
 }}</Fn>
 ```
 
-### Cached
-
 ### Dynamic
+
+## Extra Components
+
+Extra components are located in the `refui/extras` path.
+
+### UnKeyed
+
+Same as `For`, but the prop itself is a signal.
+```jsx
+import { UnKeyed } from 'refui/extras'
+// or
+import { UnKeyed } from 'refui/extras/unkeyed.js'
+
+import { derivedExtract } from 'refui'
+
+<UnKeyed entries={iterable}>{(item) => {
+	const { name } = derivedExtract(item)
+	return (<div>{name}</div>) // name will correctly get reactive if it's a signal on item
+}}</UnKeyed>
+```
+
+### Cached
 
 ### Render
 

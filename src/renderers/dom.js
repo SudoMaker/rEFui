@@ -1,4 +1,4 @@
-import { isSignal, watch, nextTick } from '../signal.js'
+import { isSignal, watch, nextTick, peek } from '../signal.js'
 import { createRenderer } from '../renderer.js'
 import { nop, cached } from '../utils.js'
 
@@ -100,7 +100,7 @@ const createDOMRenderer = ({
 		if (isSignal(text)) {
 			const node = doc.createTextNode('')
 			text.connect(() => {
-				const newData = text.peek()
+				const newData = peek(text)
 				if (typeof newData === 'undefined') node.data = ''
 				else node.data = newData
 			})
@@ -154,7 +154,7 @@ const createDOMRenderer = ({
 				if (isSignal(cb)) {
 					let currentHandler = null
 					cb.connect(() => {
-						let newHandler = cb.peek()
+						let newHandler = peek(cb)
 						if (currentHandler) node.removeEventListener(eventName, currentHandler, options)
 						if (newHandler) {
 							newHandler = eventCallbackFallback(node, eventName, newHandler, options)
@@ -169,7 +169,7 @@ const createDOMRenderer = ({
 			if (isSignal(cb)) {
 				let currentHandler = null
 				cb.connect(() => {
-					const newHandler = cb.peek()
+					const newHandler = peek(cb)
 					if (currentHandler) node.removeEventListener(eventName, currentHandler)
 					if (newHandler) node.addEventListener(eventName, newHandler)
 					currentHandler = newHandler
@@ -184,13 +184,13 @@ const createDOMRenderer = ({
 	const setAttr = (node, attr, val) => {
 		if (val === undefined || val === null || val === false) return
 		if (isSignal(val)) val.connect(() => {
-			const newVal = val.peek()
+			const newVal = peek(val)
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
 			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
-			const newVal = val()
+			const newVal = peek(val())
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
 			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
@@ -202,13 +202,13 @@ const createDOMRenderer = ({
 	const setAttrNS = (node, attr, val, ns) => {
 		if (val === undefined || val === null || val === false) return
 		if (isSignal(val)) val.connect(() => {
-			const newVal = val.peek()
+			const newVal = peek(val)
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
 			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
 		})
 		else if (typeof val === 'function') watch(() => {
-			const newVal = val()
+			const newVal = peek(val())
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
 			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
@@ -242,7 +242,7 @@ const createDOMRenderer = ({
 
 		return (node, val) => {
 			if (val === undefined || val === null) return
-			if (isSignal(val)) val.connect(() => (node[prop] = val.peek()))
+			if (isSignal(val)) val.connect(() => (node[prop] = peek(val)))
 			else node[prop] = val
 		}
 	})

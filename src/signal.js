@@ -155,12 +155,17 @@ const Signal = class {
 			signalEffects
 		}
 
-		this._ = internal
+		Object.defineProperty(this, '_', {
+			value: internal,
+			writable: false,
+			enumerable: false,
+			configurable: false
+		})
 
 		if (compute) {
 			watch(pure(() => this.set(value)))
 		} else if (isSignal(value)) {
-			value.connect(pure(this.set.bind(this, value)))
+			value.connect(pure(() => this.set(value)))
 		}
 	}
 
@@ -183,7 +188,7 @@ const Signal = class {
 
 	set(val) {
 		const { compute, value } = this._
-		val = compute ? read(compute(read(val))) : read(val)
+		val = compute ? peek(compute(read(val))) : read(val)
 		if (value !== val) {
 			this._.value = val
 			this.trigger()
@@ -214,7 +219,7 @@ const Signal = class {
 		if (!effect) return
 		const { userEffects, signalEffects, disposeCtx } = this._
 		const effects = isPure(effect) ? signalEffects : userEffects
-		if (effects.indexOf(effect) < 0) {
+		if (!effects.includes(effect)) {
 			effects.push(effect)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(() => {
@@ -262,15 +267,10 @@ const watch = (effect) => {
 	return _dispose
 }
 
-const read = (val) => {
-	if (isSignal(val)) return val.value
-	return val
-}
-
-const readAll = (vals, handler) => handler(...vals.map(read))
-
 const peek = (val) => {
-	if (isSignal(val)) return val.peek()
+	while (isSignal(val)) {
+		val = val.peek()
+	}
 	return val
 }
 
@@ -279,10 +279,17 @@ const poke = (val, newVal) => {
 	return newVal
 }
 
+const read = (val) => {
+	if (isSignal(val)) val = peek(val.get())
+	return val
+}
+
+const readAll = (vals, handler) => handler(...vals.map(read))
+
 const _write = (val, newVal) => {
-	if (typeof newVal === 'function') newVal = newVal(val.peek())
+	if (typeof newVal === 'function') newVal = newVal(peek(val))
 	val.value = newVal
-	return val.peek()
+	return peek(val)
 }
 
 const write = (val, newVal) => {
@@ -318,7 +325,76 @@ const connect = (sigs, effect) => {
 	currentEffect = prevEffect
 }
 
-const extract = (sig, ...extractions) => extractions.map(i => signal(sig, val => val && val[i]))
+const derive = (sig, key, compute) => {
+	if (isSignal(sig)) {
+		const derivedSig = signal(null, compute)
+		let disposer = null
+
+		const _dispose = () => {
+			if (disposer) {
+				disposer()
+				disposer = null
+			}
+		}
+
+		sig.connect(pure(() => {
+			_dispose()
+			const newVal = peek(sig)
+			if (!newVal) return
+
+			untrack(() => {
+				disposer = watch(() => {
+					derivedSig.value = read(newVal[key])
+				})
+			})
+		}))
+
+		onDispose(_dispose)
+
+		return derivedSig
+	} else {
+		return signal(sig[key], compute)
+	}
+}
+
+const extract = (sig, ...extractions) => {
+	if (!extractions.length) {
+		extractions = Object.keys(peek(sig))
+	}
+
+	return extractions.reduce((mapped, i) => {
+		mapped[i] = signal(sig, val => val && peek(val[i]))
+		return mapped
+	}, {})
+}
+const derivedExtract = (sig, ...extractions) => {
+	if (!extractions.length) {
+		extractions = Object.keys(peek(sig))
+	}
+
+	return extractions.reduce((mapped, i) => {
+		mapped[i] = derive(sig, i)
+		return mapped
+	}, {})
+}
+
+const makeReactive = (obj) => Object.defineProperties({}, Object.entries(obj).reduce((descriptors, [key, value]) => {
+	if (isSignal(value)) {
+		descriptors[key] = {
+			get: value.get.bind(value),
+			set: value.set.bind(value),
+			enumerable: true,
+			configurable: false
+		}
+	} else {
+		descriptors[key] = {
+			value,
+			enumerable: true
+		}
+	}
+
+	return descriptors
+}, {}))
 
 const onCondition = (sig, compute) => {
 	let currentVal = null
@@ -326,7 +402,7 @@ const onCondition = (sig, compute) => {
 	let conditionValMap = new Map()
 	sig.connect(
 		pure(() => {
-			const newVal = sig.peek()
+			const newVal = peek(sig)
 			if (currentVal !== newVal) {
 				const prevMatchSet = conditionMap.get(currentVal)
 				const newMatchSet = conditionMap.get(newVal)
@@ -360,7 +436,7 @@ const onCondition = (sig, compute) => {
 				conditionValMap.set(condition, matchSig)
 
 				condition.connect(() => {
-					currentCondition = condition.peek()
+					currentCondition = peek(condition)
 					if (matchSet) removeFromArr(matchSet, matchSig)
 					matchSet = conditionMap.get(currentCondition)
 					if (!matchSet) {
@@ -414,7 +490,10 @@ export {
 	isSignal,
 	computed,
 	connect,
+	derive,
 	extract,
+	derivedExtract,
+	makeReactive,
 	tpl,
 	watch,
 	peek,
