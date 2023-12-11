@@ -357,8 +357,26 @@ const derive = (sig, key, compute) => {
 	}
 }
 
-const extract = (sig, ...extractions) => extractions.map(i => signal(sig, val => val && peek(val[i])))
-const derivedExtract = (sig, ...extractions) => extractions.map(i => derive(sig, i))
+const extract = (sig, ...extractions) => {
+	if (!extractions.length) {
+		extractions = Object.keys(peek(sig))
+	}
+
+	return extractions.reduce((mapped, i) => {
+		mapped[i] = signal(sig, val => val && peek(val[i]))
+		return mapped
+	}, {})
+}
+const derivedExtract = (sig, ...extractions) => {
+	if (!extractions.length) {
+		extractions = Object.keys(peek(sig))
+	}
+
+	return extractions.reduce((mapped, i) => {
+		mapped[i] = derive(sig, i)
+		return mapped
+	}, {})
+}
 
 const makeReactive = (obj) => Object.defineProperties({}, Object.entries(obj).reduce((descriptors, [key, value]) => {
 	if (isSignal(value)) {
