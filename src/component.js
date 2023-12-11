@@ -329,7 +329,7 @@ const For = ({ entries, track, indexed }, item) => {
 							const fChunk = frontSet[i]
 							const bChunk = backSet[i]
 
-							if (fChunk.length < bChunk.length) {
+							if (fChunk.length <= bChunk.length) {
 								const beforeAnchor = getItemNode(bChunk[0])
 								backSet[i + 1] = bChunk.concat(backSet[i + 1])
 								bChunk.length = 0
