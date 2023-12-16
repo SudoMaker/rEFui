@@ -127,9 +127,12 @@ const onDispose = (cb) => {
 
 const untrack = (fn) => {
 	const prevDisposers = currentDisposers
+	const prevEffect = currentEffect
 	currentDisposers = null
+	currentEffect = null
 	const ret = fn()
 	currentDisposers = prevDisposers
+	currentEffect = prevEffect
 	return ret
 }
 
