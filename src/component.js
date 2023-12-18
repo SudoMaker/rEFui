@@ -389,19 +389,19 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	return ifNot
 }
 
-const Dynamic = ({ $tpl, ...props }, ...children) => {
+const Dynamic = ({ is, ...props }, ...children) => {
 	const current = signal(null)
 	expose({ current })
 	return ({ c }) => c(Fn, null, () => {
-		const component = read($tpl)
+		const component = read(is)
 		if (component) return () => c(component, { $ref: current, ...props }, ...children)
 		else current.value = null
 	})
 }
 
-const Render = ({ $component }) => (R) => R.c(Fn, null, () => {
-	const component = read($component)
-	if (component !== null && component !== undefined) return build($component, R)
+const Render = ({ from }) => (R) => R.c(Fn, null, () => {
+	const component = read(from)
+	if (component !== null && component !== undefined) return build(from, R)
 })
 
 export {

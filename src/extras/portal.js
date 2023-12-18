@@ -23,7 +23,7 @@ const createPortal = () => {
 		currentOutlet = getCurrentSelf()
 		return ({ c }) => c(Fn, null, () => {
 			if (nodes.value.length) return outletView
-			if (fallback) return fallback
+			return fallback
 		})
 	}
 
