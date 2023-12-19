@@ -1,5 +1,5 @@
 import { signal, untrack, onDispose } from '../signal.js'
-import { build, expose, createComponent, For } from '../component.js'
+import { render, expose, createComponent, For } from '../component.js'
 
 const createCache = (tpl) => {
 	let dataArr = []
@@ -73,7 +73,7 @@ const createCache = (tpl) => {
 		return R.c(For, { entries: components }, (row) => {
 			let node = cache.get(row)
 			if (!node) {
-				node = untrack(() => build(row, R))
+				node = untrack(() => render(row, R))
 				cache.set(row, node)
 			}
 			return node

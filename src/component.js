@@ -1,7 +1,7 @@
 import { collectDisposers, nextTick, read, peek, watch, onDispose, signal, isSignal } from './signal.js'
 import { removeFromArr } from './utils.js'
 
-const SymbolBuild = Symbol('build')
+const ctxMap = new WeakMap()
 
 let currentCtx = null
 
@@ -9,7 +9,26 @@ const expose = (ctx) => {
 	if (currentCtx) Object.assign(currentCtx.exposed, ctx)
 }
 
-const build = (component, renderer) => component[SymbolBuild](renderer)
+const render = (component, renderer) => {
+	const ctx = ctxMap.get(component)
+	if (!ctx) return
+	const { disposers, render } = ctx
+	if (!render || typeof render !== 'function') return
+
+	let rendered = null
+	const _disposers = []
+	const dispose = collectDisposers(
+		_disposers,
+		() => {
+			rendered = render(renderer)
+		},
+		() => {
+			removeFromArr(disposers, dispose)
+		}
+	)
+	disposers.push(dispose)
+	return rendered
+}
 
 const dispose = val => val._.dispose()
 
@@ -20,7 +39,7 @@ const Component = class Component {
 		const ctx = {
 			exposed: {},
 			disposers: [],
-			build: null,
+			render: null,
 			dispose: null,
 			self: this
 		}
@@ -29,7 +48,7 @@ const Component = class Component {
 		currentCtx = ctx
 
 		ctx.dispose = collectDisposers(ctx.disposers, () => {
-			ctx.build = tpl(...args)
+			ctx.render = tpl(...args)
 		})
 
 		currentCtx = prevCtx
@@ -58,27 +77,7 @@ const Component = class Component {
 			)
 		}
 
-		this._ = ctx
-	}
-
-	[SymbolBuild](renderer) {
-		const { disposers, build } = this._
-		if (!build) return
-		if (typeof build !== 'function') return build
-
-		let built = null
-		const _disposers = []
-		const dispose = collectDisposers(
-			_disposers,
-			() => {
-				built = build(renderer)
-			},
-			() => {
-				removeFromArr(disposers, dispose)
-			}
-		)
-		disposers.push(dispose)
-		return built
+		ctxMap.set(this, ctx)
 	}
 }
 
@@ -102,7 +101,7 @@ const Fn = (_, handler) => {
 
 		const backAnchor = R.createAnchor('Fn')
 		const fragment = R.createFragment()
-		let currentBuilder = null
+		let currentRender = null
 		let currentDispose = null
 
 		const apply = () => {
@@ -112,16 +111,16 @@ const Fn = (_, handler) => {
 
 		nextTick(() => {
 			watch(() => {
-				const newBuilder = handler()
-				if (newBuilder === currentBuilder) return
-				currentBuilder = newBuilder
+				const newRender = handler()
+				if (newRender === currentRender) return
+				currentRender = newRender
 				if (currentDispose) currentDispose()
-				if (newBuilder) {
+				if (newRender) {
 					let newResult = null
 					const dispose = collectDisposers(
 						[],
 						() => {
-							newResult = newBuilder(R)
+							newResult = newRender(R)
 							if (newResult) {
 								if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
 								R.appendNode(fragment, newResult)
@@ -401,7 +400,7 @@ const Dynamic = ({ is, ...props }, ...children) => {
 
 const Render = ({ from }) => (R) => R.c(Fn, null, () => {
 	const instance = read(from)
-	if (instance !== null && instance !== undefined) return build(instance, R)
+	if (instance !== null && instance !== undefined) return render(instance, R)
 })
 
 export {
@@ -413,7 +412,7 @@ export {
 	Render,
 	createComponent,
 	expose,
-	build,
+	render,
 	dispose,
 	getCurrentSelf
 }
