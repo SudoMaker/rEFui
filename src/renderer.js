@@ -1,4 +1,4 @@
-import { build, createComponent } from './component.js'
+import { render, createComponent } from './component.js'
 import { isSignal } from './signal.js'
 
 const Fragment = '<>'
@@ -52,16 +52,16 @@ const createRenderer = (nodeOps) => {
 			return node
 		}
 
-		const component = createComponent(tag, props, ...children)
+		const instance = createComponent(tag, props, ...children)
 
-		return build(component, renderer)
+		return render(instance, renderer)
 	}
 
-	const render = (target, ...args) => {
-		const component = createComponent(...args)
-		const node = build(component, renderer)
+	const renderComponent = (target, ...args) => {
+		const instance = createComponent(...args)
+		const node = render(instance, renderer)
 		if (target && node) appendNode(target, node)
-		return component
+		return instance
 	}
 
 	const renderer = {
@@ -69,7 +69,7 @@ const createRenderer = (nodeOps) => {
 		normalizeChildren,
 		createElement,
 		Fragment,
-		render,
+		render: renderComponent,
 		text: createTextNode,
 		c: createElement,
 		f: Fragment
