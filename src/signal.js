@@ -180,6 +180,11 @@ const Signal = class {
 		this.set(val)
 	}
 
+	get hasConnection() {
+		const { userEffects, signalEffects } = this._
+		return !!(userEffects.length || signalEffects.length)
+	}
+
 	then(cb) {
 		return Promise.resolve(this.get()).then(cb)
 	}
@@ -211,11 +216,6 @@ const Signal = class {
 		scheduleSignal(signalEffects)
 		scheduleEffect(userEffects)
 		tick()
-	}
-
-	isEmpty() {
-		const { userEffects, signalEffects } = this._
-		return !(userEffects.length || signalEffects.length)
 	}
 
 	connect(effect) {

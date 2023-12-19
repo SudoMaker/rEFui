@@ -400,8 +400,8 @@ const Dynamic = ({ is, ...props }, ...children) => {
 }
 
 const Render = ({ from }) => (R) => R.c(Fn, null, () => {
-	const component = read(from)
-	if (component !== null && component !== undefined) return build(from, R)
+	const instance = read(from)
+	if (instance !== null && instance !== undefined) return build(instance, R)
 })
 
 export {
