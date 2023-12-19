@@ -180,7 +180,7 @@ const Signal = class {
 		this.set(val)
 	}
 
-	get hasConnection() {
+	get connected() {
 		const { userEffects, signalEffects } = this._
 		return !!(userEffects.length || signalEffects.length)
 	}
