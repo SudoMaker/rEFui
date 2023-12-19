@@ -9,8 +9,8 @@ const expose = (ctx) => {
 	if (currentCtx) Object.assign(currentCtx.exposed, ctx)
 }
 
-const render = (component, renderer) => {
-	const ctx = ctxMap.get(component)
+const render = (instance, renderer) => {
+	const ctx = ctxMap.get(instance)
 	if (!ctx) return
 	const { disposers, render } = ctx
 	if (!render || typeof render !== 'function') return
@@ -30,7 +30,11 @@ const render = (component, renderer) => {
 	return rendered
 }
 
-const dispose = val => val._.dispose()
+const dispose = (instance) => {
+	const ctx = ctxMap.get(instance)
+	if (!ctx) return
+	ctx.dispose()
+}
 
 const getCurrentSelf = () => currentCtx && currentCtx.self
 

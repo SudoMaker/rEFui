@@ -235,18 +235,18 @@ const Signal = class {
 	}
 
 	toJSON() {
-		return this.value
+		return this.get()
 	}
 
 	*[Symbol.iterator]() {
-		const val = this.value
+		const val = this.get()
 		for (let i of val) {
 			yield i
 		}
 	}
 
 	[Symbol.toPrimitive](hint) {
-		const val = this.value
+		const val = this.get()
 		switch (hint) {
 			case 'string':
 				return String(val)
