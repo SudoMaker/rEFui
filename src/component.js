@@ -13,7 +13,7 @@ const render = (instance, renderer) => {
 	const ctx = ctxMap.get(instance)
 	if (!ctx) return
 	const { disposers, render } = ctx
-	if (!render || typeof render !== 'function') return
+	if (!render || typeof render !== 'function') return render
 
 	let rendered = null
 	const _disposers = []
