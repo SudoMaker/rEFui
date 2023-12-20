@@ -20,7 +20,7 @@ const namespaces = {
 
 const tagAliases = {}
 
-const attributes = ['class', 'viewBox', 'd', 'tabindex', 'role']
+const attributes = ['class', 'style', 'viewBox', 'd', 'tabindex', 'role']
 
 const namespaceToTagsMap = {
 	svg: [
