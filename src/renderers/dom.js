@@ -101,7 +101,7 @@ const createDOMRenderer = ({
 			const node = doc.createTextNode('')
 			text.connect(() => {
 				const newData = peek(text)
-				if (typeof newData === 'undefined') node.data = ''
+				if (newData === undefined) node.data = ''
 				else node.data = newData
 			})
 			return node
