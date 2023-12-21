@@ -109,36 +109,18 @@ const createDOMRenderer = ({
 
 		return doc.createTextNode(text)
 	}
-	const createFragment = (children = []) => {
-		const node = doc.createDocumentFragment()
-		const anchorStart = createAnchor('DOM-fragment')
-		node.appendChild(anchorStart)
+	const createFragment = () => doc.createDocumentFragment()
 
-		node.$ = {
-			anchorStart,
-			children
-		}
-
-		return node
-	}
 	const removeNode = (node) => {
-		if (node.$) {
-			if (node.$.anchorStart.parentNode !== node) {
-				appendNode(node, node.$.anchorStart, ...node.$.children)
-			}
-			return
-		}
-		if (node.parentNode) node.parentNode.removeChild(node)
+		if (!node.parentNode) return
+		node.parentNode.removeChild(node)
 	}
 	const appendNode = (parent, ...nodes) => {
 		for (let node of nodes) {
-			if (node.$) removeNode(node)
 			parent.insertBefore(node, null)
 		}
 	}
 	const insertBefore = (node, ref) => {
-		if (node.$) removeNode(node)
-		if (ref.$) ref = ref.$.anchorStart
 		ref.parentNode.insertBefore(node, ref)
 	}
 
