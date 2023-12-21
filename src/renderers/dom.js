@@ -113,7 +113,6 @@ const createDOMRenderer = ({
 		const node = doc.createDocumentFragment()
 		const anchorStart = createAnchor('DOM-fragment')
 		node.appendChild(anchorStart)
-		children.unshift(anchorStart)
 
 		node.$ = {
 			anchorStart,
@@ -125,7 +124,7 @@ const createDOMRenderer = ({
 	const removeNode = (node) => {
 		if (node.$) {
 			if (node.$.anchorStart.parentNode !== node) {
-				appendNode(node, ...node.$.children)
+				appendNode(node, node.$.anchorStart, ...node.$.children)
 			}
 			return
 		}
@@ -144,9 +143,23 @@ const createDOMRenderer = ({
 	}
 
 	const getListenerAdder = cached((event) => {
-		const [eventName, optionsStr] = event.split('--')
-		if (optionsStr) {
-			const optionsArr = optionsStr.split('-')
+		const [prefix, eventName] = event.split(':')
+		if (prefix === 'on') {
+			return (node, cb) => {
+				if (!cb) return
+				if (isSignal(cb)) {
+					let currentHandler = null
+					cb.connect(() => {
+						const newHandler = peek(cb)
+						if (currentHandler) node.removeEventListener(eventName, currentHandler)
+						if (newHandler) node.addEventListener(eventName, newHandler)
+						currentHandler = newHandler
+					})
+				} else node.addEventListener(eventName, cb)
+			}
+		} else {
+			const optionsArr = prefix.split('-')
+			optionsArr.shift()
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
 			return (node, cb) => {
@@ -164,17 +177,6 @@ const createDOMRenderer = ({
 					})
 				} else node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
 			}
-		} else return (node, cb) => {
-			if (!cb) return
-			if (isSignal(cb)) {
-				let currentHandler = null
-				cb.connect(() => {
-					const newHandler = peek(cb)
-					if (currentHandler) node.removeEventListener(eventName, currentHandler)
-					if (newHandler) node.addEventListener(eventName, newHandler)
-					currentHandler = newHandler
-				})
-			} else node.addEventListener(eventName, cb)
 		}
 	})
 	const addListener = (node, event, cb) => {
@@ -223,11 +225,9 @@ const createDOMRenderer = ({
 		if (key) {
 			switch (prefix) {
 				default: {
+					if (prefix === 'on' || prefix.startsWith('on-')) return (node, val) => addListener(node, prop, val)
 					const nsuri = namespaces[prefix] || prefix
 					return (node, val) => setAttrNS(node, key, val, nsuri)
-				}
-				case 'on': {
-					return (node, val) => addListener(node, key, val)
 				}
 				case 'attr': {
 					return (node, val) => setAttr(node, key, val)
