@@ -1,4 +1,4 @@
-import { render, createComponent, Fn } from './component.js'
+import { render, createComponent } from './component.js'
 import { isSignal } from './signal.js'
 import { removeFromArr } from './utils.js'
 
@@ -33,14 +33,16 @@ const createRenderer = (nodeOps) => {
 		return fragment
 	}
 
+	const flattenChildren = (children) => children.reduce((result, i) => {
+		if (isFragment(i)) result.push(...expandFragment(i))
+		else result.push(i)
+		return result
+	}, [])
+
 	const expandFragment = (node) => {
 		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
 		if (flags.connected) {
-			return [anchorStart, ...children.reduce((result, i) => {
-				if (isFragment(i)) result.push(...expandFragment(i))
-				else result.push(i)
-				return result
-			}, []), anchorEnd]
+			return [anchorStart, ...flattenChildren(children), anchorEnd]
 		}
 
 		flags.connected = true
@@ -82,11 +84,7 @@ const createRenderer = (nodeOps) => {
 				removeNode(node)
 				parentMap.set(node, parent)
 			}
-			appendNodeRaw(parent, ...nodes.reduce((result, i) => {
-				if (isFragment(i)) result.push(...expandFragment(i))
-				else result.push(i)
-				return result
-			}, []))
+			appendNodeRaw(parent, ...flattenChildren(nodes))
 		}
 	}
 

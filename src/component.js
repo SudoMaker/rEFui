@@ -139,7 +139,7 @@ const Fn = ({ name = 'Fn' }, handler) => {
 	}
 }
 
-const For = ({ entries, track, indexed }, item) => {
+const For = ({ name = 'For', entries, track, indexed }, item) => {
 	let currentData = []
 
 	let kv = track && new Map()
@@ -186,7 +186,7 @@ const For = ({ entries, track, indexed }, item) => {
 	})
 
 	return (R) => {
-		const fragment = R.createFragment('For')
+		const fragment = R.createFragment(name)
 
 		const getItemNode = (itemKey) => {
 			let node = nodeCache.get(itemKey)
