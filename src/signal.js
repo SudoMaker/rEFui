@@ -244,6 +244,30 @@ const Signal = class {
 		if (currentEffect !== effect) effect()
 	}
 
+	and(val) {
+		return signal(this, i => i && read(val))
+	}
+
+	or(val) {
+		return signal(this, i => i || read(val))
+	}
+
+	eq(val) {
+		return signal(this, i => i === read(val))
+	}
+
+	neq(val) {
+		return signal(this, i => i !== read(val))
+	}
+
+	gt(val) {
+		return signal(this, i => i > read(val))
+	}
+
+	lt(val) {
+		return signal(this, i => i < read(val))
+	}
+
 	toJSON() {
 		return this.get()
 	}
@@ -336,6 +360,12 @@ const connect = (sigs, effect) => {
 	}
 	effect()
 	currentEffect = prevEffect
+}
+
+const bind = (handler, val) => {
+	if (isSignal(val)) val.connect(() => handler(peek(val)))
+	else if (typeof val === 'function') watch(() => handler(val()))
+	else handler(val)
 }
 
 const derive = (sig, key, compute) => {
@@ -503,6 +533,7 @@ export {
 	isSignal,
 	computed,
 	connect,
+	bind,
 	derive,
 	extract,
 	derivedExtract,
