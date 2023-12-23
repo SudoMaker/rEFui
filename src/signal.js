@@ -16,6 +16,11 @@ let runQueue = new Set()
 const scheduleSignal = signalEffects => signalQueue.add(signalEffects)
 const scheduleEffect = effects => effectQueue.add(effects)
 
+const flushRunQueue = () => {
+	for (let i of runQueue) i()
+	runQueue.clear()
+}
+
 const flushQueue = (queue, sorted) => {
 	while (queue.size) {
 		const queueArr = Array.from(queue)
@@ -29,11 +34,16 @@ const flushQueue = (queue, sorted) => {
 					runQueue.add(i)
 				}
 			}
+		} else if (queueArr.length > 10000) {
+			let flattenedArr = []
+			for (let i = 0; i < queueArr.length; i += 10000) {
+				flattenedArr = flattenedArr.concat(...queueArr.slice(i, i + 10000))
+			}
+			runQueue = new Set(flattenedArr)
 		} else {
-			runQueue = new Set([].concat(...queueArr.map(i => [...i])))
+			runQueue = new Set([].concat(...queueArr))
 		}
-		for (let i of runQueue) i()
-		runQueue.clear()
+		flushRunQueue()
 	}
 }
 
@@ -234,6 +244,30 @@ const Signal = class {
 		if (currentEffect !== effect) effect()
 	}
 
+	and(val) {
+		return signal(this, i => i && read(val))
+	}
+
+	or(val) {
+		return signal(this, i => i || read(val))
+	}
+
+	eq(val) {
+		return signal(this, i => i === read(val))
+	}
+
+	neq(val) {
+		return signal(this, i => i !== read(val))
+	}
+
+	gt(val) {
+		return signal(this, i => i > read(val))
+	}
+
+	lt(val) {
+		return signal(this, i => i < read(val))
+	}
+
 	toJSON() {
 		return this.get()
 	}
@@ -326,6 +360,12 @@ const connect = (sigs, effect) => {
 	}
 	effect()
 	currentEffect = prevEffect
+}
+
+const bind = (handler, val) => {
+	if (isSignal(val)) val.connect(() => handler(peek(val)))
+	else if (typeof val === 'function') watch(() => handler(val()))
+	else handler(val)
 }
 
 const derive = (sig, key, compute) => {
@@ -493,6 +533,7 @@ export {
 	isSignal,
 	computed,
 	connect,
+	bind,
 	derive,
 	extract,
 	derivedExtract,

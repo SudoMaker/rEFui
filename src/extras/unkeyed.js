@@ -17,5 +17,5 @@ export const UnKeyed = ({ entries, ...args }, item) => {
 		if (oldLength !== rawEntries.length) sigEntries.trigger()
 	})
 
-	return (R) => R.c(For, { entries: sigEntries, ...args }, item)
+	return (R) => R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, item)
 }

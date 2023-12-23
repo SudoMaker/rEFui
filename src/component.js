@@ -12,15 +12,15 @@ const expose = (ctx) => {
 const render = (instance, renderer) => {
 	const ctx = ctxMap.get(instance)
 	if (!ctx) return
-	const { disposers, render } = ctx
-	if (!render || typeof render !== 'function') return
+	const { disposers, render: renderComponent } = ctx
+	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
 
 	let rendered = null
 	const _disposers = []
 	const dispose = collectDisposers(
 		_disposers,
 		() => {
-			rendered = render(renderer)
+			rendered = renderComponent(renderer)
 		},
 		() => {
 			removeFromArr(disposers, dispose)
@@ -93,7 +93,7 @@ const createComponent = (tpl, props, ...children) => {
 	return component
 }
 
-const Fn = (_, handler) => {
+const Fn = ({ name = 'Fn' }, handler) => {
 	const disposers = []
 	onDispose(() => {
 		for (let i of disposers) i(true)
@@ -103,52 +103,43 @@ const Fn = (_, handler) => {
 	return (R) => {
 		if (!handler) return
 
-		const backAnchor = R.createAnchor('Fn')
-		const fragment = R.createFragment()
+		const fragment = R.createFragment(name)
 		let currentRender = null
 		let currentDispose = null
 
-		const apply = () => {
-			R.insertBefore(fragment, backAnchor)
-			R.removeNode(fragment)
-		}
-
-		nextTick(() => {
-			watch(() => {
-				const newRender = handler()
-				if (newRender === currentRender) return
-				currentRender = newRender
-				if (currentDispose) currentDispose()
-				if (newRender) {
-					let newResult = null
-					const dispose = collectDisposers(
-						[],
-						() => {
-							newResult = newRender(R)
-							if (newResult) {
-								if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
-								R.appendNode(fragment, newResult)
-							}
-						},
-						() => {
-							removeFromArr(disposers, dispose)
-							if (newResult) {
-								nextTick(() => R.removeNode(newResult))
-							}
+		watch(() => {
+			const newRender = handler()
+			if (newRender === currentRender) return
+			currentRender = newRender
+			if (currentDispose) currentDispose()
+			if (newRender) {
+				let newResult = null
+				const dispose = collectDisposers(
+					[],
+					() => {
+						newResult = newRender(R)
+						if (newResult) {
+							if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
+							R.appendNode(fragment, newResult)
 						}
-					)
-					disposers.push(dispose)
-					currentDispose = dispose
-					nextTick(apply)
-				}
-			})
+					},
+					() => {
+						removeFromArr(disposers, dispose)
+						if (newResult) {
+							nextTick(() => R.removeNode(newResult))
+						}
+					}
+				)
+				disposers.push(dispose)
+				currentDispose = dispose
+			}
 		})
 
-		return backAnchor
+		return fragment
 	}
 }
 
-const For = ({ entries, track, indexed }, item) => {
+const For = ({ name = 'For', entries, track, indexed }, item) => {
 	let currentData = []
 
 	let kv = track && new Map()
@@ -195,13 +186,7 @@ const For = ({ entries, track, indexed }, item) => {
 	})
 
 	return (R) => {
-		const backAnchor = R.createAnchor('For')
-		const fragment = R.createFragment()
-
-		const apply = () => {
-			R.insertBefore(fragment, backAnchor)
-			R.removeNode(fragment)
-		}
+		const fragment = R.createFragment(name)
 
 		const getItemNode = (itemKey) => {
 			let node = nodeCache.get(itemKey)
@@ -340,15 +325,13 @@ const For = ({ entries, track, indexed }, item) => {
 								for (let itemKey of fChunk) {
 									R.insertBefore(getItemNode(itemKey), beforeAnchor)
 								}
-							} else {
-								let beforeAnchor = backAnchor
-								if (backSet[i + 1].length) {
-									beforeAnchor = getItemNode(backSet[i + 1][0])
-								}
-
+							} else if (backSet[i + 1].length) {
+								const beforeAnchor = getItemNode(backSet[i + 1][0])
 								for (let itemKey of bChunk) {
 									R.insertBefore(getItemNode(itemKey), beforeAnchor)
 								}
+							} else {
+								R.appendNode(fragment, ...bChunk.map(getItemNode))
 							}
 						}
 
@@ -364,26 +347,25 @@ const For = ({ entries, track, indexed }, item) => {
 					const node = getItemNode(newItemKey)
 					if (node) R.appendNode(fragment, node)
 				}
-				nextTick(apply)
 			}
 
 			flushKS()
 		})
 
-		return backAnchor
+		return fragment
 	}
 }
 
 const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 	const ifNot = otherwise || elseBranch
 	if (isSignal(condition))
-		return Fn(null, () => {
+		return Fn({ name: 'If' }, () => {
 			if (condition.value) return handler
 			else return ifNot
 		})
 
 	if (typeof condition === 'function')
-		return Fn(null, () => {
+		return Fn({ name: 'If' }, () => {
 			if (condition()) return handler
 			else return ifNot
 		})
@@ -395,14 +377,14 @@ const If = ({ condition, else: otherwise }, handler, elseBranch) => {
 const Dynamic = ({ is, ...props }, ...children) => {
 	const current = signal(null)
 	expose({ current })
-	return ({ c }) => c(Fn, null, () => {
+	return ({ c }) => c(Fn, { name: 'Dynamic' }, () => {
 		const component = read(is)
 		if (component) return () => c(component, { $ref: current, ...props }, ...children)
 		else current.value = null
 	})
 }
 
-const Render = ({ from }) => (R) => R.c(Fn, null, () => {
+const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
 	const instance = read(from)
 	if (instance !== null && instance !== undefined) return render(instance, R)
 })

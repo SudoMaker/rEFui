@@ -19,7 +19,7 @@ Example:
 
 ## Event handling
 
-Usage: `on:eventName--options-moreOptions={handler}`
+Usage: `on[-option-moreOptions]:eventName={handler}`
 
 Examples:
 
@@ -30,17 +30,17 @@ Examples:
 
 - Click once
 ```jsx
-<button on:click--once={() => alert('Clicked!')}>Click me!</button>
+<button on-once:click={() => alert('Clicked!')}>Click me!</button>
 ```
 
 - Passive
 ```jsx
-<div on:scroll--passive={() => {/* do some time consuming operations */}}>{loooooongContent}</div>
+<div on-passive:scroll={() => {/* do some time consuming operations */}}>{loooooongContent}</div>
 ```
 
 - Multiple options
 ```jsx
-<div on:click--once-capture-passive={() => alert('Clicked!')}><button>Click me!</button></div>
+<div on-capture-passive:click={() => alert('Clicked!')}><button>Click me!</button></div>
 ```
 
 - Get event object

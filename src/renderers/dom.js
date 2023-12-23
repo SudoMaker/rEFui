@@ -1,6 +1,6 @@
-import { isSignal, watch, nextTick, peek } from '../signal.js'
+import { isSignal, watch, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
-import { nop, cached } from '../utils.js'
+import { nop, cached, splitFirst } from '../utils.js'
 
 /*
 const NODE_TYPES = {
@@ -28,7 +28,8 @@ const createDOMRenderer = ({
 	namespaces = {},
 	tagNamespaceMap = {},
 	tagAliases = {},
-	propAliases = {}
+	propAliases = {},
+	onDirective
 } = {}) => {
 	let eventPassiveSupported = false
 	let eventOnceSupported = false
@@ -101,7 +102,7 @@ const createDOMRenderer = ({
 			const node = doc.createTextNode('')
 			text.connect(() => {
 				const newData = peek(text)
-				if (typeof newData === 'undefined') node.data = ''
+				if (newData === undefined) node.data = ''
 				else node.data = newData
 			})
 			return node
@@ -109,44 +110,39 @@ const createDOMRenderer = ({
 
 		return doc.createTextNode(text)
 	}
-	const createFragment = (children = []) => {
-		const node = doc.createDocumentFragment()
-		const anchorStart = createAnchor('DOM-fragment')
-		node.appendChild(anchorStart)
-		children.unshift(anchorStart)
+	const createFragment = () => doc.createDocumentFragment()
 
-		node.$ = {
-			anchorStart,
-			children
-		}
-
-		return node
-	}
 	const removeNode = (node) => {
-		if (node.$) {
-			if (node.$.anchorStart.parentNode !== node) {
-				appendNode(node, ...node.$.children)
-			}
-			return
-		}
-		if (node.parentNode) node.parentNode.removeChild(node)
+		if (!node.parentNode) return
+		node.parentNode.removeChild(node)
 	}
 	const appendNode = (parent, ...nodes) => {
 		for (let node of nodes) {
-			if (node.$) removeNode(node)
 			parent.insertBefore(node, null)
 		}
 	}
 	const insertBefore = (node, ref) => {
-		if (node.$) removeNode(node)
-		if (ref.$) ref = ref.$.anchorStart
 		ref.parentNode.insertBefore(node, ref)
 	}
 
 	const getListenerAdder = cached((event) => {
-		const [eventName, optionsStr] = event.split('--')
-		if (optionsStr) {
-			const optionsArr = optionsStr.split('-')
+		const [prefix, eventName] = event.split(':')
+		if (prefix === 'on') {
+			return (node, cb) => {
+				if (!cb) return
+				if (isSignal(cb)) {
+					let currentHandler = null
+					cb.connect(() => {
+						const newHandler = peek(cb)
+						if (currentHandler) node.removeEventListener(eventName, currentHandler)
+						if (newHandler) node.addEventListener(eventName, newHandler)
+						currentHandler = newHandler
+					})
+				} else node.addEventListener(eventName, cb)
+			}
+		} else {
+			const optionsArr = prefix.split('-')
+			optionsArr.shift()
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
 			return (node, cb) => {
@@ -164,17 +160,6 @@ const createDOMRenderer = ({
 					})
 				} else node.addEventListener(eventName, eventCallbackFallback(node, eventName, cb, options), options)
 			}
-		} else return (node, cb) => {
-			if (!cb) return
-			if (isSignal(cb)) {
-				let currentHandler = null
-				cb.connect(() => {
-					const newHandler = peek(cb)
-					if (currentHandler) node.removeEventListener(eventName, currentHandler)
-					if (newHandler) node.addEventListener(eventName, newHandler)
-					currentHandler = newHandler
-				})
-			} else node.addEventListener(eventName, cb)
 		}
 	})
 	const addListener = (node, event, cb) => {
@@ -183,51 +168,41 @@ const createDOMRenderer = ({
 
 	const setAttr = (node, attr, val) => {
 		if (val === undefined || val === null || val === false) return
-		if (isSignal(val)) val.connect(() => {
-			const newVal = peek(val)
+
+		const handler = (newVal) => {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
 			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
-		})
-		else if (typeof val === 'function') watch(() => {
-			const newVal = peek(val())
-			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
-			else if (newVal === true) node.setAttribute(attr, '')
-			else node.setAttribute(attr, newVal)
-		})
-		else if (val === true) node.setAttribute(attr, '')
-		else node.setAttribute(attr, val)
+		}
+
+		bind(handler, val)
 	}
 	// eslint-disable-next-line max-params
 	const setAttrNS = (node, attr, val, ns) => {
 		if (val === undefined || val === null || val === false) return
-		if (isSignal(val)) val.connect(() => {
-			const newVal = peek(val)
+
+		const handler = (newVal) => {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
 			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
-		})
-		else if (typeof val === 'function') watch(() => {
-			const newVal = peek(val())
-			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
-			else if (newVal === true) node.setAttributeNS(ns, attr, '')
-			else node.setAttributeNS(ns, attr, newVal)
-		})
-		else if (val === true) node.setAttributeNS(ns, attr, '')
-		else node.setAttributeNS(ns, attr, val)
+		}
+
+		bind(handler, val)
 	}
 
 	const getPropSetter = cached((prop) => {
 		prop = propAliases[prop] || prop
-		const [prefix, key] = prop.split(':')
+		const [prefix, key] = splitFirst(prop, ':')
 		if (key) {
 			switch (prefix) {
 				default: {
+					if (prefix === 'on' || prefix.startsWith('on-')) return (node, val) => addListener(node, prop, val)
+					if (onDirective) {
+						const setter = onDirective(prefix, key, prop)
+						if (setter) return setter
+					}
 					const nsuri = namespaces[prefix] || prefix
 					return (node, val) => setAttrNS(node, key, val, nsuri)
-				}
-				case 'on': {
-					return (node, val) => addListener(node, key, val)
 				}
 				case 'attr': {
 					return (node, val) => setAttr(node, key, val)
