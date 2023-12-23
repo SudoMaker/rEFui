@@ -110,7 +110,7 @@ export const directives = {
 	},
 	class(key) {
 		return (node, val) => {
-			if (!val) return
+			if (val === undefined || val === null) return
 
 			const classList = node.classList
 
