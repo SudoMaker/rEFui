@@ -1,7 +1,7 @@
 // eslint-disable-next-line no-empty-function
-const nop = () => {}
+export const nop = () => {}
 
-const cached = (handler) => {
+export const cached = (handler) => {
 	const store = new Map()
 	return (arg) => {
 		let val = store.get(arg)
@@ -13,11 +13,19 @@ const cached = (handler) => {
 	}
 }
 
-const removeFromArr = (arr, val) => {
+export const removeFromArr = (arr, val) => {
   const index = arr.indexOf(val)
   if (index > -1) {
     arr.splice(index, 1)
   }
 }
 
-export { nop, cached, removeFromArr }
+export const isPrimitive = (val) => Object(val) !== val
+
+export const splitFirst = (val, splitter) => {
+	const idx = val.indexOf(splitter)
+	if (idx < 0) return [val]
+	const front = val.slice(0, idx)
+	const back = val.slice(idx + splitter.length, val.length)
+	return [front, back]
+}

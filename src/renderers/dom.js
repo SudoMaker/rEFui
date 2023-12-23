@@ -1,6 +1,6 @@
-import { isSignal, watch, nextTick, peek } from '../signal.js'
+import { isSignal, watch, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
-import { nop, cached } from '../utils.js'
+import { nop, cached, splitFirst } from '../utils.js'
 
 /*
 const NODE_TYPES = {
@@ -28,7 +28,8 @@ const createDOMRenderer = ({
 	namespaces = {},
 	tagNamespaceMap = {},
 	tagAliases = {},
-	propAliases = {}
+	propAliases = {},
+	onDirective
 } = {}) => {
 	let eventPassiveSupported = false
 	let eventOnceSupported = false
@@ -167,47 +168,39 @@ const createDOMRenderer = ({
 
 	const setAttr = (node, attr, val) => {
 		if (val === undefined || val === null || val === false) return
-		if (isSignal(val)) val.connect(() => {
-			const newVal = peek(val)
+
+		const handler = (newVal) => {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
 			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
-		})
-		else if (typeof val === 'function') watch(() => {
-			const newVal = peek(val())
-			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
-			else if (newVal === true) node.setAttribute(attr, '')
-			else node.setAttribute(attr, newVal)
-		})
-		else if (val === true) node.setAttribute(attr, '')
-		else node.setAttribute(attr, val)
+		}
+
+		bind(handler, val)
 	}
 	// eslint-disable-next-line max-params
 	const setAttrNS = (node, attr, val, ns) => {
 		if (val === undefined || val === null || val === false) return
-		if (isSignal(val)) val.connect(() => {
-			const newVal = peek(val)
+
+		const handler = (newVal) => {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
 			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
-		})
-		else if (typeof val === 'function') watch(() => {
-			const newVal = peek(val())
-			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
-			else if (newVal === true) node.setAttributeNS(ns, attr, '')
-			else node.setAttributeNS(ns, attr, newVal)
-		})
-		else if (val === true) node.setAttributeNS(ns, attr, '')
-		else node.setAttributeNS(ns, attr, val)
+		}
+
+		bind(handler, val)
 	}
 
 	const getPropSetter = cached((prop) => {
 		prop = propAliases[prop] || prop
-		const [prefix, key] = prop.split(':')
+		const [prefix, key] = splitFirst(prop, ':')
 		if (key) {
 			switch (prefix) {
 				default: {
 					if (prefix === 'on' || prefix.startsWith('on-')) return (node, val) => addListener(node, prop, val)
+					if (onDirective) {
+						const setter = onDirective(prefix, key, prop)
+						if (setter) return setter
+					}
 					const nsuri = namespaces[prefix] || prefix
 					return (node, val) => setAttrNS(node, key, val, nsuri)
 				}

@@ -1,3 +1,5 @@
+import { isSignal, peek, watch, nextTick, bind } from '../signal.js'
+
 const reverseMap = (keyValsMap) => {
 	const reversed = {}
 	for (let [key, vals] of Object.entries(keyValsMap)) {
@@ -10,7 +12,7 @@ const reverseMap = (keyValsMap) => {
 
 const prefix = (prefix, keyArr) => Object.fromEntries(keyArr.map((i) => [i, `${prefix}${i}`]))
 
-const namespaces = {
+export const namespaces = {
 	xml: 'http://www.w3.org/XML/1998/namespace',
 	html: 'http://www.w3.org/1999/xhtml',
 	svg: 'http://www.w3.org/2000/svg',
@@ -18,7 +20,7 @@ const namespaces = {
 	xlink: 'http://www.w3.org/1999/xlink'
 }
 
-const tagAliases = {}
+export const tagAliases = {}
 
 const attributes = ['class', 'style', 'viewBox', 'd', 'tabindex', 'role']
 
@@ -88,13 +90,50 @@ const namespaceToTagsMap = {
 	]
 }
 
-const tagNamespaceMap = reverseMap(namespaceToTagsMap)
-const propAliases = prefix('attr:', attributes)
+export const tagNamespaceMap = reverseMap(namespaceToTagsMap)
+export const propAliases = prefix('attr:', attributes)
+
+export const directives = {
+	style(key) {
+		return (node, val) => {
+			if (val === undefined || val === null) return
+
+			const styleObj = node.style
+
+			const handler = (newVal) => nextTick(() => {
+				if (newVal === undefined || val === null || val === false) styleObj[key] = 'unset'
+				else styleObj[key] = newVal
+			})
+
+			bind(handler, val)
+		}
+	},
+	class(key) {
+		return (node, val) => {
+			if (!val) return
+
+			const classList = node.classList
+
+			const handler = (newVal) => nextTick(() => {
+				if (newVal) classList.add(key)
+				else classList.remove(key)
+			})
+
+			bind(handler, val)
+		}
+	}
+}
+
+const onDirective = (prefix, key) => {
+	const handler = directives[prefix]
+	if (handler) return handler(key)
+}
 
 export const defaults = {
 	doc: document,
 	namespaces,
 	tagNamespaceMap,
 	tagAliases,
-	propAliases
+	propAliases,
+	onDirective
 }
