@@ -1,4 +1,4 @@
-import { isSignal, peek, watch, nextTick, bind } from '../signal.js'
+import { nextTick, bind } from '../signal.js'
 
 const reverseMap = (keyValsMap) => {
 	const reversed = {}

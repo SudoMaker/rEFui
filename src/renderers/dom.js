@@ -1,4 +1,4 @@
-import { isSignal, watch, nextTick, peek, bind } from '../signal.js'
+import { isSignal, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
 import { nop, cached, splitFirst } from '../utils.js'
 
