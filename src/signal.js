@@ -273,10 +273,7 @@ const Signal = class {
 	}
 
 	*[Symbol.iterator]() {
-		const val = this.get()
-		for (let i of val) {
-			yield i
-		}
+		yield* this.get()
 	}
 
 	[Symbol.toPrimitive](hint) {
