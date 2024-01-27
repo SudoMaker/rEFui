@@ -245,19 +245,19 @@ const Signal = class {
 	}
 
 	and(val) {
-		return signal(this, i => i && read(val))
+		return signal(this, i => read(val) && i)
 	}
 
 	or(val) {
-		return signal(this, i => i || read(val))
+		return signal(this, i => read(val) || i)
 	}
 
 	eq(val) {
-		return signal(this, i => i === read(val))
+		return signal(this, i => read(val) === i)
 	}
 
 	neq(val) {
-		return signal(this, i => i !== read(val))
+		return signal(this, i => read(val) !== i)
 	}
 
 	gt(val) {
