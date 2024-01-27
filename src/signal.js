@@ -245,19 +245,19 @@ const Signal = class {
 	}
 
 	and(val) {
-		return signal(this, i => i && read(val))
+		return signal(this, i => read(val) && i)
 	}
 
 	or(val) {
-		return signal(this, i => i || read(val))
+		return signal(this, i => read(val) || i)
 	}
 
 	eq(val) {
-		return signal(this, i => i === read(val))
+		return signal(this, i => read(val) === i)
 	}
 
 	neq(val) {
-		return signal(this, i => i !== read(val))
+		return signal(this, i => read(val) !== i)
 	}
 
 	gt(val) {
@@ -273,10 +273,7 @@ const Signal = class {
 	}
 
 	*[Symbol.iterator]() {
-		const val = this.get()
-		for (let i of val) {
-			yield i
-		}
+		yield* this.get()
 	}
 
 	[Symbol.toPrimitive](hint) {
