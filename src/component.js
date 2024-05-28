@@ -242,6 +242,7 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 
 				if (obsoleteDataKeys.length === oldData.length) {
 					_clear()
+					newData = currentData
 				} else {
 					if (obsoleteDataKeys.length) {
 						for (let oldItemKey of obsoleteDataKeys) {
