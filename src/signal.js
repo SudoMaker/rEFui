@@ -135,6 +135,10 @@ const onDispose = (cb) => {
 	}
 }
 
+const useEffect = (effect) => {
+	onDispose(effect())
+}
+
 const untrack = (fn) => {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
@@ -550,5 +554,6 @@ export {
 	collectDisposers,
 	onCondition,
 	onDispose,
+	useEffect,
 	untrack
 }
