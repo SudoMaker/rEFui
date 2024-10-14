@@ -23,7 +23,10 @@ Apply order:
 3. Create with namespace
 */
 
+const defaultRendererID = 'DOM'
+
 const createDOMRenderer = ({
+	rendererID = defaultRendererID,
 	doc = document,
 	namespaces = {},
 	tagNamespaceMap = {},
@@ -238,7 +241,7 @@ const createDOMRenderer = ({
 		removeNode
 	}
 
-	return createRenderer(nodeOps)
+	return createRenderer(nodeOps, rendererID)
 }
 
-export { createDOMRenderer }
+export { createDOMRenderer, defaultRendererID }
