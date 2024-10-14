@@ -58,15 +58,13 @@ const tick = () => {
 const nextTick = cb => tick().then(cb)
 
 const flushQueues = () => {
-	flushQueue(signalQueue, true)
-	signalQueue = new Set(signalQueue)
-	flushQueue(effectQueue)
-	effectQueue = new Set(effectQueue)
-	return Promise.resolve().then(() => {
-		if (signalQueue.size || effectQueue.size) {
-			return flushQueues()
-		}
-	})
+	if (signalQueue.size || effectQueue.size) {
+		flushQueue(signalQueue, true)
+		signalQueue = new Set(signalQueue)
+		flushQueue(effectQueue)
+		effectQueue = new Set(effectQueue)
+		return Promise.resolve().then(flushQueues)
+	}
 }
 
 const resetTick = () => {
