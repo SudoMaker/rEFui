@@ -38,61 +38,6 @@ const dispose = (instance) => {
 
 const getCurrentSelf = () => currentCtx && currentCtx.self
 
-const Component = class Component {
-	constructor(tpl, ...args) {
-		const ctx = {
-			exposed: {},
-			disposers: [],
-			render: null,
-			dispose: null,
-			self: this
-		}
-
-		const prevCtx = currentCtx
-		currentCtx = ctx
-
-		ctx.dispose = collectDisposers(ctx.disposers, () => {
-			ctx.render = tpl(...args)
-		})
-
-		currentCtx = prevCtx
-
-		const entries = Object.entries(ctx.exposed)
-
-		if (entries.length) {
-			Object.defineProperties(
-				this,
-				entries.reduce((descriptors, [key, value]) => {
-					if (isSignal(value)) {
-						descriptors[key] = {
-							get: value.get.bind(value),
-							set: value.set.bind(value),
-							configurable: false
-						}
-					} else {
-						descriptors[key] = {
-							value,
-							configurable: false
-						}
-					}
-
-					return descriptors
-				}, {})
-			)
-		}
-
-		ctxMap.set(this, ctx)
-	}
-}
-
-const createComponent = (tpl, props, ...children) => {
-	if (props === null || props === undefined) props = {}
-	const { $ref, ..._props } = props
-	const component = new Component(tpl, _props, ...children)
-	if ($ref) $ref.value = component
-	return component
-}
-
 const Fn = ({ name = 'Fn' }, handler) => {
 	const disposers = []
 	onDispose(() => {
@@ -117,7 +62,11 @@ const Fn = ({ name = 'Fn' }, handler) => {
 				const dispose = collectDisposers(
 					[],
 					() => {
-						newResult = newRender(R)
+						if (typeof newRender === 'function') {
+							newResult = newRender(R)
+						} else {
+							newResult = newRender
+						}
 						if (newResult) {
 							if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
 							R.appendNode(fragment, newResult)
@@ -357,31 +306,43 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 	}
 }
 
-const If = ({ condition, else: otherwise }, handler, elseBranch) => {
-	const ifNot = otherwise || elseBranch
-	if (isSignal(condition))
+const If = ({ condition, else: otherwise }, trueBranch, falseBranch) => {
+	const ifNot = otherwise || falseBranch
+	if (isSignal(condition)) {
 		return Fn({ name: 'If' }, () => {
-			if (condition.value) return handler
+			if (condition.value) return trueBranch
 			else return ifNot
 		})
+	}
 
-	if (typeof condition === 'function')
+	if (typeof condition === 'function') {
 		return Fn({ name: 'If' }, () => {
-			if (condition()) return handler
+			if (condition()) return trueBranch
 			else return ifNot
 		})
+	}
 
-	if (condition) return handler
+	if (condition) return trueBranch
 	return ifNot
 }
 
 const Dynamic = ({ is, ...props }, ...children) => {
 	const current = signal(null)
 	expose({ current })
-	return ({ c }) => c(Fn, { name: 'Dynamic' }, () => {
+	return Fn({ name: 'Dynamic' }, () => {
 		const component = read(is)
-		if (component) return () => c(component, { $ref: current, ...props }, ...children)
+		if (component) return (R) => R.c(component, { $ref: current, ...props }, ...children)
 		else current.value = null
+	})
+}
+
+const Async = ({ future, fallback }) => {
+	const component = signal(fallback)
+	future.then((result) => {
+		component.value = result
+	})
+	return Fn({ name: 'Async' }, () => {
+		return component.value
 	})
 }
 
@@ -390,16 +351,76 @@ const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
 	if (instance !== null && instance !== undefined) return render(instance, R)
 })
 
+const Component = class Component {
+	constructor(tpl, props, ...children) {
+		const ctx = {
+			exposed: {},
+			disposers: [],
+			render: null,
+			dispose: null,
+			self: this
+		}
+
+		const prevCtx = currentCtx
+		currentCtx = ctx
+
+		ctx.dispose = collectDisposers(ctx.disposers, () => {
+			let renderFn = tpl(props, ...children)
+			if (renderFn && renderFn.then) {
+				renderFn = Async({future: Promise.resolve(renderFn), fallback: props && props.fallback || null})
+			}
+			ctx.render = renderFn
+		})
+
+		currentCtx = prevCtx
+
+		const entries = Object.entries(ctx.exposed)
+
+		if (entries.length) {
+			Object.defineProperties(
+				this,
+				entries.reduce((descriptors, [key, value]) => {
+					if (isSignal(value)) {
+						descriptors[key] = {
+							get: value.get.bind(value),
+							set: value.set.bind(value),
+							configurable: false
+						}
+					} else {
+						descriptors[key] = {
+							value,
+							configurable: false
+						}
+					}
+
+					return descriptors
+				}, {})
+			)
+		}
+
+		ctxMap.set(this, ctx)
+	}
+}
+
+const createComponent = (tpl, props, ...children) => {
+	if (props === null || props === undefined) props = {}
+	const { $ref, ..._props } = props
+	const component = new Component(tpl, _props, ...children)
+	if ($ref) $ref.value = component
+	return component
+}
+
 export {
-	Component,
+	expose,
+	render,
+	dispose,
+	getCurrentSelf,
 	Fn,
 	For,
 	If,
 	Dynamic,
+	Async,
 	Render,
-	createComponent,
-	expose,
-	render,
-	dispose,
-	getCurrentSelf
+	Component,
+	createComponent
 }

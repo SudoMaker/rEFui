@@ -179,7 +179,7 @@ const createRenderer = (nodeOps, rendererID) => {
 	const renderer = {
 		...nodeOps,
 		nodeOps,
-		id: rendererID || Symbol('rEFui renderer')
+		id: rendererID || Symbol('rEFui renderer'),
 		normalizeChildren,
 		isFragment,
 		createFragment,

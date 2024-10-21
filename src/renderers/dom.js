@@ -56,8 +56,7 @@ const createDOMRenderer = ({
 		doc.addEventListener(testEvent, nop, options)
 		doc.removeEventListener(testEvent, nop, options)
 	} catch (e) {
-
-		/* do nothing */
+		// do nothing
 	}
 
 	// eslint-disable-next-line max-params
