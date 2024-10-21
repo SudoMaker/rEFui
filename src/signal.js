@@ -58,15 +58,13 @@ const tick = () => {
 const nextTick = cb => tick().then(cb)
 
 const flushQueues = () => {
-	flushQueue(signalQueue, true)
-	signalQueue = new Set(signalQueue)
-	flushQueue(effectQueue)
-	effectQueue = new Set(effectQueue)
-	return Promise.resolve().then(() => {
-		if (signalQueue.size || effectQueue.size) {
-			return flushQueues()
-		}
-	})
+	if (signalQueue.size || effectQueue.size) {
+		flushQueue(signalQueue, true)
+		signalQueue = new Set(signalQueue)
+		flushQueue(effectQueue)
+		effectQueue = new Set(effectQueue)
+		return Promise.resolve().then(flushQueues)
+	}
 }
 
 const resetTick = () => {
@@ -135,6 +133,10 @@ const onDispose = (cb) => {
 	}
 }
 
+const useEffect = (effect) => {
+	onDispose(effect())
+}
+
 const untrack = (fn) => {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
@@ -176,9 +178,9 @@ const Signal = class {
 		})
 
 		if (compute) {
-			watch(pure(() => this.set(value)))
+			watch(pure(this.set.bind(this, value)))
 		} else if (isSignal(value)) {
-			value.connect(pure(() => this.set(value)))
+			value.connect(pure(this.set.bind(this, value)))
 		}
 	}
 
@@ -343,7 +345,7 @@ const listen = (vals, cb) => {
 const signal = (value, compute) => new Signal(value, compute)
 
 const computed = fn => signal(null, fn)
-const merge = (vals, handler) => computed(() => readAll(vals, handler))
+const merge = (vals, handler) => computed(readAll.bind(null, vals, handler))
 const tpl = (strs, ...exprs) => {
 	const raw = { raw: strs }
 	return signal(null, () => String.raw(raw, ...exprs))
@@ -550,5 +552,6 @@ export {
 	collectDisposers,
 	onCondition,
 	onDispose,
+	useEffect,
 	untrack
 }

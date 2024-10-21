@@ -4,7 +4,7 @@ import { removeFromArr } from './utils.js'
 
 const Fragment = '<>'
 
-const createRenderer = (nodeOps) => {
+const createRenderer = (nodeOps, rendererID) => {
 	const {
 		isNode,
 		createNode,
@@ -178,6 +178,8 @@ const createRenderer = (nodeOps) => {
 
 	const renderer = {
 		...nodeOps,
+		nodeOps,
+		id: rendererID || Symbol('rEFui renderer'),
 		normalizeChildren,
 		isFragment,
 		createFragment,

@@ -23,7 +23,10 @@ Apply order:
 3. Create with namespace
 */
 
+const defaultRendererID = 'DOM'
+
 const createDOMRenderer = ({
+	rendererID = defaultRendererID,
 	doc = document,
 	namespaces = {},
 	tagNamespaceMap = {},
@@ -53,8 +56,7 @@ const createDOMRenderer = ({
 		doc.addEventListener(testEvent, nop, options)
 		doc.removeEventListener(testEvent, nop, options)
 	} catch (e) {
-
-		/* do nothing */
+		// do nothing
 	}
 
 	// eslint-disable-next-line max-params
@@ -238,7 +240,7 @@ const createDOMRenderer = ({
 		removeNode
 	}
 
-	return createRenderer(nodeOps)
+	return createRenderer(nodeOps, rendererID)
 }
 
-export { createDOMRenderer }
+export { createDOMRenderer, defaultRendererID }

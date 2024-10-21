@@ -32,7 +32,7 @@ const App = ({ iterable }) => {
 
 ### Fn
 
-Note: define return renderers outside of the `Fn` scope can reduce re-renders if condition doesn't change its match reult.
+Note: define return renderers outside of the `Fn` scope can reduce re-renders if condition doesn't change its matched result.
 
 ```jsx
 import { Fn, read } from 'refui'
@@ -80,6 +80,42 @@ const App = () => {
 		>
 			Click to change tag!
 		</Dynamic>
+	)
+}
+```
+
+### Async
+
+Just like any ordinary components but the component is asynchronous
+
+```jsx
+const AsyncComponent = async ({ apiPath }) => {
+	const resp = await fetch(apiPath)
+	const result = await resp.text()
+
+	return (R) => (
+		<div>{result}</div>
+	)
+}
+```
+
+Async components accepts an extra param: `fallback`, which is a render method or a rendered result to be displayed when the component itself isn't ready. Alternativelly, you can use `Async` as a dedicated component:
+
+```jsx
+import { Async } from 'refui'
+import { AsyncComponent } from './async-component.js'
+
+const App = () => {
+	const currentComponent = signal('button')
+	return (R) => (
+		<AsyncComponent apiPath="some/api" fallback={<div>Loading...</div>} />
+	)
+}
+
+const AppAlternative = () => {
+	const currentComponent = signal('button')
+	return (R) => (
+		<Async future={AsyncComponent('some/api')} fallback={() => <div>Loading...</div>} />
 	)
 }
 ```
