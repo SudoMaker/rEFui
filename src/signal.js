@@ -27,13 +27,9 @@ const flushQueue = (queue, sorted) => {
 		queue.clear()
 
 		if (sorted && queueArr.length > 1) {
-			queueArr.sort((a, b) => a._id - b._id)
-			for (let effects of queueArr) {
-				for (let i of effects) {
-					runQueue.delete(i)
-					runQueue.add(i)
-				}
-			}
+			// Sort in backward
+			const reversedRunArr = [].concat(...queueArr.sort((a, b) => a._id + b._id).map(i => i.toReversed()))
+			runQueue = new Set(reversedRunArr.reverse())
 		} else if (queueArr.length > 10000) {
 			let flattenedArr = []
 			for (let i = 0; i < queueArr.length; i += 10000) {

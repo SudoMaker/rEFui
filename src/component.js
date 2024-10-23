@@ -17,16 +17,16 @@ const render = (instance, renderer) => {
 
 	let rendered = null
 	const _disposers = []
-	const dispose = collectDisposers(
+	const newDispose = collectDisposers(
 		_disposers,
 		() => {
 			rendered = renderComponent(renderer)
 		},
 		() => {
-			removeFromArr(disposers, dispose)
+			removeFromArr(disposers, newDispose)
 		}
 	)
-	disposers.push(dispose)
+	disposers.push(newDispose)
 	return rendered
 }
 
@@ -59,7 +59,7 @@ const Fn = ({ name = 'Fn' }, handler) => {
 			if (currentDispose) currentDispose()
 			if (newRender) {
 				let newResult = null
-				const dispose = collectDisposers(
+				const newDispose = collectDisposers(
 					[],
 					() => {
 						if (typeof newRender === 'function') {
@@ -73,14 +73,14 @@ const Fn = ({ name = 'Fn' }, handler) => {
 						}
 					},
 					() => {
-						removeFromArr(disposers, dispose)
+						removeFromArr(disposers, newDispose)
 						if (newResult) {
 							nextTick(() => R.removeNode(newResult))
 						}
 					}
 				)
-				disposers.push(dispose)
-				currentDispose = dispose
+				disposers.push(newDispose)
+				currentDispose = newDispose
 			}
 		})
 
@@ -97,7 +97,7 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 	let disposers = new Map()
 
 	const _clear = () => {
-		for (let [, dispose] of disposers) dispose(true)
+		for (let [, _dispose] of disposers) _dispose(true)
 		nodeCache = new Map()
 		disposers = new Map()
 		if (ks) ks = new Map()
@@ -384,11 +384,13 @@ const Component = class Component {
 						descriptors[key] = {
 							get: value.get.bind(value),
 							set: value.set.bind(value),
+							enumerable: true,
 							configurable: false
 						}
 					} else {
 						descriptors[key] = {
 							value,
+							enumerable: true,
 							configurable: false
 						}
 					}

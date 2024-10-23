@@ -2,10 +2,11 @@ import { isSignal, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
 import { nop, cached, removeFromArr } from '../utils.js'
 
-const FLAG_NODE = Symbol('F_Node')
-const FLAG_FRAG = Symbol('F_Fragment')
-const FLAG_SELF_CLOSING = Symbol('F_SelfClosing')
-const KEY_TAG_NAME = Symbol('K_TagName')
+const FLAG_NODE = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Node')
+const FLAG_FRAG = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Fragment')
+const FLAG_SELF_CLOSING = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_SelfClosing')
+const KEY_TAG_NAME = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_TagName')
+
 const makeNode = (node) => {
 	node[FLAG_NODE] = true
 	node.parent = null
