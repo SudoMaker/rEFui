@@ -1,6 +1,6 @@
 import { isSignal, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
-import { nop, cached, removeFromArr } from '../utils.js'
+import { nop, cachedStrKeyNoFalsy, removeFromArr } from '../utils.js'
 
 const FLAG_NODE = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Node')
 const FLAG_FRAG = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Fragment')
@@ -125,7 +125,7 @@ const createHTMLRenderer = ({
 		}
 	}
 
-	const getPropSetter = cached((key) => {
+	const getPropSetter = cachedStrKeyNoFalsy((key) => {
 		const [prefix, _key] = key.split(':')
 		if (_key) {
 			switch (prefix) {

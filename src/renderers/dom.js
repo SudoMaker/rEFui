@@ -1,6 +1,6 @@
 import { isSignal, nextTick, peek, bind } from '../signal.js'
 import { createRenderer } from '../renderer.js'
-import { nop, cached, splitFirst } from '../utils.js'
+import { nop, cachedStrKeyNoFalsy, splitFirst } from '../utils.js'
 
 /*
 const NODE_TYPES = {
@@ -80,7 +80,7 @@ const createDOMRenderer = ({
 
 	const isNode = node => !!(node && node.cloneNode)
 
-	const getNodeCreator = cached((tagNameRaw) => {
+	const getNodeCreator = cachedStrKeyNoFalsy((tagNameRaw) => {
 		let [nsuri, tagName] = tagNameRaw.split(':')
 		if (!tagName) {
 			tagName = nsuri
@@ -127,7 +127,7 @@ const createDOMRenderer = ({
 		ref.parentNode.insertBefore(node, ref)
 	}
 
-	const getListenerAdder = cached((event) => {
+	const getListenerAdder = cachedStrKeyNoFalsy((event) => {
 		const [prefix, eventName] = event.split(':')
 		if (prefix === 'on') {
 			return (node, cb) => {
@@ -192,7 +192,7 @@ const createDOMRenderer = ({
 		bind(handler, val)
 	}
 
-	const getPropSetter = cached((prop) => {
+	const getPropSetter = cachedStrKeyNoFalsy((prop) => {
 		prop = propAliases[prop] || prop
 		const [prefix, key] = splitFirst(prop, ':')
 		if (key) {

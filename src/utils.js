@@ -13,6 +13,11 @@ export const cached = (handler) => {
 	}
 }
 
+export const cachedStrKeyNoFalsy = (handler) => {
+	const store = {__proto__: null}
+	return (key) => (store[key] || (store[key] = handler(key)))
+}
+
 export const removeFromArr = (arr, val) => {
   const index = arr.indexOf(val)
   if (index > -1) {
