@@ -1,3 +1,4 @@
+import { RSet } from './rset.js'
 import { removeFromArr } from './utils.js'
 
 let sigID = 0
@@ -7,9 +8,9 @@ let currentDisposers = null
 let currentResolve = null
 let currentTick = null
 
-let signalQueue = new Set()
-let effectQueue = new Set()
-let runQueue = new Set()
+const signalQueue = new RSet()
+const effectQueue = new RSet()
+const runQueue = new RSet()
 
 // Scheduler part
 
@@ -28,16 +29,19 @@ const flushQueue = (queue, sorted) => {
 
 		if (sorted && queueArr.length > 1) {
 			queueArr.sort((a, b) => a._id - b._id)
-			const tempArr = [...(new Set([].concat(...queueArr).reverse()))].reverse()
-			runQueue = new Set(tempArr)
+			// const tempArr = [...(new Set([].concat(...queueArr).reverse()))].reverse()
+			// runQueue = new Set(tempArr)
+			runQueue.fill([].concat(...queueArr))
 		} else if (queueArr.length > 10000) {
 			let flattenedArr = []
 			for (let i = 0; i < queueArr.length; i += 10000) {
 				flattenedArr = flattenedArr.concat(...queueArr.slice(i, i + 10000))
 			}
-			runQueue = new Set(flattenedArr)
+			// runQueue = new Set(flattenedArr)
+			runQueue.fill(flattenedArr)
 		} else {
-			runQueue = new Set([].concat(...queueArr))
+			// runQueue = new Set([].concat(...queueArr))
+			runQueue.fill([].concat(...queueArr))
 		}
 		flushRunQueue()
 	}
@@ -56,9 +60,9 @@ const nextTick = cb => tick().then(cb)
 const flushQueues = () => {
 	if (signalQueue.size || effectQueue.size) {
 		flushQueue(signalQueue, true)
-		signalQueue = new Set(signalQueue)
+		// signalQueue = new Set(signalQueue)
 		flushQueue(effectQueue)
-		effectQueue = new Set(effectQueue)
+		// effectQueue = new Set(effectQueue)
 		return Promise.resolve().then(flushQueues)
 	}
 }
