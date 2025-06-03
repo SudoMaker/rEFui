@@ -1,4 +1,4 @@
-import { nop } from '../utils'
+import { nop } from '../utils.js'
 
 let jsx = nop
 let jsxs = nop
