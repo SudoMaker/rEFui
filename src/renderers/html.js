@@ -7,19 +7,24 @@ const FLAG_FRAG = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Fragmen
 const FLAG_SELF_CLOSING = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_SelfClosing')
 const KEY_TAG_NAME = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_TagName')
 
-const makeNode = (node) => {
-	node[FLAG_NODE] = true
-	node.parent = null
-	return node
+const escapeMap = {
+	'<': '&lt;',
+	'>': '&gt;',
+	'"': '&quot;',
+	"'": '&#039;',
+	'&': '&amp;'
 }
 
 const escapeHtml = (unsafe) => {
 	return `${unsafe}`
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#039;')
+		.replace(/[<>"'&]/g, (match) => escapeMap[match])
+}
+
+
+const makeNode = (node) => {
+	node[FLAG_NODE] = true
+	node.parent = null
+	return node
 }
 
 const defaultRendererID = 'HTML'
@@ -61,7 +66,7 @@ const createHTMLRenderer = ({
 			return node
 		}
 
-		return makeNode([text])
+		return makeNode([escapeHtml(text)])
 	}
 	const createFragment = () => {
 		const frag = makeNode([])
