@@ -1,17 +1,60 @@
-import { collectDisposers, nextTick, read, peek, watch, onDispose, signal, isSignal } from './signal.js'
-import { removeFromArr } from './utils.js'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
+import { removeFromArr, isThenable, isPrimitive } from './utils.js'
 
-const ctxMap = new WeakMap()
+const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
 
 let currentCtx = null
 
-const expose = (ctx) => {
-	if (currentCtx) Object.assign(currentCtx.exposed, ctx)
+function _captured(capturedCtx, capturedFn, ...args) {
+	const prevCtx = currentCtx
+	currentCtx = capturedCtx
+
+	try {
+		return capturedFn(...args)
+	} finally {
+		currentCtx = prevCtx
+	}
+}
+
+const capture = (fn) => _captured.bind(null, currentCtx, freeze(fn))
+
+const expose = (kvObj) => {
+	if (!currentCtx || !isPrimitive(kvObj)) {
+		return
+	}
+
+	const entries = Object.entries(kvObj)
+	if (entries.length) {
+		Object.defineProperties(
+			currentCtx.self,
+			entries.reduce((descriptors, [key, value]) => {
+				if (isSignal(value)) {
+					descriptors[key] = {
+						get: value.get.bind(value),
+						set: value.set.bind(value),
+						enumerable: true,
+						configurable: false
+					}
+				} else {
+					descriptors[key] = {
+						value,
+						enumerable: true,
+						configurable: false
+					}
+				}
+
+				return descriptors
+			}, {})
+		)
+	}
 }
 
 const render = (instance, renderer) => {
-	const ctx = ctxMap.get(instance)
-	if (!ctx) return
+	const ctx = instance[KEY_CTX]
+	if (!ctx) {
+		return
+	}
+
 	const { disposers, render: renderComponent } = ctx
 	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
 
@@ -31,8 +74,11 @@ const render = (instance, renderer) => {
 }
 
 const dispose = (instance) => {
-	const ctx = ctxMap.get(instance)
-	if (!ctx) return
+	const ctx = instance[KEY_CTX]
+	if (!ctx) {
+		return
+	}
+
 	ctx.dispose()
 }
 
@@ -337,10 +383,15 @@ const Dynamic = ({ is, ...props }, ...children) => {
 }
 
 const Async = ({ future, fallback }) => {
+	const self = getCurrentSelf()
 	const component = signal(fallback)
-	future.then((result) => {
-		component.value = result
-	})
+	Promise.resolve(future).then(capture((result) => {
+		if (self[KEY_CTX]) {
+			watch(() => {
+				component.value = read(result)
+			})
+		}
+	}))
 	return Fn({ name: 'Async' }, () => {
 		return component.value
 	})
@@ -354,7 +405,6 @@ const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
 const Component = class Component {
 	constructor(tpl, props, ...children) {
 		const ctx = {
-			exposed: {},
 			disposers: [],
 			render: null,
 			dispose: null,
@@ -364,43 +414,27 @@ const Component = class Component {
 		const prevCtx = currentCtx
 		currentCtx = ctx
 
-		ctx.dispose = collectDisposers(ctx.disposers, () => {
-			let renderFn = tpl(props, ...children)
-			if (renderFn && renderFn.then) {
-				renderFn = Async({future: Promise.resolve(renderFn), fallback: props && props.fallback || null})
-			}
-			ctx.render = renderFn
-		})
-
-		currentCtx = prevCtx
-
-		const entries = Object.entries(ctx.exposed)
-
-		if (entries.length) {
-			Object.defineProperties(
-				this,
-				entries.reduce((descriptors, [key, value]) => {
-					if (isSignal(value)) {
-						descriptors[key] = {
-							get: value.get.bind(value),
-							set: value.set.bind(value),
-							enumerable: true,
-							configurable: false
-						}
-					} else {
-						descriptors[key] = {
-							value,
-							enumerable: true,
-							configurable: false
-						}
-					}
-
-					return descriptors
-				}, {})
-			)
+		try {
+			ctx.dispose = collectDisposers(ctx.disposers, () => {
+				let renderFn = tpl(props, ...children)
+				if (isThenable(renderFn)) {
+					renderFn = Async({future: renderFn, fallback: props && props.fallback || null})
+				}
+				ctx.render = renderFn
+			}, () => {
+				this[KEY_CTX] = null
+			})
+		} catch (error) {
+			for (let i of disposers) i(true)
+			throw error
+		} finally {
+			currentCtx = prevCtx
 		}
 
-		ctxMap.set(this, ctx)
+		Object.defineProperty(this, KEY_CTX, {
+			value: ctx,
+			enumerable: false
+		})
 	}
 }
 
@@ -413,6 +447,7 @@ const createComponent = (tpl, props, ...children) => {
 }
 
 export {
+	capture,
 	expose,
 	render,
 	dispose,

@@ -24,8 +24,8 @@ const createRenderer = (nodeOps, rendererID) => {
 
 	const createFragment = (name) => {
 		const fragment = createFragmentRaw()
-		const anchorStart = createAnchor(`<${name}>`)
-		const anchorEnd = createAnchor(`</${name}>`)
+		const anchorStart = createAnchor(process.env.NODE_ENV === 'production' ? '' : `<${name}>`)
+		const anchorEnd = createAnchor(process.env.NODE_ENV === 'production' ? '' : `</${name}>`)
 		appendNodeRaw(fragment, anchorStart, anchorEnd)
 		parentMap.set(anchorStart, fragment)
 		parentMap.set(anchorEnd, fragment)

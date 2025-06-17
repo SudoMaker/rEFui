@@ -133,15 +133,36 @@ const useEffect = (effect) => {
 	onDispose(effect())
 }
 
+function _frozen(capturedDisposers, capturedEffects, fn, ...args) {
+	const prevDisposers = currentDisposers
+	const prevEffect = currentEffect
+
+	currentDisposers = capturedDisposers
+	currentEffect = capturedEffects
+
+	try {
+		return fn(...args)
+	} finally {
+		currentDisposers = prevDisposers
+		currentEffect = prevEffect
+	}
+}
+
+const freeze = (fn) => _frozen.bind(null, currentDisposers, currentEffect, fn)
+
 const untrack = (fn) => {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
+
 	currentDisposers = null
 	currentEffect = null
-	const ret = fn()
-	currentDisposers = prevDisposers
-	currentEffect = prevEffect
-	return ret
+
+	try {
+		return fn()
+	} finally {
+		currentDisposers = prevDisposers
+		currentEffect = prevEffect
+	}
 }
 
 const Signal = class {
@@ -191,10 +212,6 @@ const Signal = class {
 	get connected() {
 		const { userEffects, signalEffects } = this._
 		return !!(userEffects.length || signalEffects.length)
-	}
-
-	then(cb) {
-		return Promise.resolve(this.get()).then(cb)
 	}
 
 	get() {
@@ -549,5 +566,6 @@ export {
 	onCondition,
 	onDispose,
 	useEffect,
-	untrack
+	untrack,
+	freeze
 }

@@ -25,7 +25,8 @@ export const removeFromArr = (arr, val) => {
   }
 }
 
-export const isPrimitive = (val) => Object(val) !== val
+export const isPrimitive = val => Object(val) !== val
+export const isThenable = val => val && val.then?.call
 
 export const splitFirst = (val, splitter) => {
 	const idx = val.indexOf(splitter)
