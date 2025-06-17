@@ -408,7 +408,6 @@ const Component = class Component {
 			disposers: [],
 			render: null,
 			dispose: null,
-			error: null,
 			self: this
 		}
 
