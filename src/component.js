@@ -19,7 +19,7 @@ function _captured(capturedCtx, capturedFn, ...args) {
 const capture = (fn) => _captured.bind(null, currentCtx, freeze(fn))
 
 const expose = (kvObj) => {
-	if (!currentCtx || !isPrimitive(kvObj)) {
+	if (!currentCtx || isPrimitive(kvObj)) {
 		return
 	}
 
@@ -422,7 +422,10 @@ const Component = class Component {
 				}
 				ctx.render = renderFn
 			}, () => {
-				this[KEY_CTX] = null
+				Object.defineProperty(this, KEY_CTX, {
+					value: null,
+					enumerable: false
+				})
 			})
 		} catch (error) {
 			for (let i of disposers) i(true)
@@ -433,7 +436,8 @@ const Component = class Component {
 
 		Object.defineProperty(this, KEY_CTX, {
 			value: ctx,
-			enumerable: false
+			enumerable: false,
+			configurable: true
 		})
 	}
 }

@@ -156,7 +156,9 @@ const createRenderer = (nodeOps, rendererID) => {
 			if (props) {
 				const { $ref, ..._props } = props
 				setProps(node, _props)
-				if ($ref) $ref.value = node
+				if ($ref) {
+					$ref.value = node
+				}
 			}
 
 			if (normalizedChildren.length) appendNode(node, ...normalizedChildren)
