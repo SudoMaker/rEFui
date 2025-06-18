@@ -1,4 +1,4 @@
-import { removeFromArr } from './utils.js'
+import { nop, removeFromArr } from './utils.js'
 
 let sigID = 0
 let ticking = false
@@ -62,12 +62,12 @@ const flushQueues = () => {
 		return Promise.resolve().then(flushQueues)
 	}
 }
-
+const tickHandler = (resolve) => {
+	currentResolve = resolve
+}
 const resetTick = () => {
 	ticking = false
-	currentTick = new Promise((resolve) => {
-		currentResolve = resolve
-	}).then(flushQueues)
+	currentTick = new Promise(tickHandler).then(flushQueues)
 	currentTick.finally(resetTick)
 }
 
@@ -80,33 +80,36 @@ const pure = (cb) => {
 
 const isPure = cb => !!cb._pure
 
-const createDisposer = (disposers, prevDisposers, dispose) => {
-	let _dispose = () => {
-		for (let i of disposers) i(true)
-		disposers.length = 0
-	}
-	if (dispose) {
-		const __dispose = _dispose
-		_dispose = (batch) => {
-			dispose(batch)
-			__dispose(batch)
-		}
-	}
-	if (prevDisposers) {
-		const __dispose = _dispose
-		_dispose = (batch) => {
-			if (!batch) removeFromArr(prevDisposers, _dispose)
-			__dispose(batch)
-		}
-		prevDisposers.push(_dispose)
+function _dispose_raw() {
+	for (let i of this) i(true)
+	this.length = 0
+}
+function _dispose_with_callback(dispose_raw, batch) {
+	this(batch)
+	dispose_raw(batch)
+}
+function _dispose_with_upstream(prevDisposers, batch) {
+	if (!batch) removeFromArr(prevDisposers, this)
+	this(batch)
+}
+const createDisposer = (disposers, prevDisposers, cleanup) => {
+	let _cleanup = _dispose_raw.bind(disposers)
+
+	if (cleanup) {
+		_cleanup = _dispose_with_callback.bind(cleanup, _cleanup)
 	}
 
-	return _dispose
+	if (prevDisposers) {
+		_cleanup = _dispose_with_upstream.bind(_cleanup, prevDisposers)
+		prevDisposers.push(_cleanup)
+	}
+
+	return _cleanup
 }
 
-const collectDisposers = (disposers, fn, dispose) => {
+const collectDisposers = (disposers, fn, cleanup) => {
 	const prevDisposers = currentDisposers
-	const _dispose = createDisposer(disposers, prevDisposers, dispose)
+	const _dispose = createDisposer(disposers, prevDisposers, cleanup)
 	currentDisposers = disposers
 	fn()
 	currentDisposers = prevDisposers
@@ -115,25 +118,26 @@ const collectDisposers = (disposers, fn, dispose) => {
 
 const _onDispose = (cb) => {
 	const disposers = currentDisposers
-	const dispose = (batch) => {
-		if (!batch) removeFromArr(disposers, dispose)
+	const cleanup = (batch) => {
+		if (!batch) removeFromArr(disposers, cleanup)
 		cb(batch)
 	}
-	disposers.push(dispose)
-	return dispose
+	disposers.push(cleanup)
+	return cleanup
 }
 
 const onDispose = (cb) => {
 	if (currentDisposers) {
 		return _onDispose(cb)
 	}
+	return nop
 }
 
 const useEffect = (effect) => {
 	onDispose(effect())
 }
 
-function _frozen(capturedDisposers, capturedEffects, fn, ...args) {
+function _frozen(capturedDisposers, capturedEffects, ...args) {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
 
@@ -141,14 +145,14 @@ function _frozen(capturedDisposers, capturedEffects, fn, ...args) {
 	currentEffect = capturedEffects
 
 	try {
-		return fn(...args)
+		return this(...args)
 	} finally {
 		currentDisposers = prevDisposers
 		currentEffect = prevEffect
 	}
 }
 
-const freeze = (fn) => _frozen.bind(null, currentDisposers, currentEffect, fn)
+const freeze = (fn) => _frozen.bind(fn, currentDisposers, currentEffect)
 
 const untrack = (fn) => {
 	const prevDisposers = currentDisposers

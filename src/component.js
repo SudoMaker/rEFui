@@ -1,22 +1,27 @@
 import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
-import { removeFromArr, isThenable, isPrimitive } from './utils.js'
+import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
 
 const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
 
 let currentCtx = null
 
-function _captured(capturedCtx, capturedFn, ...args) {
+function _captured(capturedCtx, ...args) {
 	const prevCtx = currentCtx
 	currentCtx = capturedCtx
 
 	try {
-		return capturedFn(...args)
+		return this(...args)
 	} finally {
 		currentCtx = prevCtx
 	}
 }
 
-const capture = (fn) => _captured.bind(null, currentCtx, freeze(fn))
+const capture = (fn) => _captured.bind(freeze(fn), currentCtx)
+
+function _runInSnapshot(fn, ...args) {
+	return fn(...args)
+}
+const snapshot = () => capture(_runInSnapshot)
 
 const expose = (kvObj) => {
 	if (!currentCtx || isPrimitive(kvObj)) {
@@ -55,22 +60,10 @@ const render = (instance, renderer) => {
 		return
 	}
 
-	const { disposers, render: renderComponent } = ctx
+	const { run, render: renderComponent } = ctx
 	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
 
-	let rendered = null
-	const _disposers = []
-	const newDispose = collectDisposers(
-		_disposers,
-		() => {
-			rendered = renderComponent(renderer)
-		},
-		() => {
-			removeFromArr(disposers, newDispose)
-		}
-	)
-	disposers.push(newDispose)
-	return rendered
+	return run(renderComponent, renderer)[0]
 }
 
 const dispose = (instance) => {
@@ -82,18 +75,20 @@ const dispose = (instance) => {
 	ctx.dispose()
 }
 
-const getCurrentSelf = () => currentCtx && currentCtx.self
+const getCurrentSelf = () => currentCtx?.self
 
 const Fn = ({ name = 'Fn' }, handler) => {
-	const disposers = []
-	onDispose(() => {
-		for (let i of disposers) i(true)
-		disposers.length = 0
-	})
+	if (!handler) {
+		return nop
+	}
+
+	const run = currentCtx?.run
+
+	if (!run) {
+		return nop
+	}
 
 	return (R) => {
-		if (!handler) return
-
 		const fragment = R.createFragment(name)
 		let currentRender = null
 		let currentDispose = null
@@ -104,29 +99,17 @@ const Fn = ({ name = 'Fn' }, handler) => {
 			currentRender = newRender
 			if (currentDispose) currentDispose()
 			if (newRender) {
-				let newResult = null
-				const newDispose = collectDisposers(
-					[],
-					() => {
-						if (typeof newRender === 'function') {
-							newResult = newRender(R)
-						} else {
-							newResult = newRender
-						}
-						if (newResult) {
-							if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
-							R.appendNode(fragment, newResult)
-						}
-					},
-					() => {
-						removeFromArr(disposers, newDispose)
-						if (newResult) {
+				currentDispose = run(() => {
+					const newResult = (typeof newRender === 'function') ? newRender(R) : newRender
+
+					if (newResult) {
+						R.appendNode(fragment, R.ensureElement(newResult))
+						onDispose(() => {
 							nextTick(() => R.removeNode(newResult))
-						}
+						})
 					}
-				)
-				disposers.push(newDispose)
-				currentDispose = newDispose
+
+				})[1]
 			}
 		})
 
@@ -353,23 +336,28 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 }
 
 const If = ({ condition, else: otherwise }, trueBranch, falseBranch) => {
-	const ifNot = otherwise || falseBranch
+	if (otherwise) {
+		falseBranch = otherwise
+	}
 	if (isSignal(condition)) {
 		return Fn({ name: 'If' }, () => {
 			if (condition.value) return trueBranch
-			else return ifNot
+			else return falseBranch
 		})
 	}
 
 	if (typeof condition === 'function') {
 		return Fn({ name: 'If' }, () => {
-			if (condition()) return trueBranch
-			else return ifNot
+			if (condition()) {
+				return trueBranch
+			} else {
+				return falseBranch
+			}
 		})
 	}
 
 	if (condition) return trueBranch
-	return ifNot
+	return falseBranch
 }
 
 const Dynamic = ({ is, ...props }, ...children) => {
@@ -405,7 +393,7 @@ const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
 const Component = class Component {
 	constructor(tpl, props, ...children) {
 		const ctx = {
-			disposers: [],
+			run: null,
 			render: null,
 			dispose: null,
 			self: this
@@ -414,8 +402,23 @@ const Component = class Component {
 		const prevCtx = currentCtx
 		currentCtx = ctx
 
+		const disposers = []
+
+		ctx.run = capture((fn, ...args) => {
+			let result
+			const cleanup = collectDisposers([], () => {
+				result = fn(...args)
+			}, (batch) => {
+				if (!batch) {
+					removeFromArr(disposers, cleanup)
+				}
+			})
+			disposers.push(cleanup)
+			return [result, cleanup]
+		})
+
 		try {
-			ctx.dispose = collectDisposers(ctx.disposers, () => {
+			ctx.dispose = collectDisposers(disposers, () => {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
 					renderFn = Async({future: renderFn, fallback: props && props.fallback || null})
@@ -452,6 +455,7 @@ const createComponent = (tpl, props, ...children) => {
 
 export {
 	capture,
+	snapshot,
 	expose,
 	render,
 	dispose,

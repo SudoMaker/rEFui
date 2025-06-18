@@ -114,7 +114,7 @@ const createRenderer = (nodeOps, rendererID) => {
 	}
 
 	const ensureElement = (el) => {
-		if (el === null || el === undefined || isNode(el)) return el
+		if (el ?? isNode(el)) return el
 		return createTextNode(el)
 	}
 
@@ -186,6 +186,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		isFragment,
 		createFragment,
 		createElement,
+		ensureElement,
 		removeNode,
 		appendNode,
 		insertBefore,
