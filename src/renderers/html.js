@@ -54,7 +54,12 @@ const createHTMLRenderer = ({
 		node.nodeName = tagName
 		return node
 	}
-	const createAnchor = (anchorName) => makeNode([''])
+	const createAnchor = (anchorName) => {
+		if (process.env.NODE_ENV !== 'production' && anchorName) {
+			return makeNode([`<!--${escapeHtml(anchorName)}-->`])
+		}
+		return makeNode([''])
+	}
 	const createTextNode = (text) => {
 		if (isSignal(text)) {
 			const node = makeNode([''])

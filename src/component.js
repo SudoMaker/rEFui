@@ -1,4 +1,4 @@
-import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
+import { collectDisposers, tick, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
 import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
 
 const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
@@ -360,14 +360,24 @@ const If = ({ condition, else: otherwise }, trueBranch, falseBranch) => {
 	return falseBranch
 }
 
-const Dynamic = ({ is, ...props }, ...children) => {
-	const current = signal(null)
-	expose({ current })
-	return Fn({ name: 'Dynamic' }, () => {
-		const component = read(is)
-		if (component) return (R) => R.c(component, { $ref: current, ...props }, ...children)
-		else current.value = null
+function Dyn(name, props, ...children) {
+	let current = null
+	let renderFn = null
+
+	return Fn({ name }, () => {
+		const component = read(this)
+		if (current === component) {
+			return renderFn
+		}
+
+		current = component
+		renderFn = (R) => R.c(component, props, ...children)
+
+		return renderFn
 	})
+}
+const Dynamic = ({ is, ...props }, ...children) => {
+	return Dyn.call('Dynamic', is, props, ...children)
 }
 
 const Async = ({ future, fallback }) => {
@@ -390,7 +400,7 @@ const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
 	if (instance !== null && instance !== undefined) return render(instance, R)
 })
 
-const Component = class Component {
+class Component {
 	constructor(tpl, props, ...children) {
 		const ctx = {
 			run: null,
@@ -445,13 +455,58 @@ const Component = class Component {
 	}
 }
 
-const createComponent = (tpl, props, ...children) => {
-	if (props === null || props === undefined) props = {}
-	const { $ref, ..._props } = props
-	const component = new Component(tpl, _props, ...children)
-	if ($ref) $ref.value = component
-	return component
-}
+const createComponent = (() => {
+	const createComponentRaw = (hmr, tpl, props, ...children) => {
+		props ??= {}
+		if (isSignal(tpl)) {
+			return new Component(Dyn.bind(tpl, null), props, ...children)
+		}
+		const { $ref, ..._props } = props
+		const component = new Component(tpl, _props, ...children)
+		if ($ref) $ref.value = component
+		return component
+	}
+
+	if (import.meta.hot) {
+		const KEY_HMRWARP = Symbol.for('RE_K_HMRWRAP')
+		const KEY_HMRWARPPED = Symbol('K_HMRWARPPED')
+		const updateHMR = (fn) => {
+			if (typeof fn !== 'function') return fn
+			const wrapped = fn.bind(null)
+			wrapped[KEY_HMRWARPPED] = true
+			return wrapped
+		}
+		const wrap = (fn) => {
+			const updateSig = signal(fn, updateHMR)
+			const ret = [
+				updateSig,
+				(newFn) => {
+					updateSig.set(newFn)
+					return tick()
+				}
+			]
+			Object.defineProperty(fn, KEY_HMRWARP, {
+				value: ret,
+				enumerable: false
+			})
+			return ret
+		}
+		return (tpl, props, ...children) => {
+			let hmr = false
+			if (typeof tpl === 'function') {
+				if (tpl[KEY_HMRWARP]) {
+					[tpl] = tpl[KEY_HMRWARP]
+				} else if (!tpl[KEY_HMRWARPPED]) {
+					[tpl] = wrap(tpl)
+				}
+				hmr = true
+			}
+			return createComponentRaw(hmr, tpl, props, ...children)
+		}
+	}
+
+	return (...args) => createComponentRaw(false, ...args)
+})()
 
 export {
 	capture,

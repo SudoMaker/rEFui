@@ -96,7 +96,7 @@ const createDOMRenderer = ({
 
 	const createNode = tagName => getNodeCreator(tagName)()
 	const createAnchor = (anchorName) => {
-		if (process.env.NODE_ENV === 'development') return doc.createComment(anchorName || '')
+		if (process.env.NODE_ENV !== 'production' && anchorName) return doc.createComment(anchorName || '')
 		return doc.createTextNode('')
 	}
 	const createTextNode = (text) => {
