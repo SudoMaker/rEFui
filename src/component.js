@@ -30,27 +30,32 @@ const expose = (kvObj) => {
 
 	const entries = Object.entries(kvObj)
 	if (entries.length) {
-		Object.defineProperties(
-			currentCtx.self,
-			entries.reduce((descriptors, [key, value]) => {
-				if (isSignal(value)) {
-					descriptors[key] = {
-						get: value.get.bind(value),
-						set: value.set.bind(value),
-						enumerable: true,
-						configurable: false
-					}
-				} else {
-					descriptors[key] = {
-						value,
-						enumerable: true,
-						configurable: false
-					}
-				}
+		currentCtx.hasExpose = true
 
-				return descriptors
-			}, {})
-		)
+		const descriptors = entries.reduce((descriptors, [key, value]) => {
+			if (isSignal(value)) {
+				descriptors[key] = {
+					get: value.get.bind(value),
+					set: value.set.bind(value),
+					enumerable: true,
+					configurable: true
+				}
+			} else {
+				descriptors[key] = {
+					value,
+					enumerable: true,
+					configurable: true
+				}
+			}
+
+			return descriptors
+		}, {})
+
+		Object.defineProperties(currentCtx.self, descriptors)
+
+		if (currentCtx.wrapper) {
+			Object.defineProperties(currentCtx.wrapper, descriptors)
+		}
 	}
 }
 
@@ -77,7 +82,7 @@ const dispose = (instance) => {
 
 const getCurrentSelf = () => currentCtx?.self
 
-const Fn = ({ name = 'Fn' }, handler) => {
+const Fn = ({ name = 'Fn', ctx }, handler, handleError) => {
 	if (!handler) {
 		return nop
 	}
@@ -94,22 +99,44 @@ const Fn = ({ name = 'Fn' }, handler) => {
 		let currentDispose = null
 
 		watch(() => {
-			const newRender = handler()
+			const newRender = read(handler(read(ctx)))
 			if (newRender === currentRender) return
 			currentRender = newRender
-			if (currentDispose) currentDispose()
 			if (newRender) {
+				const prevDispose = currentDispose
 				currentDispose = run(() => {
-					const newResult = (typeof newRender === 'function') ? newRender(R) : newRender
+					let newResult = null
+					let errored = false
+					try {
+						newResult = R.ensureElement((typeof newRender === 'function') ? newRender(R) : newRender)
+					} catch (err) {
+						errored = true
+						const errorHandler = peek(handleError)
+						if (errorHandler) {
+							newResult = R.ensureElement(errorHandler(err, name, ctx))
+						} else {
+							throw err
+						}
+					}
+
+					if (!errored && prevDispose) {
+						prevDispose()
+					}
 
 					if (newResult) {
-						R.appendNode(fragment, R.ensureElement(newResult))
+						R.appendNode(fragment, newResult)
 						onDispose(() => {
 							nextTick(() => R.removeNode(newResult))
 						})
+					} else {
+						if (errored) {
+							onDispose(prevDispose)
+						}
 					}
-
 				})[1]
+			} else {
+				currentDispose?.()
+				currentDispose = null
 			}
 		})
 
@@ -360,24 +387,44 @@ const If = ({ condition, else: otherwise }, trueBranch, falseBranch) => {
 	return falseBranch
 }
 
-function Dyn(name, props, ...children) {
+function Dyn(name, catchErr, ctx, props, ...children) {
+	const self = currentCtx.self
+
+	const $ref = props.$ref ??= signal()
+
 	let current = null
 	let renderFn = null
 
-	return Fn({ name }, () => {
+	return Fn({ name, ctx }, () => {
 		const component = read(this)
 		if (current === component) {
 			return renderFn
 		}
 
 		current = component
-		renderFn = (R) => R.c(component, props, ...children)
+		renderFn = (R) => {
+			const ret = R.c(component, props, ...children)
+
+			const newInstance = $ref.peek()
+			const newCtx = newInstance?.[KEY_CTX]
+			if (newCtx) {
+				if (newCtx.hasExpose) {
+					const extraKeys = Object.getOwnPropertyDescriptors(newInstance)
+					delete extraKeys[KEY_CTX]
+					Object.defineProperties(self, extraKeys)
+				}
+
+				newCtx.wrapper = self
+			}
+
+			return ret
+		}
 
 		return renderFn
-	})
+	}, catchErr)
 }
-const Dynamic = ({ is, ...props }, ...children) => {
-	return Dyn.call('Dynamic', is, props, ...children)
+const Dynamic = ({ is, ctx, ...props }, ...children) => {
+	return Dyn.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
 const Async = ({ future, fallback }) => {
@@ -406,6 +453,8 @@ class Component {
 			run: null,
 			render: null,
 			dispose: null,
+			wrapper: null,
+			hasExpose: false,
 			self: this
 		}
 
@@ -456,10 +505,10 @@ class Component {
 }
 
 const createComponent = (() => {
-	const createComponentRaw = (hmr, tpl, props, ...children) => {
+	const createComponentRaw = (tpl, props, ...children) => {
 		props ??= {}
 		if (isSignal(tpl)) {
-			return new Component(Dyn.bind(tpl, null), props, ...children)
+			return new Component(Dyn.bind(tpl, 'Signal', null, null), props, ...children)
 		}
 		const { $ref, ..._props } = props
 		const component = new Component(tpl, _props, ...children)
@@ -468,44 +517,63 @@ const createComponent = (() => {
 	}
 
 	if (import.meta.hot) {
-		const KEY_HMRWARP = Symbol.for('RE_K_HMRWRAP')
+		const KEY_HMRWRAP = Symbol.for('RE_K_HMRWRAP')
 		const KEY_HMRWARPPED = Symbol('K_HMRWARPPED')
+
+		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
+
 		const updateHMR = (fn) => {
 			if (typeof fn !== 'function') return fn
 			const wrapped = fn.bind(null)
 			wrapped[KEY_HMRWARPPED] = true
 			return wrapped
 		}
+
 		const wrap = (fn) => {
-			const updateSig = signal(fn, updateHMR)
-			const ret = [
-				updateSig,
-				(newFn) => {
-					updateSig.set(newFn)
-					return tick()
-				}
-			]
-			Object.defineProperty(fn, KEY_HMRWARP, {
-				value: ret,
+			const wrapped = signal(fn, updateHMR)
+			Object.defineProperty(fn, KEY_HMRWRAP, {
+				value: wrapped,
 				enumerable: false
 			})
-			return ret
+			wrapped.name = fn.name
+			wrapped.hot = false
+			return wrapped
 		}
-		return (tpl, props, ...children) => {
-			let hmr = false
-			if (typeof tpl === 'function') {
-				if (tpl[KEY_HMRWARP]) {
-					[tpl] = tpl[KEY_HMRWARP]
-				} else if (!tpl[KEY_HMRWARPPED]) {
-					[tpl] = wrap(tpl)
-				}
-				hmr = true
+
+		const handleError = (err, _, {name, hot}) => {
+			if (hot) {
+				console.error(`Error happened when rendering <${name}>:\n`, err)
+			} else {
+				throw err
 			}
-			return createComponentRaw(hmr, tpl, props, ...children)
+		}
+
+		Object.defineProperty(globalThis, KEY_HMRWRAP, {
+			value: wrap
+		})
+
+		return (tpl, props, ...children) => {
+			let hotLevel = 0
+			if (typeof tpl === 'function' && !builtins.has(tpl)) {
+				if (tpl[KEY_HMRWRAP]) {
+					tpl = tpl[KEY_HMRWRAP]
+					hotLevel = 2
+				} else if (!tpl[KEY_HMRWARPPED]) {
+					tpl = wrap(tpl)
+					hotLevel = 1
+				}
+			}
+
+			if (hotLevel) {
+				const ret = new Component(Dyn.bind(tpl, null, handleError, tpl), props ?? {}, ...children)
+				return ret
+			}
+
+			return createComponentRaw(tpl, props, ...children)
 		}
 	}
 
-	return (...args) => createComponentRaw(false, ...args)
+	return createComponentRaw
 })()
 
 export {

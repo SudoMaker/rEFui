@@ -24,8 +24,8 @@ const createRenderer = (nodeOps, rendererID) => {
 
 	const createFragment = (name) => {
 		const fragment = createFragmentRaw()
-		const anchorStart = createAnchor((process.env.NODE_ENV === 'production' || !name) ? '' : `<${name}>`)
-		const anchorEnd = createAnchor((process.env.NODE_ENV === 'production' || !name) ? '' : `</${name}>`)
+		const anchorStart = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `<${name}>`))
+		const anchorEnd = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `</${name}>`))
 		appendNodeRaw(fragment, anchorStart, anchorEnd)
 		parentMap.set(anchorStart, fragment)
 		parentMap.set(anchorEnd, fragment)
@@ -114,7 +114,7 @@ const createRenderer = (nodeOps, rendererID) => {
 	}
 
 	const ensureElement = (el) => {
-		if (el ?? isNode(el)) return el
+		if (el === null || el === undefined || isNode(el)) return el
 		return createTextNode(el)
 	}
 

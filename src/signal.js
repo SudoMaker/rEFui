@@ -111,8 +111,11 @@ const collectDisposers = (disposers, fn, cleanup) => {
 	const prevDisposers = currentDisposers
 	const _dispose = createDisposer(disposers, prevDisposers, cleanup)
 	currentDisposers = disposers
-	fn()
-	currentDisposers = prevDisposers
+	try {
+		fn()
+	} finally {
+		currentDisposers = prevDisposers
+	}
 	return _dispose
 }
 
