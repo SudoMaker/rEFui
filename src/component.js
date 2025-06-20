@@ -395,7 +395,7 @@ function If({ condition, else: otherwise }, trueBranch, falseBranch) {
 	return falseBranch
 }
 
-function _dynWrap(name, catchErr, ctx, props, ...children) {
+function _dynContainer(name, catchErr, ctx, props, ...children) {
 	const self = currentCtx.self
 
 	const $ref = props.$ref ??= signal()
@@ -432,7 +432,7 @@ function _dynWrap(name, catchErr, ctx, props, ...children) {
 	}, catchErr)
 }
 function Dynamic({ is, ctx, ...props }, ...children) {
-	return _dynWrap.call(is, 'Dynamic', null, ctx, props, ...children)
+	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
 function Async({ future, fallback }) {
@@ -520,7 +520,7 @@ const createComponent = (function() {
 	function createComponentRaw(tpl, props, ...children) {
 		props ??= {}
 		if (isSignal(tpl)) {
-			return new Component(_dynWrap.bind(tpl, 'Signal', null, null), props, ...children)
+			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props, ...children)
 		}
 		const { $ref, ..._props } = props
 		const component = new Component(tpl, _props, ...children)
@@ -530,7 +530,7 @@ const createComponent = (function() {
 
 	if (import.meta.hot) {
 		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
-		return createHMRComponentWrap({ builtins, _dynWrap, Component, createComponentRaw })
+		return createHMRComponentWrap({ builtins, _dynContainer, Component, createComponentRaw })
 	}
 
 	return createComponentRaw
