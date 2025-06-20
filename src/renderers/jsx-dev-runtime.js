@@ -3,8 +3,8 @@ import { nop } from '../utils.js'
 let jsxDEV = nop
 let Fragment = '<>'
 
-const wrap = (R) => {
-	jsxDEV = (tag, {children = [], ...props}, key, ...args) => {
+function wrap(R) {
+	jsxDEV = function(tag, {children = [], ...props}, key, ...args) {
 		try {
 			if (key) {
 				props.key = key

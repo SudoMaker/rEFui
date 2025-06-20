@@ -19,6 +19,7 @@
   ],
   "exports": {
     ".": "./src/index.js",
+    "./hmr": "./src/hmr.js",
     "./dom": "./src/renderers/dom.js",
     "./html": "./src/renderers/html.js",
     "./jsx-runtime": "./src/renderers/jsx-runtime.js",

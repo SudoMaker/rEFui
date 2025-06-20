@@ -1,6 +1,6 @@
 import { nextTick, bind } from '../signal.js'
 
-const reverseMap = (keyValsMap) => {
+function reverseMap(keyValsMap) {
 	const reversed = {}
 	for (let [key, vals] of Object.entries(keyValsMap)) {
 		for (let val of vals) {
@@ -10,7 +10,11 @@ const reverseMap = (keyValsMap) => {
 	return reversed
 }
 
-const prefix = (prefix, keyArr) => Object.fromEntries(keyArr.map((i) => [i, `${prefix}${i}`]))
+function prefix(prefix, keyArr) {
+	return Object.fromEntries(keyArr.map(function(i) {
+		return [i, `${prefix}${i}`]
+	}))
+}
 
 export const namespaces = {
 	xml: 'http://www.w3.org/XML/1998/namespace',
@@ -95,36 +99,40 @@ export const propAliases = prefix('attr:', attributes)
 
 export const directives = {
 	style(key) {
-		return (node, val) => {
+		return function(node, val) {
 			if (val === undefined || val === null) return
 
 			const styleObj = node.style
 
-			const handler = (newVal) => nextTick(() => {
-				if (newVal === undefined || val === null || val === false) styleObj[key] = 'unset'
-				else styleObj[key] = newVal
-			})
+			function handler(newVal) {
+				return nextTick(function() {
+					if (newVal === undefined || val === null || val === false) styleObj[key] = 'unset'
+					else styleObj[key] = newVal
+				})
+			}
 
 			bind(handler, val)
 		}
 	},
 	class(key) {
-		return (node, val) => {
+		return function(node, val) {
 			if (val === undefined || val === null) return
 
 			const classList = node.classList
 
-			const handler = (newVal) => nextTick(() => {
-				if (newVal) classList.add(key)
-				else classList.remove(key)
-			})
+			function handler(newVal) {
+				return nextTick(function() {
+					if (newVal) classList.add(key)
+					else classList.remove(key)
+				})
+			}
 
 			bind(handler, val)
 		}
 	}
 }
 
-const onDirective = (prefix, key) => {
+function onDirective(prefix, key) {
 	const handler = directives[prefix]
 	if (handler) return handler(key)
 }

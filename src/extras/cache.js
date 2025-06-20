@@ -1,14 +1,16 @@
 import { signal, untrack, onDispose } from '../signal.js'
 import { render, expose, createComponent, For } from '../component.js'
 
-const createCache = (tpl) => {
+function createCache(tpl) {
 	let dataArr = []
 	const componentsArr = []
 	const components = signal(componentsArr)
 	let componentCache = []
 
-	const getIndex = handler => dataArr.findIndex(handler)
-	const add = (...newData) => {
+	function getIndex(handler) {
+		return dataArr.findIndex(handler)
+	}
+	function add(...newData) {
 		if (!newData.length) return
 		for (let i of newData) {
 			let component = componentCache.pop()
@@ -19,7 +21,7 @@ const createCache = (tpl) => {
 		}
 		components.trigger()
 	}
-	const replace = (newData) => {
+	function replace(newData) {
 		let idx = 0
 		dataArr = newData.slice()
 		const newDataLength = newData.length
@@ -35,15 +37,17 @@ const createCache = (tpl) => {
 			components.trigger()
 		}
 	}
-	const get = idx => dataArr[idx]
-	const set = (idx, data) => {
+	function get(idx) {
+		return dataArr[idx]
+	}
+	function set(idx, data) {
 		const component = componentsArr[idx]
 		if (component) {
 			component.update(data)
 			dataArr[idx] = data
 		}
 	}
-	const del = (idx) => {
+	function del(idx) {
 		const component = componentsArr[idx]
 		if (component) {
 			componentCache.push(component)
@@ -52,33 +56,39 @@ const createCache = (tpl) => {
 			components.trigger()
 		}
 	}
-	const clear = () => {
+	function clear() {
 		componentCache = componentCache.concat(componentsArr)
 		componentsArr.length = 0
 		dataArr.length = 0
 		components.trigger()
 	}
-	const size = () => componentsArr.length
+	function size() {
+		return componentsArr.length
+	}
 
-	const dispose = () => {
+	function dispose() {
 		clear()
 		for (let i of componentsArr) dispose(i)
 	}
 
 	onDispose(dispose)
 
-	const Cached = () => (R) => {
-		const cache = new WeakMap()
-		expose({ cache })
-		return R.c(For, { entries: components }, (row) => {
-			let node = cache.get(row)
-			if (!node) {
-				node = untrack(() => render(row, R))
-				cache.set(row, node)
-			}
-			return node
-		})
-	}
+	function Cached() {
+		return function(R) {
+			const cache = new WeakMap()
+			expose({ cache })
+			return R.c(For, { entries: components }, function(row) {
+				let node = cache.get(row)
+				if (!node) {
+					node = untrack(function() {
+						return render(row, R)
+					})
+					cache.set(row, node)
+				}
+				return node
+			})
+		}
+}
 
 	return {
 		getIndex,

@@ -4,7 +4,10 @@ export const KEY_HMRWRAP = Symbol('K_HMRWRAP')
 export const KEY_HMRWARPPED = Symbol('K_HMRWARPPED')
 
 function makeHMR(fn) {
-	if (typeof fn !== 'function') return fn
+	if (typeof fn !== 'function') {
+		console.log('??????hh', fn)
+		return fn
+	}
 	const wrapped = fn.bind(null)
 	wrapped[KEY_HMRWARPPED] = true
 	return wrapped
@@ -29,8 +32,8 @@ function handleError(err, _, {name, hot}) {
 	}
 }
 
-export function createHMRComponentWrap({builtins, Dyn, Component, createComponentRaw}) {
-	return (tpl, props, ...children) => {
+export function createHMRComponentWrap({builtins, _dynWrap, Component, createComponentRaw}) {
+	return function(tpl, props, ...children) {
 		let hotLevel = 0
 
 		if (typeof tpl === 'function' && !builtins.has(tpl)) {
@@ -44,7 +47,7 @@ export function createHMRComponentWrap({builtins, Dyn, Component, createComponen
 		}
 
 		if (hotLevel) {
-			const ret = new Component(Dyn.bind(tpl, null, handleError, tpl), props ?? {}, ...children)
+			const ret = new Component(_dynWrap.bind(tpl, null, handleError, tpl), props ?? {}, ...children)
 			return ret
 		}
 
@@ -54,7 +57,7 @@ export function createHMRComponentWrap({builtins, Dyn, Component, createComponen
 
 export function setup({url, accept, invalidate}) {
 	const thisModule = import(/* @vite-ignore */url)
-	accept(async (newModule) => {
+	accept(async function(newModule) {
 		if (!newModule) {
 			return
 		}

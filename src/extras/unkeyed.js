@@ -1,11 +1,11 @@
 import { signal, watch, read } from '../signal.js'
 import { For } from '../component.js'
 
-export const UnKeyed = ({ entries, ...args }, item) => {
+export function UnKeyed({ entries, ...args }, item) {
 	const rawSigEntries = []
 	const sigEntries = signal(rawSigEntries)
 
-	watch(() => {
+	watch(function() {
 		const rawEntries = read(entries)
 		const oldLength = rawSigEntries.length
 		rawSigEntries.length = rawEntries.length
@@ -17,5 +17,7 @@ export const UnKeyed = ({ entries, ...args }, item) => {
 		if (oldLength !== rawEntries.length) sigEntries.trigger()
 	})
 
-	return (R) => R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, item)
+	return function(R) {
+		return R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, item)
+	}
 }
