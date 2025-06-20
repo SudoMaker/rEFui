@@ -15,13 +15,16 @@ const escapeMap = {
 	'&': '&amp;'
 }
 
-const escapeHtml = (unsafe) => {
+function escapeReplacer(match) {
+	return escapeMap[match]
+}
+function escapeHtml(unsafe) {
 	return `${unsafe}`
-		.replace(/[<>"'&]/g, (match) => escapeMap[match])
+		.replace(/[<>"'&]/g, escapeReplacer)
 }
 
 
-const makeNode = (node) => {
+function makeNode(node) {
 	node[FLAG_NODE] = true
 	node.parent = null
 	return node
@@ -29,9 +32,11 @@ const makeNode = (node) => {
 
 const defaultRendererID = 'HTML'
 
-const serialize = (node) => node.flat(Infinity).join('')
+function serialize(node) {
+	return node.flat(Infinity).join('')
+}
 
-const createHTMLRenderer = ({
+function createHTMLRenderer ({
 	rendererID = defaultRendererID,
 	selfClosingTags = {
 		hr: true,
@@ -39,10 +44,12 @@ const createHTMLRenderer = ({
 		input: true,
 		img: true,
 	},
-} = {}) => {
-	const isNode = (node) => !!(node && node[FLAG_NODE])
+} = {}) {
+	function isNode(node) {
+		return !!(node && node[FLAG_NODE])
+	}
 
-	const createNode = (tagName) => {
+	function createNode(tagName) {
 		const node = makeNode([`<${tagName}`, []])
 		if (selfClosingTags[tagName]) {
 			node.push('/>')
@@ -54,11 +61,16 @@ const createHTMLRenderer = ({
 		node.nodeName = tagName
 		return node
 	}
-	const createAnchor = (anchorName) => makeNode([''])
-	const createTextNode = (text) => {
+	function createAnchor(anchorName) {
+		if (process.env.NODE_ENV !== 'production' && anchorName) {
+			return makeNode([`<!--${escapeHtml(anchorName)}-->`])
+		}
+		return makeNode([''])
+	}
+	function createTextNode(text) {
 		if (isSignal(text)) {
 			const node = makeNode([''])
-			text.connect(() => {
+			text.connect(function() {
 				const newData = peek(text)
 				if (newData === undefined || newData === null) node[0] = ''
 				else node[0] = escapeHtml(newData)
@@ -68,13 +80,13 @@ const createHTMLRenderer = ({
 
 		return makeNode([escapeHtml(text)])
 	}
-	const createFragment = () => {
+	function createFragment() {
 		const frag = makeNode([])
 		frag[FLAG_FRAG] = true
 		return frag
 	}
 
-	const revokeSelfClosing = (parent) => {
+	function revokeSelfClosing(parent) {
 		if (parent[FLAG_SELF_CLOSING]) {
 			parent.pop()
 			parent.push('>', [], `</${parent[KEY_TAG_NAME]}>`)
@@ -83,12 +95,12 @@ const createHTMLRenderer = ({
 		}
 	}
 
-	const removeNode = (node) => {
+	function removeNode(node) {
 		if (!node.parent) return
 		removeFromArr(node.parent, node)
 		node.parent = null
 	}
-	const appendNode = (parent, ...nodes) => {
+	function appendNode(parent, ...nodes) {
 		let _parent = parent
 		if (!parent[FLAG_FRAG]) {
 			revokeSelfClosing(parent)
@@ -107,7 +119,7 @@ const createHTMLRenderer = ({
 			}
 		}
 	}
-	const insertBefore = (node, ref) => {
+	function insertBefore(node, ref) {
 		const parent = ref.parent
 		if (!parent) {
 			throw new ReferenceError('InsertBefore: Ref does not have a parent!')
@@ -130,7 +142,7 @@ const createHTMLRenderer = ({
 		}
 	}
 
-	const getPropSetter = cachedStrKeyNoFalsy((key) => {
+	const getPropSetter = cachedStrKeyNoFalsy(function(key) {
 		const [prefix, _key] = key.split(':')
 		if (_key) {
 			switch (prefix) {
@@ -149,10 +161,10 @@ const createHTMLRenderer = ({
 
 		const propHeader = ` ${key}="`
 
-		return (propsNode, val) => {
+		return function(propsNode, val) {
 			if (isSignal(val)) {
 				const propNode = [propHeader, '', '"']
-				val.connect(() => {
+				val.connect(function() {
 					const newData = peek(val)
 					if (newData === undefined || newData === null) {
 						removeFromArr(propsNode, propNode)
@@ -170,7 +182,7 @@ const createHTMLRenderer = ({
 		}
 	})
 
-	const setProps = (node, props) => {
+	function setProps(node, props) {
 		if (node[FLAG_FRAG]) return
 		const propsNode = node[1]
 		for (let key in props) {

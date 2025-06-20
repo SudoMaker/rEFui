@@ -1,79 +1,83 @@
-import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
-import { removeFromArr, isThenable, isPrimitive } from './utils.js'
+import { collectDisposers, tick, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
+import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
+import { createHMRComponentWrap } from './hmr.js'
 
 const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
 
 let currentCtx = null
 
-function _captured(capturedCtx, capturedFn, ...args) {
+function _captured(capturedCtx, ...args) {
 	const prevCtx = currentCtx
 	currentCtx = capturedCtx
 
 	try {
-		return capturedFn(...args)
+		return this(...args)
 	} finally {
 		currentCtx = prevCtx
 	}
 }
 
-const capture = (fn) => _captured.bind(null, currentCtx, freeze(fn))
+function capture(fn) {
+	return _captured.bind(freeze(fn), currentCtx)
+}
 
-const expose = (kvObj) => {
+function _runInSnapshot(fn, ...args) {
+	return fn(...args)
+}
+function snapshot() {
+	return capture(_runInSnapshot)
+}
+
+function exposeReducer(descriptors, [key, value]) {
+	if (isSignal(value)) {
+		descriptors[key] = {
+			get: value.get.bind(value),
+			set: value.set.bind(value),
+			enumerable: true,
+			configurable: true
+		}
+	} else {
+		descriptors[key] = {
+			value,
+			enumerable: true,
+			configurable: true
+		}
+	}
+
+	return descriptors
+}
+function expose(kvObj) {
 	if (!currentCtx || isPrimitive(kvObj)) {
 		return
 	}
 
 	const entries = Object.entries(kvObj)
 	if (entries.length) {
-		Object.defineProperties(
-			currentCtx.self,
-			entries.reduce((descriptors, [key, value]) => {
-				if (isSignal(value)) {
-					descriptors[key] = {
-						get: value.get.bind(value),
-						set: value.set.bind(value),
-						enumerable: true,
-						configurable: false
-					}
-				} else {
-					descriptors[key] = {
-						value,
-						enumerable: true,
-						configurable: false
-					}
-				}
+		currentCtx.hasExpose = true
 
-				return descriptors
-			}, {})
-		)
+		const descriptors = entries.reduce(exposeReducer, {})
+
+		Object.defineProperties(currentCtx.self, descriptors)
+
+		if (currentCtx.wrapper) {
+			Object.defineProperties(currentCtx.wrapper, descriptors)
+		}
 	}
 }
 
-const render = (instance, renderer) => {
+function render(instance, renderer) {
 	const ctx = instance[KEY_CTX]
 	if (!ctx) {
 		return
 	}
 
-	const { disposers, render: renderComponent } = ctx
+	const { run, render: renderComponent } = ctx
 	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
 
-	let rendered = null
-	const _disposers = []
-	const newDispose = collectDisposers(
-		_disposers,
-		() => {
-			rendered = renderComponent(renderer)
-		},
-		() => {
-			removeFromArr(disposers, newDispose)
-		}
-	)
-	disposers.push(newDispose)
-	return rendered
+	return run(renderComponent, renderer)[0]
 }
 
-const dispose = (instance) => {
+function dispose(instance) {
 	const ctx = instance[KEY_CTX]
 	if (!ctx) {
 		return
@@ -82,51 +86,63 @@ const dispose = (instance) => {
 	ctx.dispose()
 }
 
-const getCurrentSelf = () => currentCtx && currentCtx.self
+function getCurrentSelf() {
+	return currentCtx?.self
+}
 
-const Fn = ({ name = 'Fn' }, handler) => {
-	const disposers = []
-	onDispose(() => {
-		for (let i of disposers) i(true)
-		disposers.length = 0
-	})
+function Fn({ name = 'Fn', ctx }, handler, handleError) {
+	if (!handler) {
+		return nop
+	}
 
-	return (R) => {
-		if (!handler) return
+	const run = currentCtx?.run
 
+	if (!run) {
+		return nop
+	}
+
+	return function(R) {
 		const fragment = R.createFragment(name)
 		let currentRender = null
 		let currentDispose = null
 
-		watch(() => {
-			const newRender = handler()
+		watch(function() {
+			const newRender = read(handler(read(ctx)))
 			if (newRender === currentRender) return
 			currentRender = newRender
-			if (currentDispose) currentDispose()
 			if (newRender) {
-				let newResult = null
-				const newDispose = collectDisposers(
-					[],
-					() => {
-						if (typeof newRender === 'function') {
-							newResult = newRender(R)
+				const prevDispose = currentDispose
+				currentDispose = run(function() {
+					let newResult = null
+					let errored = false
+					try {
+						newResult = R.ensureElement((typeof newRender === 'function') ? newRender(R) : newRender)
+					} catch (err) {
+						errored = true
+						const errorHandler = peek(handleError)
+						if (errorHandler) {
+							newResult = R.ensureElement(errorHandler(err, name, ctx))
 						} else {
-							newResult = newRender
-						}
-						if (newResult) {
-							if (!R.isNode(newResult)) newResult = R.createTextNode(newResult)
-							R.appendNode(fragment, newResult)
-						}
-					},
-					() => {
-						removeFromArr(disposers, newDispose)
-						if (newResult) {
-							nextTick(() => R.removeNode(newResult))
+							throw err
 						}
 					}
-				)
-				disposers.push(newDispose)
-				currentDispose = newDispose
+
+					if (!errored && prevDispose) {
+						prevDispose()
+					}
+
+					if (newResult) {
+						R.appendNode(fragment, newResult)
+						onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
+					} else {
+						if (errored) {
+							onDispose(prevDispose)
+						}
+					}
+				})[1]
+			} else {
+				currentDispose?.()
+				currentDispose = null
 			}
 		})
 
@@ -134,7 +150,7 @@ const Fn = ({ name = 'Fn' }, handler) => {
 	}
 }
 
-const For = ({ name = 'For', entries, track, indexed }, item) => {
+function For({ name = 'For', entries, track, indexed }, item) {
 	let currentData = []
 
 	let kv = track && new Map()
@@ -142,14 +158,14 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 	let nodeCache = new Map()
 	let disposers = new Map()
 
-	const _clear = () => {
+	function _clear() {
 		for (let [, _dispose] of disposers) _dispose(true)
 		nodeCache = new Map()
 		disposers = new Map()
 		if (ks) ks = new Map()
 	}
 
-	const flushKS = () => {
+	function flushKS() {
 		if (ks) {
 			for (let i = 0; i < currentData.length; i++) {
 				const sig = ks.get(currentData[i])
@@ -158,13 +174,15 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 		}
 	}
 
-	const getItem = itemKey => (kv ? kv.get(itemKey) : itemKey)
-	const remove = (itemKey) => {
+	function getItem(itemKey) {
+		return (kv ? kv.get(itemKey) : itemKey)
+	}
+	function remove(itemKey) {
 		const itemData = getItem(itemKey)
 		removeFromArr(peek(entries), itemData)
 		entries.trigger()
 	}
-	const clear = () => {
+	function clear() {
 		if (!currentData.length) return
 		_clear()
 		if (kv) kv = new Map()
@@ -180,10 +198,10 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 		clear
 	})
 
-	return (R) => {
+	return function(R) {
 		const fragment = R.createFragment(name)
 
-		const getItemNode = (itemKey) => {
+		function getItemNode(itemKey) {
 			let node = nodeCache.get(itemKey)
 			if (!node) {
 				const newDataItem = kv ? kv.get(itemKey) : itemKey
@@ -194,11 +212,11 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 				}
 				const dispose = collectDisposers(
 					[],
-					() => {
+					function() {
 						node = item(newDataItem, idxSig, R)
 						nodeCache.set(itemKey, node)
 					},
-					(batch) => {
+					function(batch) {
 						if (!batch) {
 							nodeCache.delete(itemKey)
 							disposers.delete(itemKey)
@@ -214,7 +232,7 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 		}
 
 		// eslint-disable-next-line complexity
-		watch(() => {
+		watch(function() {
 			/* eslint-disable max-depth */
 			const data = read(entries)
 			if (!data || !data.length) return clear()
@@ -223,7 +241,7 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 			if (track) {
 				kv = new Map()
 				const key = read(track)
-				currentData = data.map((i) => {
+				currentData = data.map(function(i) {
 					const itemKey = i[key]
 					kv.set(itemKey, i)
 					return itemKey
@@ -352,70 +370,126 @@ const For = ({ name = 'For', entries, track, indexed }, item) => {
 	}
 }
 
-const If = ({ condition, else: otherwise }, trueBranch, falseBranch) => {
-	const ifNot = otherwise || falseBranch
+function If({ condition, else: otherwise }, trueBranch, falseBranch) {
+	if (otherwise) {
+		falseBranch = otherwise
+	}
 	if (isSignal(condition)) {
-		return Fn({ name: 'If' }, () => {
+		return Fn({ name: 'If' }, function() {
 			if (condition.value) return trueBranch
-			else return ifNot
+			else return falseBranch
 		})
 	}
 
 	if (typeof condition === 'function') {
-		return Fn({ name: 'If' }, () => {
-			if (condition()) return trueBranch
-			else return ifNot
+		return Fn({ name: 'If' }, function() {
+			if (condition()) {
+				return trueBranch
+			} else {
+				return falseBranch
+			}
 		})
 	}
 
 	if (condition) return trueBranch
-	return ifNot
+	return falseBranch
 }
 
-const Dynamic = ({ is, ...props }, ...children) => {
-	const current = signal(null)
-	expose({ current })
-	return Fn({ name: 'Dynamic' }, () => {
-		const component = read(is)
-		if (component) return (R) => R.c(component, { $ref: current, ...props }, ...children)
-		else current.value = null
-	})
+function _dynContainer(name, catchErr, ctx, props, ...children) {
+	const self = currentCtx.self
+
+	const $ref = props.$ref ??= signal()
+
+	let current = null
+	let renderFn = null
+
+	return Fn({ name, ctx }, () => {
+		const component = read(this)
+		if (current === component) {
+			return renderFn
+		}
+
+		current = component
+		renderFn = function(R) {
+			const ret = R.c(component, props, ...children)
+
+			const newInstance = $ref.peek()
+			const newCtx = newInstance?.[KEY_CTX]
+			if (newCtx) {
+				if (newCtx.hasExpose) {
+					const extraKeys = Object.getOwnPropertyDescriptors(newInstance)
+					delete extraKeys[KEY_CTX]
+					Object.defineProperties(self, extraKeys)
+				}
+
+				newCtx.wrapper = self
+			}
+
+			return ret
+		}
+
+		return renderFn
+	}, catchErr)
+}
+function Dynamic({ is, ctx, ...props }, ...children) {
+	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
-const Async = ({ future, fallback }) => {
+function Async({ future, fallback }) {
 	const self = getCurrentSelf()
 	const component = signal(fallback)
-	Promise.resolve(future).then(capture((result) => {
+	Promise.resolve(future).then(capture(function(result) {
 		if (self[KEY_CTX]) {
-			watch(() => {
+			watch(function() {
 				component.value = read(result)
 			})
 		}
 	}))
-	return Fn({ name: 'Async' }, () => {
+	return Fn({ name: 'Async' }, function() {
 		return component.value
 	})
 }
 
-const Render = ({ from }) => (R) => R.c(Fn, { name: 'Render' }, () => {
-	const instance = read(from)
-	if (instance !== null && instance !== undefined) return render(instance, R)
-})
+function Render({ from }) {
+	return function(R) {
+		return R.c(Fn, { name: 'Render' }, function() {
+			const instance = read(from)
+			if (instance !== null && instance !== undefined) return render(instance, R)
+		})
+	}
+}
 
-const Component = class Component {
+class Component {
 	constructor(tpl, props, ...children) {
 		const ctx = {
-			disposers: [],
+			run: null,
 			render: null,
 			dispose: null,
+			wrapper: null,
+			hasExpose: false,
 			self: this
 		}
 
 		const prevCtx = currentCtx
 		currentCtx = ctx
 
+		const disposers = []
+
+		ctx.run = capture(function(fn, ...args) {
+			let result
+			const cleanup = collectDisposers([], function() {
+				result = fn(...args)
+			}, function(batch) {
+				if (!batch) {
+					removeFromArr(disposers, cleanup)
+				}
+			})
+			disposers.push(cleanup)
+			return [result, cleanup]
+		})
+
 		try {
-			ctx.dispose = collectDisposers(ctx.disposers, () => {
+			ctx.dispose = collectDisposers(disposers, function() {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
 					renderFn = Async({future: renderFn, fallback: props && props.fallback || null})
@@ -442,16 +516,29 @@ const Component = class Component {
 	}
 }
 
-const createComponent = (tpl, props, ...children) => {
-	if (props === null || props === undefined) props = {}
-	const { $ref, ..._props } = props
-	const component = new Component(tpl, _props, ...children)
-	if ($ref) $ref.value = component
-	return component
-}
+const createComponent = (function() {
+	function createComponentRaw(tpl, props, ...children) {
+		props ??= {}
+		if (isSignal(tpl)) {
+			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props, ...children)
+		}
+		const { $ref, ..._props } = props
+		const component = new Component(tpl, _props, ...children)
+		if ($ref) $ref.value = component
+		return component
+	}
+
+	if (import.meta.hot) {
+		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
+		return createHMRComponentWrap({ builtins, _dynContainer, Component, createComponentRaw })
+	}
+
+	return createComponentRaw
+})()
 
 export {
 	capture,
+	snapshot,
 	expose,
 	render,
 	dispose,

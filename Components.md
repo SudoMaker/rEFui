@@ -84,6 +84,37 @@ const App = () => {
 }
 ```
 
+or even simpler:
+
+```jsx
+import { signal } from 'refui'
+
+const Component1 = (props, ...children) => {
+	// ...
+}
+
+const Component2 = (props, ...children) => {
+	// ...
+}
+
+const App = () => {
+	const DynamicComponent = signal(Component1)
+	return (R) => {
+		<DynamicComponent
+			on:click={(e) => {
+				if (DynamicComponent.value === Component1) {
+					DynamicComponent.value = Component2
+				} else {
+					DynamicComponent.value = Component1
+				}
+			}}
+		>
+			Hey Dynamic!
+		</DynamicComponent>
+	}
+}
+```
+
 ### Async
 
 Just like any ordinary components but the component is asynchronous

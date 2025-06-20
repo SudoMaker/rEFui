@@ -1,9 +1,9 @@
 // eslint-disable-next-line no-empty-function
-export const nop = () => {}
+export function nop() {}
 
-export const cached = (handler) => {
+export function cached(handler) {
 	const store = new Map()
-	return (arg) => {
+	return function(arg) {
 		let val = store.get(arg)
 		if (!val) {
 			val = handler(arg)
@@ -13,22 +13,28 @@ export const cached = (handler) => {
 	}
 }
 
-export const cachedStrKeyNoFalsy = (handler) => {
+export function cachedStrKeyNoFalsy(handler) {
 	const store = {__proto__: null}
-	return (key) => (store[key] || (store[key] = handler(key)))
+	return function(key) {
+		return (store[key] || (store[key] = handler(key)))
+	}
 }
 
-export const removeFromArr = (arr, val) => {
+export function removeFromArr(arr, val) {
   const index = arr.indexOf(val)
   if (index > -1) {
     arr.splice(index, 1)
   }
 }
 
-export const isPrimitive = val => Object(val) !== val
-export const isThenable = val => val && val.then?.call
+export function isPrimitive(val) {
+	return Object(val) !== val
+}
+export function isThenable(val) {
+	return val && val.then?.call
+}
 
-export const splitFirst = (val, splitter) => {
+export function splitFirst(val, splitter) {
 	const idx = val.indexOf(splitter)
 	if (idx < 0) return [val]
 	const front = val.slice(0, idx)

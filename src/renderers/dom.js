@@ -25,7 +25,7 @@ Apply order:
 
 const defaultRendererID = 'DOM'
 
-const createDOMRenderer = ({
+function createDOMRenderer({
 	rendererID = defaultRendererID,
 	doc = document,
 	namespaces = {},
@@ -33,20 +33,20 @@ const createDOMRenderer = ({
 	tagAliases = {},
 	propAliases = {},
 	onDirective
-} = {}) => {
+} = {}) {
 	let eventPassiveSupported = false
 	let eventOnceSupported = false
 
 	try {
 		const options = {
 			passive: {
-				get: () => {
+				get() {
 					eventPassiveSupported = true
 					return eventPassiveSupported
 				}
 			},
 			once: {
-				get: () => {
+				get() {
 					eventOnceSupported = true
 					return eventOnceSupported
 				}
@@ -60,27 +60,29 @@ const createDOMRenderer = ({
 	}
 
 	// eslint-disable-next-line max-params
-	const eventCallbackFallback = (node, event, handler, options) => {
+	function eventCallbackFallback(node, event, handler, options) {
 		if (options.once && !eventOnceSupported) {
 			const _handler = handler
-			handler = (...args) => {
+			handler = function(...args) {
 				_handler(...args)
 				node.removeEventListener(event, handler, options)
 			}
 		}
 		if (options.passive && !eventPassiveSupported) {
 			const _handler = handler
-			handler = (...args) => {
-				nextTick(() => _handler(...args))
+			handler = function(...args) {
+				nextTick(_handler.bind(null, ...args))
 			}
 		}
 
 		return handler
 	}
 
-	const isNode = node => !!(node && node.cloneNode)
+	function isNode(node) {
+		return !!(node && node.cloneNode)
+	}
 
-	const getNodeCreator = cachedStrKeyNoFalsy((tagNameRaw) => {
+	const getNodeCreator = cachedStrKeyNoFalsy(function(tagNameRaw) {
 		let [nsuri, tagName] = tagNameRaw.split(':')
 		if (!tagName) {
 			tagName = nsuri
@@ -89,20 +91,28 @@ const createDOMRenderer = ({
 		tagName = tagAliases[tagName] || tagName
 		if (nsuri) {
 			nsuri = namespaces[nsuri] || nsuri
-			return () => doc.createElementNS(nsuri, tagName)
+			return function() {
+				return doc.createElementNS(nsuri, tagName)
+			}
 		}
-		return () => doc.createElement(tagName)
+		return function() {
+			return doc.createElement(tagName)
+		}
 	})
 
-	const createNode = tagName => getNodeCreator(tagName)()
-	const createAnchor = (anchorName) => {
-		if (process.env.NODE_ENV === 'development') return doc.createComment(anchorName || '')
+	function createNode(tagName) {
+		return getNodeCreator(tagName)()
+	}
+	function createAnchor(anchorName) {
+		if (process.env.NODE_ENV !== 'production' && anchorName) {
+			return doc.createComment(anchorName)
+		}
 		return doc.createTextNode('')
 	}
-	const createTextNode = (text) => {
+	function createTextNode (text) {
 		if (isSignal(text)) {
 			const node = doc.createTextNode('')
-			text.connect(() => {
+			text.connect(function() {
 				const newData = peek(text)
 				if (newData === undefined) node.data = ''
 				else node.data = newData
@@ -112,29 +122,31 @@ const createDOMRenderer = ({
 
 		return doc.createTextNode(text)
 	}
-	const createFragment = () => doc.createDocumentFragment()
+	function createFragment() {
+		return doc.createDocumentFragment()
+	}
 
-	const removeNode = (node) => {
+	function removeNode(node) {
 		if (!node.parentNode) return
 		node.parentNode.removeChild(node)
 	}
-	const appendNode = (parent, ...nodes) => {
+	function appendNode(parent, ...nodes) {
 		for (let node of nodes) {
 			parent.insertBefore(node, null)
 		}
 	}
-	const insertBefore = (node, ref) => {
+	function insertBefore(node, ref) {
 		ref.parentNode.insertBefore(node, ref)
 	}
 
-	const getListenerAdder = cachedStrKeyNoFalsy((event) => {
+	const getListenerAdder = cachedStrKeyNoFalsy(function(event) {
 		const [prefix, eventName] = event.split(':')
 		if (prefix === 'on') {
-			return (node, cb) => {
+			return function(node, cb) {
 				if (!cb) return
 				if (isSignal(cb)) {
 					let currentHandler = null
-					cb.connect(() => {
+					cb.connect(function() {
 						const newHandler = peek(cb)
 						if (currentHandler) node.removeEventListener(eventName, currentHandler)
 						if (newHandler) node.addEventListener(eventName, newHandler)
@@ -147,11 +159,11 @@ const createDOMRenderer = ({
 			optionsArr.shift()
 			const options = {}
 			for (let option of optionsArr) if (option) options[option] = true
-			return (node, cb) => {
+			return function(node, cb) {
 				if (!cb) return
 				if (isSignal(cb)) {
 					let currentHandler = null
-					cb.connect(() => {
+					cb.connect(function() {
 						let newHandler = peek(cb)
 						if (currentHandler) node.removeEventListener(eventName, currentHandler, options)
 						if (newHandler) {
@@ -164,14 +176,14 @@ const createDOMRenderer = ({
 			}
 		}
 	})
-	const addListener = (node, event, cb) => {
+	function addListener(node, event, cb) {
 		getListenerAdder(event)(node, cb)
 	}
 
-	const setAttr = (node, attr, val) => {
+	function setAttr(node, attr, val) {
 		if (val === undefined || val === null || val === false) return
 
-		const handler = (newVal) => {
+		function handler(newVal) {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttribute(attr)
 			else if (newVal === true) node.setAttribute(attr, '')
 			else node.setAttribute(attr, newVal)
@@ -180,10 +192,10 @@ const createDOMRenderer = ({
 		bind(handler, val)
 	}
 	// eslint-disable-next-line max-params
-	const setAttrNS = (node, attr, val, ns) => {
+	function setAttrNS(node, attr, val, ns) {
 		if (val === undefined || val === null || val === false) return
 
-		const handler = (newVal) => {
+		function handler(newVal) {
 			if (newVal === undefined || newVal === null || newVal === false) node.removeAttributeNS(ns, attr)
 			else if (newVal === true) node.setAttributeNS(ns, attr, '')
 			else node.setAttributeNS(ns, attr, newVal)
@@ -192,39 +204,56 @@ const createDOMRenderer = ({
 		bind(handler, val)
 	}
 
-	const getPropSetter = cachedStrKeyNoFalsy((prop) => {
+	const getPropSetter = cachedStrKeyNoFalsy(function(prop) {
 		prop = propAliases[prop] || prop
 		const [prefix, key] = splitFirst(prop, ':')
 		if (key) {
 			switch (prefix) {
 				default: {
-					if (prefix === 'on' || prefix.startsWith('on-')) return (node, val) => addListener(node, prop, val)
+					if (prefix === 'on' || prefix.startsWith('on-')) {
+						return function(node, val) {
+							return addListener(node, prop, val)
+						}
+					}
 					if (onDirective) {
 						const setter = onDirective(prefix, key, prop)
-						if (setter) return setter
+						if (setter) {
+							return setter
+						}
 					}
 					const nsuri = namespaces[prefix] || prefix
-					return (node, val) => setAttrNS(node, key, val, nsuri)
+					return function(node, val) {
+						return setAttrNS(node, key, val, nsuri)
+					}
 				}
 				case 'attr': {
-					return (node, val) => setAttr(node, key, val)
+					return function(node, val) {
+						return setAttr(node, key, val)
+					}
 				}
 				case 'prop': {
 					prop = key
 				}
 			}
 		} else if (prop.indexOf('-') > -1) {
-			return (node, val) => setAttr(node, prop, val)
+			return function(node, val) {
+				return setAttr(node, prop, val)
+			}
 		}
 
-		return (node, val) => {
+		return function(node, val) {
 			if (val === undefined || val === null) return
-			if (isSignal(val)) val.connect(() => (node[prop] = peek(val)))
-			else node[prop] = val
+			if (isSignal(val)) {
+				val.connect(function() {
+					node[prop] = peek(val)
+				})
+			} else {
+				node[prop] = val
+			}
 		}
 	})
 
-	const setProps = (node, props) => {
+	function setProps (node, props) {
 		for (let prop in props) getPropSetter(prop)(node, props[prop])
 	}
 

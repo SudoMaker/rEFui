@@ -4,7 +4,7 @@ import { removeFromArr } from './utils.js'
 
 const Fragment = '<>'
 
-const createRenderer = (nodeOps, rendererID) => {
+function createRenderer(nodeOps, rendererID) {
 	const {
 		isNode,
 		createNode,
@@ -20,12 +20,14 @@ const createRenderer = (nodeOps, rendererID) => {
 	const fragmentMap = new WeakMap()
 	const parentMap = new WeakMap()
 
-	const isFragment = i => i && fragmentMap.has(i)
+	function isFragment(i) {
+		return i && fragmentMap.has(i)
+	}
 
-	const createFragment = (name) => {
+	function createFragment(name) {
 		const fragment = createFragmentRaw()
-		const anchorStart = createAnchor(process.env.NODE_ENV === 'production' ? '' : `<${name}>`)
-		const anchorEnd = createAnchor(process.env.NODE_ENV === 'production' ? '' : `</${name}>`)
+		const anchorStart = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `<${name}>`))
+		const anchorEnd = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `</${name}>`))
 		appendNodeRaw(fragment, anchorStart, anchorEnd)
 		parentMap.set(anchorStart, fragment)
 		parentMap.set(anchorEnd, fragment)
@@ -33,13 +35,16 @@ const createRenderer = (nodeOps, rendererID) => {
 		return fragment
 	}
 
-	const flattenChildren = (children) => children.reduce((result, i) => {
+	function flatChildrenReducer(result, i) {
 		if (isFragment(i)) result.push(...expandFragment(i))
 		else result.push(i)
 		return result
-	}, [])
+	}
+	function flattenChildren(children) {
+		return children.reduce(flatChildrenReducer, [])
+	}
 
-	const expandFragment = (node) => {
+	function expandFragment(node) {
 		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
 		if (flags.connected) {
 			return [anchorStart, ...flattenChildren(children), anchorEnd]
@@ -49,7 +54,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		return [node]
 	}
 
-	const removeNode = (node) => {
+	function removeNode(node) {
 		const parent = parentMap.get(node)
 
 		if (!parent) return
@@ -72,7 +77,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		}
 	}
 
-	const appendNode = (parent, ...nodes) => {
+	function appendNode(parent, ...nodes) {
 		if (isFragment(parent)) {
 			const [, , anchorEnd] = fragmentMap.get(parent)
 			for (let node of nodes) {
@@ -88,7 +93,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		}
 	}
 
-	const insertBefore = (node, ref) => {
+	function insertBefore(node, ref) {
 		removeNode(node)
 
 		const parent = parentMap.get(ref)
@@ -113,17 +118,17 @@ const createRenderer = (nodeOps, rendererID) => {
 		return insertBeforeRaw(node, ref)
 	}
 
-	const ensureElement = (el) => {
+	function ensureElement(el) {
 		if (el === null || el === undefined || isNode(el)) return el
 		return createTextNode(el)
 	}
 
-	const normalizeChildren = (children) => {
+	function normalizeChildren(children) {
 		const normalizedChildren = []
 
 		if (children.length) {
 			let mergedTextBuffer = ''
-			const flushTextBuffer = () => {
+			function flushTextBuffer() {
 				if (mergedTextBuffer) {
 					normalizedChildren.push(createTextNode(mergedTextBuffer))
 					mergedTextBuffer = ''
@@ -148,7 +153,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		return normalizedChildren
 	}
 
-	const createElement = (tag, props, ...children) => {
+	function createElement(tag, props, ...children) {
 		if (typeof tag === 'string') {
 			const normalizedChildren = normalizeChildren(children)
 			const node = tag === Fragment ? createFragment('') : createNode(tag)
@@ -171,7 +176,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		return ensureElement(render(instance, renderer))
 	}
 
-	const renderComponent = (target, ...args) => {
+	function renderComponent(target, ...args) {
 		const instance = createComponent(...args)
 		const node = render(instance, renderer)
 		if (target && node) appendNode(target, node)
@@ -186,6 +191,7 @@ const createRenderer = (nodeOps, rendererID) => {
 		isFragment,
 		createFragment,
 		createElement,
+		ensureElement,
 		removeNode,
 		appendNode,
 		insertBefore,

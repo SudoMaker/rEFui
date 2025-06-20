@@ -1,4 +1,4 @@
-import { removeFromArr } from './utils.js'
+import { nop, removeFromArr } from './utils.js'
 
 let sigID = 0
 let ticking = false
@@ -13,21 +13,28 @@ let runQueue = new Set()
 
 // Scheduler part
 
-const scheduleSignal = signalEffects => signalQueue.add(signalEffects)
-const scheduleEffect = effects => effectQueue.add(effects)
+function scheduleSignal(signalEffects) {
+	return signalQueue.add(signalEffects)
+}
+function scheduleEffect(effects) {
+	return effectQueue.add(effects)
+}
 
-const flushRunQueue = () => {
+function flushRunQueue() {
 	for (let i of runQueue) i()
 	runQueue.clear()
 }
 
-const flushQueue = (queue, sorted) => {
+function sortQueue(a, b) {
+	return a._id - b._id
+}
+function flushQueue(queue, sorted) {
 	while (queue.size) {
 		const queueArr = Array.from(queue)
 		queue.clear()
 
 		if (sorted && queueArr.length > 1) {
-			queueArr.sort((a, b) => a._id - b._id)
+			queueArr.sort(sortQueue)
 			const tempArr = [...(new Set([].concat(...queueArr).reverse()))].reverse()
 			runQueue = new Set(tempArr)
 		} else if (queueArr.length > 10000) {
@@ -43,7 +50,7 @@ const flushQueue = (queue, sorted) => {
 	}
 }
 
-const tick = () => {
+function tick() {
 	if (!ticking) {
 		ticking = true
 		currentResolve()
@@ -51,9 +58,11 @@ const tick = () => {
 	return currentTick
 }
 
-const nextTick = cb => tick().then(cb)
+function nextTick(cb) {
+	return tick().then(cb)
+}
 
-const flushQueues = () => {
+function flushQueues() {
 	if (signalQueue.size || effectQueue.size) {
 		flushQueue(signalQueue, true)
 		signalQueue = new Set(signalQueue)
@@ -62,78 +71,91 @@ const flushQueues = () => {
 		return Promise.resolve().then(flushQueues)
 	}
 }
-
-const resetTick = () => {
+function tickHandler(resolve) {
+	currentResolve = resolve
+}
+function resetTick() {
 	ticking = false
-	currentTick = new Promise((resolve) => {
-		currentResolve = resolve
-	}).then(flushQueues)
+	currentTick = new Promise(tickHandler).then(flushQueues)
 	currentTick.finally(resetTick)
 }
 
 // Signal part
 
-const pure = (cb) => {
+function pure(cb) {
 	cb._pure = true
 	return cb
 }
 
-const isPure = cb => !!cb._pure
+function isPure(cb) {
+	return !!cb._pure
+}
 
-const createDisposer = (disposers, prevDisposers, dispose) => {
-	let _dispose = () => {
-		for (let i of disposers) i(true)
-		disposers.length = 0
+function _dispose_raw() {
+	for (let i of this) i(true)
+	this.length = 0
+}
+function _dispose_with_callback(dispose_raw, batch) {
+	this(batch)
+	dispose_raw(batch)
+}
+function _dispose_with_upstream(prevDisposers, batch) {
+	if (!batch) {
+		removeFromArr(prevDisposers, this)
 	}
-	if (dispose) {
-		const __dispose = _dispose
-		_dispose = (batch) => {
-			dispose(batch)
-			__dispose(batch)
-		}
+	this(batch)
+}
+function createDisposer(disposers, prevDisposers, cleanup) {
+	let _cleanup = _dispose_raw.bind(disposers)
+
+	if (cleanup) {
+		_cleanup = _dispose_with_callback.bind(cleanup, _cleanup)
 	}
+
 	if (prevDisposers) {
-		const __dispose = _dispose
-		_dispose = (batch) => {
-			if (!batch) removeFromArr(prevDisposers, _dispose)
-			__dispose(batch)
-		}
-		prevDisposers.push(_dispose)
+		_cleanup = _dispose_with_upstream.bind(_cleanup, prevDisposers)
+		prevDisposers.push(_cleanup)
 	}
 
-	return _dispose
+	return _cleanup
 }
 
-const collectDisposers = (disposers, fn, dispose) => {
+function collectDisposers(disposers, fn, cleanup) {
 	const prevDisposers = currentDisposers
-	const _dispose = createDisposer(disposers, prevDisposers, dispose)
+	const _dispose = createDisposer(disposers, prevDisposers, cleanup)
 	currentDisposers = disposers
-	fn()
-	currentDisposers = prevDisposers
+	try {
+		fn()
+	} finally {
+		currentDisposers = prevDisposers
+	}
 	return _dispose
 }
 
-const _onDispose = (cb) => {
+function _onDispose(cb) {
 	const disposers = currentDisposers
-	const dispose = (batch) => {
-		if (!batch) removeFromArr(disposers, dispose)
+	function cleanup(batch) {
+		if (!batch) {
+			removeFromArr(disposers, cleanup)
+		}
 		cb(batch)
 	}
-	disposers.push(dispose)
-	return dispose
+	disposers.push(cleanup)
+	return cleanup
 }
 
-const onDispose = (cb) => {
+function onDispose(cb) {
 	if (currentDisposers) {
 		return _onDispose(cb)
 	}
+	return nop
 }
 
-const useEffect = (effect) => {
+function useEffect(effect) {
 	onDispose(effect())
 }
 
-function _frozen(capturedDisposers, capturedEffects, fn, ...args) {
+function _frozen(capturedDisposers, capturedEffects, ...args) {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
 
@@ -141,16 +163,18 @@ function _frozen(capturedDisposers, capturedEffects, fn, ...args) {
 	currentEffect = capturedEffects
 
 	try {
-		return fn(...args)
+		return this(...args)
 	} finally {
 		currentDisposers = prevDisposers
 		currentEffect = prevEffect
 	}
 }
 
-const freeze = (fn) => _frozen.bind(null, currentDisposers, currentEffect, fn)
+function freeze(fn) {
+ return _frozen.bind(fn, currentDisposers, currentEffect)
+}
 
-const untrack = (fn) => {
+function untrack(fn) {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
 
@@ -167,7 +191,9 @@ const untrack = (fn) => {
 
 const Signal = class {
 	constructor(value, compute) {
-		if (process.env.NODE_ENV === 'development' && new.target !== Signal) throw new Error('Signal must not be extended!')
+		if (process.env.NODE_ENV === 'development' && new.target !== Signal) {
+			throw new Error('Signal must not be extended!')
+		}
 
 		// eslint-disable-next-line no-plusplus
 		const id = sigID++
@@ -244,43 +270,61 @@ const Signal = class {
 	}
 
 	connect(effect) {
-		if (!effect) return
+		if (!effect) {
+			return
+		}
 		const { userEffects, signalEffects, disposeCtx } = this._
 		const effects = isPure(effect) ? signalEffects : userEffects
 		if (!effects.includes(effect)) {
 			effects.push(effect)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
-				_onDispose(() => {
+				_onDispose(function() {
 					removeFromArr(effects, effect)
-					if (runQueue.size) runQueue.delete(effect)
+					if (runQueue.size) {
+						runQueue.delete(effect)
+					}
 				})
 			}
 		}
-		if (currentEffect !== effect) effect()
+		if (currentEffect !== effect) {
+			effect()
+		}
 	}
 
 	and(val) {
-		return signal(this, i => read(val) && i)
+		return signal(this, function(i) {
+			return read(val) && i
+		})
 	}
 
 	or(val) {
-		return signal(this, i => read(val) || i)
+		return signal(this, function(i) {
+			return read(val) || i
+		})
 	}
 
 	eq(val) {
-		return signal(this, i => read(val) === i)
+		return signal(this, function(i) {
+			return read(val) === i
+		})
 	}
 
 	neq(val) {
-		return signal(this, i => read(val) !== i)
+		return signal(this, function(i) {
+			return read(val) !== i
+		})
 	}
 
 	gt(val) {
-		return signal(this, i => i > read(val))
+		return signal(this, function(i) {
+			return i > read(val)
+		})
 	}
 
 	lt(val) {
-		return signal(this, i => i < read(val))
+		return signal(this, function(i) {
+			return i < read(val)
+		})
 	}
 
 	toJSON() {
@@ -299,15 +343,19 @@ const Signal = class {
 			case 'number':
 				return Number(val)
 			default:
-				if (Object(val) !== val) return val
+				if (Object(val) !== val) {
+					return val
+				}
 				return !!val
 		}
 	}
 }
 
-const isSignal = val => val && val.constructor === Signal
+function isSignal(val) {
+	return val && val.constructor === Signal
+}
 
-const watch = (effect) => {
+function watch(effect) {
 	const prevEffect = currentEffect
 	currentEffect = effect
 	const _dispose = collectDisposers([], effect)
@@ -316,38 +364,50 @@ const watch = (effect) => {
 	return _dispose
 }
 
-const peek = (val) => {
+function peek(val) {
 	while (isSignal(val)) {
 		val = val.peek()
 	}
 	return val
 }
 
-const poke = (val, newVal) => {
-	if (isSignal(val)) return val.poke(newVal)
+function poke(val, newVal) {
+	if (isSignal(val)) {
+		return val.poke(newVal)
+	}
 	return newVal
 }
 
-const read = (val) => {
-	if (isSignal(val)) val = peek(val.get())
+function read(val) {
+	if (isSignal(val)) {
+		val = peek(val.get())
+	}
 	return val
 }
 
-const readAll = (vals, handler) => handler(...vals.map(read))
+function readAll(vals, handler) {
+	return handler(...vals.map(read))
+}
 
-const _write = (val, newVal) => {
-	if (typeof newVal === 'function') newVal = newVal(peek(val))
+function _write(val, newVal) {
+	if (typeof newVal === 'function') {
+		newVal = newVal(peek(val))
+	}
 	val.value = newVal
 	return peek(val)
 }
 
-const write = (val, newVal) => {
-	if (isSignal(val)) return _write(val, newVal)
-	if (typeof newVal === 'function') return newVal(val)
+function write(val, newVal) {
+	if (isSignal(val)) {
+		return _write(val, newVal)
+	}
+	if (typeof newVal === 'function') {
+		return newVal(val)
+	}
 	return newVal
 }
 
-const listen = (vals, cb) => {
+function listen(vals, cb) {
 	for (let val of vals) {
 		if (isSignal(val)) {
 			val.connect(cb)
@@ -355,16 +415,24 @@ const listen = (vals, cb) => {
 	}
 }
 
-const signal = (value, compute) => new Signal(value, compute)
-
-const computed = fn => signal(null, fn)
-const merge = (vals, handler) => computed(readAll.bind(null, vals, handler))
-const tpl = (strs, ...exprs) => {
-	const raw = { raw: strs }
-	return signal(null, () => String.raw(raw, ...exprs))
+function signal(value, compute) {
+	return new Signal(value, compute)
 }
 
-const connect = (sigs, effect) => {
+function computed(fn) {
+	return signal(null, fn)
+}
+function merge(vals, handler) {
+	return computed(readAll.bind(null, vals, handler))
+}
+function tpl(strs, ...exprs) {
+	const raw = { raw: strs }
+	return signal(null, function() {
+		String.raw(raw, ...exprs)
+	})
+}
+
+function connect(sigs, effect) {
 	const prevEffect = currentEffect
 	currentEffect = effect
 	for (let sig of sigs) {
@@ -374,31 +442,42 @@ const connect = (sigs, effect) => {
 	currentEffect = prevEffect
 }
 
-const bind = (handler, val) => {
-	if (isSignal(val)) val.connect(() => handler(peek(val)))
-	else if (typeof val === 'function') watch(() => handler(val()))
-	else handler(val)
+function bind(handler, val) {
+	if (isSignal(val)) {
+		val.connect(function() {
+			handler(peek(val))
+		})
+	}
+	else if (typeof val === 'function') {
+		watch(function() {
+			handler(val())
+		})
+	} else {
+		handler(val)
+	}
 }
 
-const derive = (sig, key, compute) => {
+function derive(sig, key, compute) {
 	if (isSignal(sig)) {
 		const derivedSig = signal(null, compute)
 		let disposer = null
 
-		const _dispose = () => {
+		const _dispose = function() {
 			if (disposer) {
 				disposer()
 				disposer = null
 			}
 		}
 
-		sig.connect(pure(() => {
+		sig.connect(pure(function() {
 			_dispose()
 			const newVal = peek(sig)
-			if (!newVal) return
+			if (!newVal) {
+				return
+			}
 
-			untrack(() => {
-				disposer = watch(() => {
+			untrack(function() {
+				disposer = watch(function() {
 					derivedSig.value = read(newVal[key])
 				})
 			})
@@ -412,51 +491,55 @@ const derive = (sig, key, compute) => {
 	}
 }
 
-const extract = (sig, ...extractions) => {
+function extract(sig, ...extractions) {
 	if (!extractions.length) {
 		extractions = Object.keys(peek(sig))
 	}
 
-	return extractions.reduce((mapped, i) => {
-		mapped[i] = signal(sig, val => val && peek(val[i]))
+	return extractions.reduce(function(mapped, i) {
+		mapped[i] = signal(sig, function(val) {
+			return val && peek(val[i])
+		})
 		return mapped
 	}, {})
 }
-const derivedExtract = (sig, ...extractions) => {
+function derivedExtract(sig, ...extractions) {
 	if (!extractions.length) {
 		extractions = Object.keys(peek(sig))
 	}
 
-	return extractions.reduce((mapped, i) => {
+	return extractions.reduce(function(mapped, i) {
 		mapped[i] = derive(sig, i)
 		return mapped
 	}, {})
 }
 
-const makeReactive = (obj) => Object.defineProperties({}, Object.entries(obj).reduce((descriptors, [key, value]) => {
-	if (isSignal(value)) {
-		descriptors[key] = {
-			get: value.get.bind(value),
-			set: value.set.bind(value),
-			enumerable: true,
-			configurable: false
+function makeReactive(obj) {
+	return Object.defineProperties({}, Object.entries(obj).reduce(function(descriptors, [key, value]) {
+		if (isSignal(value)) {
+			descriptors[key] = {
+				get: value.get.bind(value),
+				set: value.set.bind(value),
+				enumerable: true,
+				configurable: false
+			}
+		} else {
+			descriptors[key] = {
+				value,
+				enumerable: true
+			}
 		}
-	} else {
-		descriptors[key] = {
-			value,
-			enumerable: true
-		}
-	}
 
-	return descriptors
-}, {}))
+		return descriptors
+	}, {}))
+}
 
-const onCondition = (sig, compute) => {
+function onCondition(sig, compute) {
 	let currentVal = null
 	let conditionMap = new Map()
 	let conditionValMap = new Map()
 	sig.connect(
-		pure(() => {
+		pure(function() {
 			const newVal = peek(sig)
 			if (currentVal !== newVal) {
 				const prevMatchSet = conditionMap.get(currentVal)
@@ -475,13 +558,13 @@ const onCondition = (sig, compute) => {
 	)
 
 	if (currentDisposers) {
-		_onDispose(() => {
+		_onDispose(function() {
 			conditionMap = new Map()
 			conditionValMap = new Map()
 		})
 	}
 
-	const match = (condition) => {
+	function match(condition) {
 		let currentCondition = peek(condition)
 		let matchSet = conditionMap.get(currentCondition)
 		if (isSignal(condition)) {
@@ -490,9 +573,11 @@ const onCondition = (sig, compute) => {
 				matchSig = signal(currentCondition === currentVal, compute)
 				conditionValMap.set(condition, matchSig)
 
-				condition.connect(() => {
+				condition.connect(function() {
 					currentCondition = peek(condition)
-					if (matchSet) removeFromArr(matchSet, matchSig)
+					if (matchSet) {
+						removeFromArr(matchSet, matchSig)
+					}
 					matchSet = conditionMap.get(currentCondition)
 					if (!matchSet) {
 						matchSet = []
@@ -503,7 +588,7 @@ const onCondition = (sig, compute) => {
 				})
 
 				if (currentDisposers) {
-					_onDispose(() => {
+					_onDispose(function() {
 						conditionValMap.delete(condition)
 						if (matchSet.length === 1) conditionMap.delete(currentCondition)
 						else removeFromArr(matchSet, matchSig)
@@ -523,10 +608,13 @@ const onCondition = (sig, compute) => {
 				matchSet.push(matchSig)
 
 				if (currentDisposers) {
-					_onDispose(() => {
+					_onDispose(function() {
 						conditionValMap.delete(currentCondition)
-						if (matchSet.length === 1) conditionMap.delete(currentCondition)
-						else removeFromArr(matchSet, matchSig)
+						if (matchSet.length === 1) {
+							conditionMap.delete(currentCondition)
+						} else {
+							removeFromArr(matchSet, matchSig)
+						}
 					})
 				}
 			}

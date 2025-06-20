@@ -4,14 +4,14 @@ let jsx = nop
 let jsxs = nop
 let Fragment = '<>'
 
-const wrap = (R) => {
-	jsx = (tag, {children, ...props}, key) => {
+function wrap(R) {
+	jsx = function(tag, {children, ...props}, key) {
 		if (key) {
 			props.key = key
 		}
 		return R.c(tag, props, children)
 	}
-	jsxs = (tag, {children = [], ...props}, key) => {
+	jsxs = function(tag, {children = [], ...props}, key) {
 		if (key) {
 			props.key = key
 		}

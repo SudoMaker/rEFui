@@ -4,7 +4,7 @@
 
 Pronunced as /ɹiːˈfjuːəl/, refuel
 
-The JavaScript framework that refuels your UI projects, across web, native, and embedded.
+The JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
 
 ## Usage
 
@@ -113,6 +113,14 @@ DOMRenderer.render(document, App)
 ```
 
 Set these values accordingly to your transpiler configuration, or add the above comments to the top of your JSX file.
+
+JSXAuto is supported via `refui/jsx-runtime` and `refui/jsx-dev-runtime`. It's still recommended to use JSXClassic for more runtime flexibility.
+
+## Hot Module Replacement
+
+rEFui comes with built-in HMR support, but still requires a plugin to the packager to inject a minimal portion of boilerplate code to make it work while developing.
+
+For more details checkout [refurbish](https://github.com/SudoMaker/refurbish)
 
 ## Built-in Components
 
