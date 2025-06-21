@@ -409,6 +409,10 @@ function _dynContainer(name, catchErr, ctx, props, ...children) {
 			return renderFn
 		}
 
+		if (component === undefined || component === null) {
+			return (current = renderFn = null)
+		}
+
 		current = component
 		renderFn = function(R) {
 			const ret = R.c(component, props, ...children)
