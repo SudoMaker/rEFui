@@ -428,7 +428,7 @@ function merge(vals, handler) {
 function tpl(strs, ...exprs) {
 	const raw = { raw: strs }
 	return signal(null, function() {
-		String.raw(raw, ...exprs)
+		return String.raw(raw, ...exprs)
 	})
 }
 
