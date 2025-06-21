@@ -6,22 +6,29 @@ let jsxs = nop
 let Fragment = '<>'
 
 function wrap(R) {
-	jsx = function(tag, {children, ...props}, key) {
-		if (key) {
+	jsx = function(tag, props, key) {
+		if (key !== undefined && key !== null) {
 			props.key = key
 		}
-		if (children === undefined || children === null) {
-			return R.c(tag, props)
+		if (Object.hasOwn(props, 'children')) {
+			const children = props.children
+			if (Array.isArray(children)) {
+				return R.c(tag, props, ...props.children)
+			} else {
+				return R.c(tag, props, props.children)
+			}
 		} else {
-			return R.c(tag, props, children)
+			return R.c(tag, props)
 		}
 	}
-	jsxs = function(tag, {children, ...props}, key) {
-		if (key) {
+
+	jsxs = function(tag, props, key) {
+		if (key !== undefined && key !== null) {
 			props.key = key
 		}
-		return R.c(tag, props, ...children)
+		return R.c(tag, props, ...props.children)
 	}
+
 	Fragment = R.f
 
 	if (process.env.NODE_ENV !== 'production') {
