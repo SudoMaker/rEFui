@@ -1,5 +1,5 @@
 import { nop } from '../utils.js'
-import { wrap as wrapDev } from './jsx-dev-runtime'
+import { wrap as wrapDev } from './jsx-dev-runtime.js'
 
 let jsx = nop
 let jsxs = nop
