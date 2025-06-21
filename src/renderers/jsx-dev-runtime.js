@@ -1,17 +1,34 @@
 import { nop } from '../utils.js'
+import { isSignal } from '../signal.js'
 
 let jsxDEV = nop
 let Fragment = '<>'
 
 function wrap(R) {
-	jsxDEV = function(tag, {children = [], ...props}, key, ...args) {
+	jsxDEV = function(tag, {children, ...props}, key, ...args) {
 		try {
 			if (key) {
 				props.key = key
 			}
-			return R.c(tag, props, ...children)
+			if (Array.isArray(children)) {
+				return R.c(tag, props, ...children)
+			} else {
+				return R.c(tag, props, children)
+			}
 		} catch (e) {
-			throw new Error(`Error happened while rendering component ${args.join(' ')}`, { cause: e })
+			if (typeof tag === 'function') {
+				tag = tag.name
+			} else if (isSignal(tag)) {
+				tag = (tag.name || tag.peek()?.name || null)
+			}
+			const [, dbgInfo] = args
+			if (dbgInfo) {
+				const { fileName, lineNumber, columnNumber } = dbgInfo
+				console.error(`Error happened while rendering <${tag}> in (${fileName}:${lineNumber}:${columnNumber}):\n`, e)
+			} else {
+				console.error(`Error happened while rendering <${tag}>:\n`, e)
+			}
+			throw e
 		}
 	}
 	Fragment = R.f

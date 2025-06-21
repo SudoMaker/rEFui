@@ -1,4 +1,5 @@
 import { nop } from '../utils.js'
+import { wrap as wrapDev } from './jsx-dev-runtime'
 
 let jsx = nop
 let jsxs = nop
@@ -9,15 +10,23 @@ function wrap(R) {
 		if (key) {
 			props.key = key
 		}
-		return R.c(tag, props, children)
+		if (children === undefined || children === null) {
+			return R.c(tag, props)
+		} else {
+			return R.c(tag, props, children)
+		}
 	}
-	jsxs = function(tag, {children = [], ...props}, key) {
+	jsxs = function(tag, {children, ...props}, key) {
 		if (key) {
 			props.key = key
 		}
 		return R.c(tag, props, ...children)
 	}
 	Fragment = R.f
+
+	if (process.env.NODE_ENV !== 'production') {
+		wrapDev(R)
+	}
 
 	return {
 		jsx,
