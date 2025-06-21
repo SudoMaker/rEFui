@@ -5,15 +5,20 @@ let jsxDEV = nop
 let Fragment = '<>'
 
 function wrap(R) {
-	jsxDEV = function(tag, {children, ...props}, key, ...args) {
+	jsxDEV = function(tag, props, key, ...args) {
 		try {
-			if (key) {
+			if (key !== undefined && key !== null) {
 				props.key = key
 			}
-			if (Array.isArray(children)) {
-				return R.c(tag, props, ...children)
+			if (Object.hasOwn(props, 'children')) {
+				const { children } = props
+				if (Array.isArray(children)) {
+					return R.c(tag, props, ...children)
+				} else {
+					return R.c(tag, props, children)
+				}
 			} else {
-				return R.c(tag, props, children)
+				return R.c(tag, props)
 			}
 		} catch (e) {
 			if (typeof tag === 'function') {
@@ -31,6 +36,7 @@ function wrap(R) {
 			throw e
 		}
 	}
+
 	Fragment = R.f
 
 	return {

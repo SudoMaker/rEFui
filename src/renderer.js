@@ -134,19 +134,24 @@ function createRenderer(nodeOps, rendererID) {
 					mergedTextBuffer = ''
 				}
 			}
-			for (let child of children) {
-				if (child !== null && child !== undefined) {
-					if (isNode(child)) {
-						flushTextBuffer()
-						normalizedChildren.push(child)
-					} else if (isSignal(child)) {
-						flushTextBuffer()
-						normalizedChildren.push(createTextNode(child))
-					} else {
-						mergedTextBuffer += child
+			function flattenChildren(childArr) {
+				for (let child of childArr) {
+					if (child !== null && child !== undefined) {
+						if (isNode(child)) {
+							flushTextBuffer()
+							normalizedChildren.push(child)
+						} else if (isSignal(child)) {
+							flushTextBuffer()
+							normalizedChildren.push(createTextNode(child))
+						} else if (Array.isArray(child)) {
+							flattenChildren(child)
+						} else {
+							mergedTextBuffer += child
+						}
 					}
 				}
 			}
+			flattenChildren(children)
 			flushTextBuffer()
 		}
 
