@@ -12,7 +12,7 @@ function wrap(R) {
 		}
 		if (Object.hasOwn(props, 'children')) {
 			const children = props.children
-			if (Array.isArray(children)) {
+			if (Array.isArray(children) && !R.isNode(children)) {
 				return R.c(tag, props, ...props.children)
 			} else {
 				return R.c(tag, props, props.children)
