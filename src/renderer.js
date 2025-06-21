@@ -44,10 +44,13 @@ function createRenderer(nodeOps, rendererID) {
 		return children.reduce(flatChildrenReducer, [])
 	}
 
+	function _expandFragment(anchorStart, children, anchorEnd, flags) {
+		return [anchorStart, ...flattenChildren(children), anchorEnd]
+	}
 	function expandFragment(node) {
 		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
 		if (flags.connected) {
-			return [anchorStart, ...flattenChildren(children), anchorEnd]
+			return _expandFragment(anchorStart, children, anchorEnd, flags)
 		}
 
 		flags.connected = true
@@ -67,9 +70,9 @@ function createRenderer(nodeOps, rendererID) {
 		parentMap.delete(node)
 
 		if (isFragment(node)) {
-			const [, , , flags] = fragmentMap.get(node)
+			const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
 			if (flags.connected) {
-				appendNodeRaw(node, ...expandFragment(node))
+				appendNodeRaw(node, ..._expandFragment(anchorStart, children, anchorEnd, flags))
 				flags.connected = false
 			}
 		} else {
@@ -100,9 +103,13 @@ function createRenderer(nodeOps, rendererID) {
 		parentMap.set(node, parent)
 
 		if (isFragment(parent)) {
-			const [, children] = fragmentMap.get(parent)
-			const idx = children.indexOf(ref)
-			children.splice(idx, 0, node)
+			const [, children, anchorEnd] = fragmentMap.get(parent)
+			if (anchorEnd === ref) {
+				children.push(node)
+			} else {
+				const idx = children.indexOf(ref)
+				children.splice(idx, 0, node)
+			}
 		}
 
 		if (isFragment(ref)) {
@@ -134,7 +141,7 @@ function createRenderer(nodeOps, rendererID) {
 					mergedTextBuffer = ''
 				}
 			}
-			function flattenChildren(childArr) {
+			function flatChildren(childArr) {
 				for (let child of childArr) {
 					if (child !== null && child !== undefined) {
 						if (isNode(child)) {
@@ -144,14 +151,14 @@ function createRenderer(nodeOps, rendererID) {
 							flushTextBuffer()
 							normalizedChildren.push(createTextNode(child))
 						} else if (Array.isArray(child)) {
-							flattenChildren(child)
+							flatChildren(child)
 						} else {
 							mergedTextBuffer += child
 						}
 					}
 				}
 			}
-			flattenChildren(children)
+			flatChildren(children)
 			flushTextBuffer()
 		}
 
