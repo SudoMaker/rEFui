@@ -106,8 +106,11 @@ export const directives = {
 
 			function handler(newVal) {
 				return nextTick(function() {
-					if (newVal === undefined || val === null || val === false) styleObj[key] = 'unset'
-					else styleObj[key] = newVal
+					if (newVal === undefined || val === null || val === false) {
+						styleObj[key] = 'unset'
+					} else {
+						styleObj[key] = newVal
+					}
 				})
 			}
 
@@ -122,8 +125,11 @@ export const directives = {
 
 			function handler(newVal) {
 				return nextTick(function() {
-					if (newVal) classList.add(key)
-					else classList.remove(key)
+					if (newVal) {
+						classList.add(key)
+					} else {
+						classList.remove(key)
+					}
 				})
 			}
 
