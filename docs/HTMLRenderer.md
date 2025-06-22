@@ -30,17 +30,17 @@ const renderer = createHTMLRenderer();
 
 // 2. Define a component that accepts a renderer (R)
 const App = () => {
-  const name = signal('World');
-  return (R) => (
-    <>
-      <h1>Hello, {name}!</h1>
-      <p>This is rendered on the server.</p>
-    </>
-  );
+	const name = signal('World');
+	return (R) => (
+		<>
+			<h1>Hello, {name}!</h1>
+			<p>This is rendered on the server.</p>
+		</>
+	);
 }
 
 // 3. Render the component to a variable
-const rendered = renderer.createElement(null, App);
+const rendered = renderer.createElement(App);
 
 // 4. Serialize the output to an HTML string
 const htmlString = renderer.serialize(rendered);
