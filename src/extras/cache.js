@@ -88,7 +88,7 @@ function createCache(tpl) {
 				return node
 			})
 		}
-}
+	}
 
 	return {
 		getIndex,
