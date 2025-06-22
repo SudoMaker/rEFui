@@ -254,10 +254,6 @@ function createDOMRenderer({
 	})
 
 	function setProps(node, props) {
-		if (Object.hasOwn(props, 'children')) {
-			props = Object.assign({}, props)
-			delete props.children
-		}
 		for (let prop in props) getPropSetter(prop)(node, props[prop])
 	}
 

@@ -107,7 +107,7 @@ DOMRenderer.render(document, App)
 
 ## JSX configurations
 
-For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](JSX.md).
+For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](docs/JSX.md).
 
 ## Hot Module Replacement
 
@@ -117,12 +117,12 @@ For more details, checkout [refurbish](https://github.com/SudoMaker/refurbish)
 
 ## Built-in Components
 
-See [Components](Components.md)
+See [Components](docs/Components.md)
 
 ## Renderers
 
-- [DOM](DOMRenderer.md): `refui/dom`
-- [HTML](HTMLRenderer.md): `refui/html`
+- [DOM](docs/DOMRenderer.md): `refui/dom`
+- [HTML](docs/HTMLRenderer.md): `refui/html`
 
 ## Prebuilt version
 
