@@ -40,7 +40,7 @@ const MyComponent = () => {
 
   return (R) => (
     <>
-      <button on:click={() => isActive.value = !isActive.value}>
+      <button on:click={() => (isActive.value = !isActive.value)}>
         Toggle Active
       </button>
       <div class:active={isActive}>
