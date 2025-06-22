@@ -107,20 +107,13 @@ DOMRenderer.render(document, App)
 
 ## JSX configurations
 
-```js
-/** @jsx R.c */
-/** @jsxFrag R.f */
-```
-
-Set these values accordingly to your transpiler configuration, or add the above comments to the top of your JSX file.
-
-JSXAuto is supported via `refui/jsx-runtime` and `refui/jsx-dev-runtime`. It's still recommended to use JSXClassic for more runtime flexibility.
+For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](JSX.md).
 
 ## Hot Module Replacement
 
-rEFui comes with built-in HMR support, but still requires a plugin to the packager to inject a minimal portion of boilerplate code to make it work while developing.
+rEFui comes with built-in HMR support, but still requires a plugin for the packager to inject a minimal portion of boilerplate code to make it work while developing.
 
-For more details checkout [refurbish](https://github.com/SudoMaker/refurbish)
+For more details, checkout [refurbish](https://github.com/SudoMaker/refurbish)
 
 ## Built-in Components
 
@@ -128,7 +121,8 @@ See [Components](Components.md)
 
 ## Renderers
 
-- [DOM](DOMRenderer.md)
+- [DOM](DOMRenderer.md): `refui/dom`
+- [HTML](HTMLRenderer.md): `refui/html`
 
 ## Prebuilt version
 
