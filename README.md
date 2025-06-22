@@ -4,7 +4,7 @@
 
 Pronunced as /ɹiːˈfjuːəl/, refuel
 
-The JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
+The [Retained Mode](https://en.wikipedia.org/wiki/Retained_mode) JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
 
 ## Usage
 
@@ -13,6 +13,8 @@ npm i refui
 ```
 
 ### Web
+
+[Playground](https://stackblitz.com/edit/refui-starter-template?file=src%2Fapp.jsx)
 
 ```jsx
 import { signal } from 'refui'

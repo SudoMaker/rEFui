@@ -1,6 +1,8 @@
 # JSX Setup
 
-This document explains how to configure your project to use JSX with rEFui. You can choose between two JSX transformation methods: **Classic Transform** (preferred) and **Automatic Runtime**.
+This document explains how to configure your project to use JSX with rEFui.
+
+Like Solid.js, rEFui is a [Retained Mode](https://en.wikipedia.org/wiki/Retained_mode) renderer, but unlike Solid.JS, rEFui does not rely on a specific compiler for JSX, you can just use any existing transpilers and choose between two JSX transformation methods: **Classic Transform** (preferred) and **Automatic Runtime**.
 
 ## Classic Transform (Preferred)
 
