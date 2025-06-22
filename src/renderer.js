@@ -171,7 +171,7 @@ function createRenderer(nodeOps, rendererID) {
 			const node = tag === Fragment ? createFragment('') : createNode(tag)
 
 			if (props) {
-				const { $ref, ..._props } = props
+				const { $ref, children, ..._props } = props
 				setProps(node, _props)
 				if ($ref) {
 					$ref.value = node

@@ -107,8 +107,19 @@ function Fn({ name = 'Fn', ctx }, handler, handleError) {
 		let currentDispose = null
 
 		watch(function() {
-			const newRender = read(handler(read(ctx)))
-			if (newRender === currentRender) return
+			const newHandler = read(handler)
+
+			if (!newHandler) {
+				currentDispose?.()
+				currentRender = currentDispose = null
+				return
+			}
+
+			const newRender = newHandler(read(ctx))
+			if (newRender === currentRender) {
+				return
+			}
+
 			currentRender = newRender
 			if (newRender) {
 				const prevDispose = currentDispose
@@ -370,10 +381,14 @@ function For({ name = 'For', entries, track, indexed }, item) {
 	}
 }
 
-function If({ condition, else: otherwise }, trueBranch, falseBranch) {
+function If({ condition, true: trueCondition, else: otherwise }, trueBranch, falseBranch) {
 	if (otherwise) {
 		falseBranch = otherwise
 	}
+	if (trueCondition) {
+		condition = trueCondition
+	}
+
 	if (isSignal(condition)) {
 		return Fn({ name: 'If' }, function() {
 			if (condition.value) return trueBranch
