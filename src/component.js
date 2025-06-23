@@ -547,7 +547,7 @@ const createComponent = (function() {
 		return component
 	}
 
-	if (import.meta.hot) {
+	if (import.meta./* @refui webpack */hot) {
 		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
 		return createHMRComponentWrap({ builtins, _dynContainer, Component, createComponentRaw })
 	}
