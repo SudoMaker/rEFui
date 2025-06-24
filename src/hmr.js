@@ -1,6 +1,8 @@
 import { signal } from './signal.js'
 import { isPrimitive } from './utils.js'
 
+export const hotEnabled = !!import.meta./* @refui webpack */hot && (process.env.NODE_ENV !== 'production')
+
 export const KEY_HMRWRAP = Symbol('K_HMRWRAP')
 export const KEY_HMRWRAPPED = Symbol('K_HMRWARPPED')
 
@@ -32,13 +34,14 @@ function wrapComponent(fn) {
 
 function handleError(err, _, {name, hot}) {
 	if (hot) {
-		console.error(`Error happened when rendering <${name}>:\n`, err)
+		console.error(`[rEFui HMR] Error happened when rendering <${name}>:\n`, err)
 	} else {
 		throw err
 	}
 }
 
-export function createHMRComponentWrap({builtins, _dynContainer, Component, createComponentRaw}) {
+export function enableHMR({builtins, _dynContainer, Component, createComponentRaw}) {
+	console.info('[rEFui HMR] Hot Module Replacement enabled. Check https://github.com/SudoMaker/refurbish for details.')
 	return function(tpl, props, ...children) {
 		let hotLevel = 0
 

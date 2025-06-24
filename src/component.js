@@ -1,6 +1,6 @@
 import { collectDisposers, tick, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
 import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
-import { createHMRComponentWrap } from './hmr.js'
+import { hotEnabled, enableHMR } from './hmr.js'
 
 const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
 
@@ -547,9 +547,9 @@ const createComponent = (function() {
 		return component
 	}
 
-	if (import.meta./* @refui webpack */hot) {
+	if (hotEnabled) {
 		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
-		return createHMRComponentWrap({ builtins, _dynContainer, Component, createComponentRaw })
+		return enableHMR({ builtins, _dynContainer, Component, createComponentRaw })
 	}
 
 	return createComponentRaw
