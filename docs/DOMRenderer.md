@@ -8,7 +8,7 @@ First, you need to create a renderer instance. We provide a default setup for br
 
 ```javascript
 import { createDOMRenderer } from 'refui/dom';
-import { defaults } from 'refui/presets/browser';
+import { defaults } from 'refui/browser';
 
 // Create the renderer with browser defaults
 const renderer = createDOMRenderer(defaults);
@@ -27,8 +27,8 @@ Here is a complete example of rendering a component to the DOM using the preferr
 <!DOCTYPE html>
 <html>
 <body>
-  <div id="app"></div>
-  <script src="index.js"></script>
+	<div id="app"></div>
+	<script src="index.js"></script>
 </body>
 </html>
 ```
@@ -36,7 +36,7 @@ Here is a complete example of rendering a component to the DOM using the preferr
 **index.js:**
 ```jsx
 import { createDOMRenderer } from 'refui/dom';
-import { defaults } from 'refui/presets/browser';
+import { defaults } from 'refui/browser';
 
 // 1. Create renderer
 const renderer = createDOMRenderer(defaults);
@@ -61,11 +61,11 @@ Usage: `attr:attribute-to-be-set="value"`
 Example:
 ```jsx
 const MyComponent = () => (R) => (
-  <>
-    <input type="checkbox" attr:checked="true"/>
-    <div data-tooltip="Hello"/>
-    <div prop:myWeirdProp={variable}/>
-  </>
+	<>
+		<input type="checkbox" attr:checked="true"/>
+		<div data-tooltip="Hello"/>
+		<div prop:myWeirdProp={variable}/>
+	</>
 );
 ```
 

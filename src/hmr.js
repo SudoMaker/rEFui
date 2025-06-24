@@ -1,8 +1,10 @@
 import { signal } from './signal.js'
 import { isPrimitive } from './utils.js'
 
+export const hotEnabled = !!import.meta./* @refui webpack */hot && (process.env.NODE_ENV !== 'production')
+
 export const KEY_HMRWRAP = Symbol('K_HMRWRAP')
-export const KEY_HMRWARPPED = Symbol('K_HMRWARPPED')
+export const KEY_HMRWRAPPED = Symbol('K_HMRWARPPED')
 
 const toString = Object.prototype.toString
 
@@ -15,7 +17,7 @@ function makeHMR(fn) {
 		return fn
 	}
 	const wrapped = fn.bind(null)
-	wrapped[KEY_HMRWARPPED] = true
+	wrapped[KEY_HMRWRAPPED] = true
 	return wrapped
 }
 
@@ -32,13 +34,14 @@ function wrapComponent(fn) {
 
 function handleError(err, _, {name, hot}) {
 	if (hot) {
-		console.error(`Error happened when rendering <${name}>:\n`, err)
+		console.error(`[rEFui HMR] Error happened when rendering <${name}>:\n`, err)
 	} else {
 		throw err
 	}
 }
 
-export function createHMRComponentWrap({builtins, _dynContainer, Component, createComponentRaw}) {
+export function enableHMR({builtins, _dynContainer, Component, createComponentRaw}) {
+	console.info('[rEFui HMR] Hot Module Replacement enabled. Check https://github.com/SudoMaker/refurbish for details.')
 	return function(tpl, props, ...children) {
 		let hotLevel = 0
 
@@ -46,7 +49,7 @@ export function createHMRComponentWrap({builtins, _dynContainer, Component, crea
 			if (tpl[KEY_HMRWRAP]) {
 				tpl = tpl[KEY_HMRWRAP]
 				hotLevel = 2
-			} else if (!tpl[KEY_HMRWARPPED]) {
+			} else if (!tpl[KEY_HMRWRAPPED]) {
 				tpl = wrapComponent(tpl)
 				hotLevel = 1
 			}
@@ -61,58 +64,70 @@ export function createHMRComponentWrap({builtins, _dynContainer, Component, crea
 	}
 }
 
-export function setup({url, accept, invalidate}) {
-	const thisModule = import(/* @vite-ignore */url)
-	accept(async function(newModule) {
-		if (!newModule) {
-			return
-		}
-		const origModule = await thisModule
-		const origExports = Object.entries(await thisModule)
-		for (let [key, origVal] of origExports) {
-			const newVal = newModule[key]
+async function update(newModule, invalidate) {
+	newModule = await newModule
+	if (!newModule) {
+		return
+	}
+	const oldModule = Object.entries(await this)
+	for (let [key, origVal] of oldModule) {
+		const newVal = newModule[key]
 
-			if (typeof origVal === 'function' && typeof newVal === 'function' && (key === 'default' || key[0].toUpperCase() === key[0])) {
-				let wrapped = origVal[KEY_HMRWRAP]
-				if (wrapped) {
-					wrapped.hot = true
-				} else {
-					wrapped = wrapComponent(origVal)
-				}
-				if (typeof newVal === 'function') {
-					Object.defineProperty(newVal, KEY_HMRWRAP, {
-						value: wrapped,
-						enumerable: false
-					})
-				}
-				wrapped.value = newVal
+		if (typeof origVal === 'function' && typeof newVal === 'function' && (key === 'default' || key[0].toUpperCase() === key[0])) {
+			let wrapped = origVal[KEY_HMRWRAP]
+			if (wrapped) {
+				wrapped.hot = true
 			} else {
-				let invalid = false
+				wrapped = wrapComponent(origVal)
+			}
+			if (typeof newVal === 'function') {
+				Object.defineProperty(newVal, KEY_HMRWRAP, {
+					value: wrapped,
+					enumerable: false
+				})
+			}
+			wrapped.value = newVal
+		} else {
+			let invalid = false
 
-				if ((isPrimitive(origVal) || isPrimitive(newVal)) && origVal !== newVal) {
-					invalid = true
-				} else {
-					invalid = compareVal(origVal, newVal)
-					if (!invalid) {
-						console.warn(`[rEFui HMR] Export "${key}" in "${(new URL(url)).pathname}" does not seem to have changed. Refresh the page manually if neessary.`)
-					}
-				}
-
-				if (invalid) {
-					invalidate(`[rEFui HMR] Non HMR-able export "${key}" changed in "${(new URL(url)).pathname}".`)
+			if ((isPrimitive(origVal) || isPrimitive(newVal)) && origVal !== newVal) {
+				invalid = true
+			} else {
+				invalid = compareVal(origVal, newVal)
+				if (!invalid) {
+					console.warn(`[rEFui HMR] Export "${key}" in "${(new URL(url)).pathname}" does not seem to have changed. Refresh the page manually if neessary.`)
 				}
 			}
+
+			if (invalid) {
+				invalidate(`[rEFui HMR] Non HMR-able export "${key}" changed in "${(new URL(url)).pathname}".`)
+			}
 		}
-	})
+	}
 }
 
-/* boilerplate
-// ---- BEGIN REFUI HMR INJECT ----
+function onDispose(data) {
+	data[KEY_HMRWRAP] = this
+}
+
+export function setup({data, current, accept, dispose, invalidate}) {
+	if (data?.[KEY_HMRWRAP]) {
+		update.call(data[KEY_HMRWRAP], current, invalidate)
+	}
+	dispose(onDispose.bind(current))
+	accept()
+}
+
+/* // Rollup/Vite boilerplate
 if (import.meta.hot) {
-	import('refui/hmr').then(({setup}) => setup({
-		url: import.meta.url,
-		accept(cb) {
-			import.meta.hot.accept(cb)
+	import("refui/hmr").then(({setup}) => setup({
+		data: import.meta.hot.data,
+		current: import(import.meta.url),
+		accept() {
+			import.meta.hot.accept()
+		},
+		dispose(cb) {
+			import.meta.hot.dispose(cb)
 		},
 		invalidate(reason) {
 			if (import.meta.hot.invalidate) {
@@ -123,5 +138,16 @@ if (import.meta.hot) {
 		}
 	}))
 }
-// ----  END REFUI HMR INJECT  ----
+*/
+
+/* // Webpack boilerplate
+if (import.meta.webpackHot) {
+	import("refui/hmr").then(m => m.setup({
+		data: import.meta.webpackHot.data,
+		current: import(${JSON.stringify(this.resourcePath)}),
+		accept() { import.meta.webpackHot.accept() },
+		dispose(cb) { import.meta.webpackHot.dispose(cb) },
+		invalidate(reason) { import.meta.webpackHot.decline(reason) }
+	}));
+}
 */
