@@ -1,6 +1,8 @@
 # DOM Renderer
 
-This document provides a guide on how to set up and use the rEFui DOM renderer.
+This document provides a guide on how to set up and use the rEFui DOM renderer for building reactive web applications.
+
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
 
 ## Initial Setup
 
@@ -48,36 +50,137 @@ const App = () => (R) => <h1>Hello, World!</h1>;
 renderer.render(document.getElementById('app'), App);
 ```
 
-## Setting attributes
+## Reactive Components with Signals
 
-Props are default to DOM object properties, setting attributes should add the `attr:` prefix.
+rEFui's power comes from its reactive signal system. Here's an example with interactive state:
 
-Props containing `-` are considered as attributes as well. You can override the behavior by adding `prop:` prefix to them.
+> **Note on Expressions**: Because rEFui is a retained-mode renderer, any dynamic expression in JSX must be wrapped in a computed signal (`$()`) to be reactive.
+>
+> - `<div>Count: {count}</div>` - **Correct**: The renderer handles the signal directly.
+> - `<div>{$(() => `Count is ${count.value}`)}</div>` - **Correct**: The expression is wrapped.
+> - `<div>Count is {count.value}</div>` - **Incorrect**: The expression is evaluated once and will not update.
 
-Boolean values are rendered as toggling the prop on and off.
+```jsx
+import { createDOMRenderer } from 'refui/dom';
+import { defaults } from 'refui/browser';
+import { signal } from 'refui';
+
+const renderer = createDOMRenderer(defaults);
+
+const Counter = () => {
+	// Create a reactive signal
+	const count = signal(0);
+
+	return (R) => (
+		<div>
+			<h1>Count: {count}</h1>
+			<button on:click={() => count.value++}>
+				Increment
+			</button>
+			<button on:click={() => count.value--}>
+				Decrement
+			</button>
+		</div>
+	);
+};
+
+renderer.render(document.getElementById('app'), Counter);
+```
+
+## Working with Props
+
+Components can receive props that can be signals or regular values:
+
+```jsx
+import { signal, read } from 'refui';
+
+const Greeting = ({ name, count }) => {
+	return (R) => (
+		<div>
+			<h1>Hello, {name}!</h1>
+			<p>You have {count} messages</p>
+		</div>
+	);
+};
+
+const App = () => {
+	const userName = signal('John');
+	const messageCount = signal(5);
+
+	return (R) => (
+		<div>
+			<Greeting name={userName} count={messageCount} />
+			<button on:click={() => userName.value = 'Jane'}>
+				Change Name
+			</button>
+			<button on:click={() => messageCount.value++}>
+				Add Message
+			</button>
+		</div>
+	);
+};
+```
+
+## Setting Attributes and Properties
+
+The DOM renderer automatically handles the difference between DOM properties and HTML attributes:
+
+- **Props** are set as DOM object properties by default
+- **Attributes** should use the `attr:` prefix
+- Props containing `-` are treated as attributes automatically
+- You can force a prop by using the `prop:` prefix
+- Boolean values toggle the property/attribute on and off
+- **Signal values** are automatically unwrapped and kept reactive
 
 Usage: `attr:attribute-to-be-set="value"`
 
 Example:
 ```jsx
-const MyComponent = () => (R) => (
-	<>
-		<input type="checkbox" attr:checked="true"/>
-		<div data-tooltip="Hello"/>
-		<div prop:myWeirdProp={variable}/>
-	</>
-);
+import { signal } from 'refui';
+
+const MyComponent = () => {
+	const isChecked = signal(false);
+	const tooltipText = signal('Hello');
+	const customValue = signal('test');
+
+	return (R) => (
+		<>
+			{/* Reactive attribute */}
+			<input type="checkbox" attr:checked={isChecked}/>
+
+			{/* Data attributes (automatic) */}
+			<div data-tooltip={tooltipText}/>
+
+			{/* Force as property */}
+			<div prop:myWeirdProp={customValue}/>
+
+			{/* Static values */}
+			<input type="text" placeholder="Enter text"/>
+		</>
+	);
+};
 ```
 
-## Event handling
+## Event Handling
+
+The DOM renderer provides a flexible event system that works seamlessly with signals.
 
 Usage: `on[-option-moreOptions]:eventName={handler}`
 
 Examples:
 
-- Simple click
+- Simple click with signal updates
 ```jsx
-<button on:click={() => alert('Clicked!')}>Click me!</button>
+import { signal } from 'refui';
+
+const Counter = () => {
+	const count = signal(0);
+	return (R) => (
+		<button on:click={() => count.value++}>
+			Clicked {count} times
+		</button>
+	);
+};
 ```
 
 - Click once
@@ -85,9 +188,9 @@ Examples:
 <button on-once:click={() => alert('Clicked!')}>Click me!</button>
 ```
 
-- Passive
+- Passive events for performance
 ```jsx
-<div on-passive:scroll={() => {/* do some time consuming operations */}}>{loooooongContent}</div>
+<div on-passive:scroll={() => {/* do some time consuming operations */}}>{longContent}</div>
 ```
 
 - Multiple options
@@ -95,9 +198,24 @@ Examples:
 <div on-capture-passive:click={() => alert('Clicked!')}><button>Click me!</button></div>
 ```
 
-- Get event object
+- Working with event objects and signals
 ```jsx
-<input on:input={(event) => console.log(event.target.value)}/>
+const SearchInput = () => {
+	const query = signal('');
+	const results = signal([]);
+
+	return (R) => (
+		<input
+			type="text"
+			value={query}
+			on:input={(event) => {
+				query.value = event.target.value;
+				// Trigger search logic here
+			}}
+			placeholder="Search..."
+		/>
+	);
+};
 ```
 
 ## Presets

@@ -1,4 +1,4 @@
-import { collectDisposers, tick, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
 import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
 import { hotEnabled, enableHMR } from './hmr.js'
 
@@ -410,10 +410,44 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 	return falseBranch
 }
 
-function _dynContainer(name, catchErr, ctx, props, ...children) {
+function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 	const self = currentCtx.self
 
-	const $ref = props.$ref ??= signal()
+	let syncRef = null
+
+	if ($ref) {
+		if (isSignal($ref)) {
+			syncRef = function(node) {
+				$ref.value = node
+			}
+		} else if (typeof $ref === 'function') {
+			syncRef = $ref
+		} else if (process.env.NODE_ENV !== 'production') {
+			throw new Error(`Invalid $ref type: ${typeof $ref}`)
+		}
+	}
+
+	let oldCtx = null
+	props.$ref = (newInstance) => {
+		if (oldCtx) {
+			oldCtx.wrapper = null
+			oldCtx = null
+		}
+
+		const newCtx = newInstance?.[KEY_CTX]
+		if (newCtx) {
+			if (newCtx.hasExpose) {
+				const extraKeys = Object.getOwnPropertyDescriptors(newInstance)
+				delete extraKeys[KEY_CTX]
+				Object.defineProperties(self, extraKeys)
+			}
+
+			newCtx.wrapper = self
+			oldCtx = newCtx
+		}
+
+		syncRef?.(newInstance)
+	}
 
 	let current = null
 	let renderFn = null
@@ -430,27 +464,17 @@ function _dynContainer(name, catchErr, ctx, props, ...children) {
 
 		current = component
 		renderFn = function(R) {
-			const ret = R.c(component, props, ...children)
-
-			const newInstance = $ref.peek()
-			const newCtx = newInstance?.[KEY_CTX]
-			if (newCtx) {
-				if (newCtx.hasExpose) {
-					const extraKeys = Object.getOwnPropertyDescriptors(newInstance)
-					delete extraKeys[KEY_CTX]
-					Object.defineProperties(self, extraKeys)
-				}
-
-				newCtx.wrapper = self
-			}
-
-			return ret
+			return R.c(component, props, ...children)
 		}
 
 		return renderFn
 	}, catchErr)
 }
 function Dynamic({ is, ctx, ...props }, ...children) {
+	props.$ref = signal()
+	expose({
+		current: props.$ref
+	})
 	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
@@ -543,7 +567,15 @@ const createComponent = (function() {
 		}
 		const { $ref, ..._props } = props
 		const component = new Component(tpl, _props, ...children)
-		if ($ref) $ref.value = component
+		if ($ref) {
+			if (isSignal($ref)) {
+				$ref.value = node
+			} else if (typeof $ref === 'function') {
+				$ref(component)
+			} else if (process.env.NODE_ENV !== 'production') {
+				throw new Error(`Invalid $ref type: ${typeof $ref}`)
+			}
+		}
 		return component
 	}
 

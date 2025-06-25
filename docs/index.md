@@ -1,0 +1,49 @@
+# Welcome to rEFui
+
+Welcome to the official documentation for rEFui, a lightweight and powerful JavaScript library for building reactive user interfaces. Whether you're a beginner just getting started or an experienced developer looking for detailed API information, these documents will guide you through everything rEFui has to offer.
+
+## Table of Contents
+
+- [**Getting Started**](#getting-started)
+- [**Core Concepts**](#core-concepts)
+- [**Guides**](#guides)
+- [**API Reference**](#api-reference)
+
+---
+
+## Getting Started
+
+If you are new to rEFui, this is the perfect place to begin. The Getting Started guide provides a complete walkthrough, from initial setup to building your first reactive components.
+
+- **[Getting Started Guide](GetStarted.md)**
+	- Learn what rEFui is, how to set up your project with JSX, and how to build simple, interactive applications.
+
+## Core Concepts
+
+These documents dive deep into the fundamental building blocks of rEFui. Understanding these concepts is key to using the library effectively.
+
+- **[Signals](Signal.md)**
+	- A comprehensive guide to rEFui's reactive system. Learn about signals, computed signals, effects, and how to manage state with fine-grained reactivity.
+
+- **[Components](Components.md)**
+	- Explore rEFui's component model and discover the built-in components like `<If>`, `<For>`, `<Async>`, and `<Dynamic>` that help you handle common UI patterns with ease.
+
+## Guides
+
+Follow these guides for detailed instructions on specific topics, from rendering in different environments to configuring your development setup.
+
+- **[DOM Renderer](DOMRenderer.md)**
+	- Learn how to use rEFui to build interactive applications that run in the browser. Covers event handling, attribute/property management, and more.
+
+- **[HTML Renderer](HTMLRenderer.md)**
+	- A guide to server-side rendering (SSR) with rEFui. Generate static HTML from your components to improve performance and SEO.
+
+- **[JSX Setup](JSX.md)**
+	- Detailed instructions on how to configure your project to use JSX with rEFui, including the recommended "Classic Transform" and the "Automatic Runtime".
+
+## API Reference
+
+For experienced developers who need detailed information about specific functions, classes, and utilities.
+
+- **[API Reference](API.md)**
+	- A complete reference for all core APIs, including component lifecycle functions (`createComponent`, `dispose`), renderer creation (`createRenderer`), context management (`capture`, `expose`), and component references (`$ref`).

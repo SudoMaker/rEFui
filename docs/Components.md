@@ -2,13 +2,14 @@
 
 rEFui provides a set of built-in components to handle common UI patterns like conditional rendering, loops, and asynchronous operations. These are the building blocks for creating dynamic and reactive user interfaces.
 
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
+
 A core concept in rEFui is that a component is a function that accepts `props` and `children`, and returns a render function. This render function receives the renderer `R` and returns a node to be displayed.
 
 ```jsx
 const MyComponent = (props, ...children) => (R) => <div>Hello rEFui!</div>
 ```
 
-> [!INFO]
 > **Note on JSX Runtimes**
 >
 > While rEFui supports different JSX transforms, the preferred approach for maximum flexibility is the **Classic Transform**. This pattern allows you to swap or wrap renderers on a per-component basis. For a detailed guide on setting up both Classic and Automatic runtimes, see the [JSX Setup documentation](JSX.md).
@@ -19,29 +20,40 @@ These components are available directly from the `refui` package.
 
 ### If
 
-Conditionally renders content based on a `condition` or `true` prop.
+Conditionally renders content based on a `condition` or `true` prop. Works with both static values and reactive signals.
 
 **Note**: The `else` prop has higher priority than providing a second child function for the `else` case. The `true` prop has higher priority than the `condition` prop.
 
 ```jsx
-import { If } from 'refui'
+import { If, signal, $ } from 'refui'
 
-const App = ({ value }) => {
+// With reactive signals
+const App = () => {
+	const isLoggedIn = signal(false);
+	const userName = signal('John');
+
 	return (R) => (
-		// Using the 'else' prop for the falsy case
-		<If true={value} else={() => <span>Condition is false.</span>}>
-			{/* Rendered if 'condition' is truthy */}
-			{() => <span>Condition is true!</span>}
-		</If>
-	)
-}
+		<div>
+			<If condition={isLoggedIn}>
+				{() => <span>Welcome back, {userName}!</span>}
+				{() => <span>Please log in to continue.</span>}
+			</If>
 
+			<button on:click={() => isLoggedIn.value = !isLoggedIn.value}>
+				{$(() => isLoggedIn.value ? 'Logout' : 'Login')}
+			</button>
+		</div>
+	);
+};
+
+// Using the 'else' prop for cleaner syntax
 const AppAlternative = ({ value }) => {
 	return (R) => (
-		// Using a second child function for the falsy case
-		<If condition={value}>
+		<If
+			condition={value}
+			else={() => <span>Condition is false.</span>}
+		>
 			{() => <span>Condition is true!</span>}
-			{() => <span>Condition is false.</span>}
 		</If>
 	)
 }
@@ -51,27 +63,63 @@ const AppAlternative = ({ value }) => {
 
 Renders a list of items from an array or a signal of an array. `For` is reactive to the list change itself, with a highly optimized reconcile algorithm that only executes the least necessary steps to update the list.
 
-For keyed and performant rendering of dynamic lists, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
+Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
 
-**Note**: If you directly modify a property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](#unkeyed) component instead.
+**Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](#unkeyed) component instead.
 
 ```jsx
-import { For, signal, read } from 'refui'
+import { signal, For, $ } from 'refui';
 
-const App = () => {
-	const list = signal([
-		{ id: 1, text: 'First' },
-		{ id: 2, text: 'Second' },
-	]);
+export const TodoList = () => {
+	const newTodoText = signal('');
+  const todos = signal([
+    { text: 'Learn rEFui', completed: signal(false) },
+    { text: 'Build an app', completed: signal(false) },
+  ]);
 
-	return (R) => (
-		<ul>
-			<For entries={list} track="id" indexed={true}>
-				{(item, index) => <li>Item {read(index) + 1}: {item.text}</li>}
-			</For>
-		</ul>
-	)
-}
+  const addTodo = () => {
+    const newTodo = {
+      text: newTodoText.peek(),
+      completed: signal(false),
+    };
+    // We don't need to recreate the whole array
+    // You can just modify the current one and trigger an update manually instead
+    todos.value.push(newTodo);
+    todos.trigger();
+    newTodoText.value = ''
+  };
+
+  const toggleTodo = (completed) => {
+    completed.value = !completed.value;
+  };
+
+  return (R) => (
+    <div>
+			<input value={newTodoText} on:input={(e) => { newTodoText.value = e.target.value }} />
+      <button on:click={addTodo}>Add Todo</button>
+      <ul>
+        <For entries={todos} indexed={true}>
+          {(item, index) => {
+            return (
+              <li>
+                <span
+                  style={$(() =>
+                    item.completed.value ? 'text-decoration: line-through' : ''
+                  )}
+                >
+                  {$(() => index + 1)}. {item.text}
+                </span>
+                <button on:click={() => toggleTodo(item.completed)}>
+                  {$(() => (item.completed.value ? 'Undo' : 'Complete'))}
+                </button>
+              </li>
+            );
+          }}
+        </For>
+      </ul>
+    </div>
+  );
+};
 ```
 
 ### Fn
@@ -109,86 +157,154 @@ const App = ({ condition }) => {
 
 Renders a component that can change over time. The component can be specified as a string (for HTML tags) or a component function, which can be wrapped in a signal for dynamic updates.
 
+**Advanced Usage - Dynamic Components with Props:**
+
 ```jsx
-import { signal, Dynamic } from 'refui'
+import { signal, derivedExtract, Dynamic } from 'refui';
 
-const Component1 = (props, ...children) => (R) => <div {...props}>{children}</div>
-const Component2 = (props, ...children) => (R) => <button {...props}>{children}</button>
+const Card = ({ title, color = 'white' }) => (R) => (
+	<div style={`background: ${color}; padding: 20px; border-radius: 8px;`}>
+		<h3>{title}</h3>
+	</div>
+);
 
-const App = () => {
-	const DynamicComponent = signal(Component1)
+const Alert = ({ message, type = 'info' }) => (R) => (
+	<div style={`border: 2px solid ${type === 'error' ? 'red' : 'blue'}; padding: 10px;`}>
+		{message}
+	</div>
+);
+
+const DynamicDemo = () => {
+	const currentComponent = signal(Card);
+
+	// Use a single signal for all props
+	const props = signal({
+		title: 'My Card',
+		color: 'lightblue',
+		message: 'This is an alert!',
+		type: 'info'
+	});
+
+	const switchComponent = () => {
+		currentComponent.value = currentComponent.value === Card ? Alert : Card;
+	};
+
+	// Create individual reactive signals for each prop
+	const { title, color, message, type } = derivedExtract(props);
+
 	return (R) => (
-		<DynamicComponent
-			on:click={() => {
-				DynamicComponent.value =
-					DynamicComponent.value === Component1 ? Component2 : Component1
-			}}
-		>
-			Click to change component!
-		</DynamicComponent>
-	)
-}
+		<div>
+			<Dynamic
+				is={currentComponent}
+				title={title}
+				color={color}
+				message={message}
+				type={type}
+			/>
+			<button on:click={switchComponent}>Switch Component</button>
+		</div>
+	);
+};
 ```
 
 You can also use the `<Dynamic>` component with the `is` prop for the same effect:
 
 ```jsx
-const App = () => {
-	const currentComponent = signal('button') // 'button' or 'div'
+const ComponentSwitcher = () => {
+	const currentTag = signal('button');
+	const message = signal('Click to change tag!');
+
 	return (R) => (
-		<Dynamic
-			is={currentComponent}
-			on:click={() => {
-				currentComponent.value = currentComponent.value === 'button' ? 'div' : 'button'
-			}}
-		>
-			Click to change tag!
-		</Dynamic>
-	)
-}
+		<div>
+			<Dynamic
+				is={currentTag}
+				on:click={() => {
+					currentTag.value = currentTag.value === 'button' ? 'div' : 'button';
+					message.value = `Now I'm a ${currentTag.value}!`;
+				}}
+				style="padding: 10px; border: 1px solid #ccc; margin: 5px;"
+			>
+				{message}
+			</Dynamic>
+
+			<p>Current element: &lt;{currentTag}&gt;</p>
+		</div>
+	);
+};
 ```
 
 ### Async
 
-Manages the lifecycle of asynchronous components, showing a fallback UI while the component is loading. You can either use the `<Async>` component to wrap a promise that resolves to a component, or add a `fallback` prop directly to your async component invocation.
+Manages the lifecycle of asynchronous components by accepting a `future` prop, which should be a promise that resolves to a renderable component. While the promise is pending, it shows a `fallback` UI.
+
+**Important**: The `future` prop is **not** reactive. To re-run the async operation with new inputs, you must create a new component instance by re-rendering the `<Async>` component. A common pattern is to wrap it in a component that controls its lifecycle, like `<Fn>`.
 
 ```jsx
-import { Async } from 'refui'
-import { MyAsyncComponent } from './MyAsyncComponent.js' // Assuming this is an async component
+import { Async, signal, Fn } from 'refui'
 
-// Option 1: Using the <Async> component
+// An async component that fetches user data
+const UserProfile = async ({ userId }) => {
+	const response = await fetch(`https://jsonplaceholder.typicode.com/users/${userId}`);
+	const userData = await response.json();
+
+	return (R) => (
+		<div>
+			<h2>{userData.name}</h2>
+			<p>Email: {userData.email}</p>
+		</div>
+	);
+};
+
+// Use <Fn> to re-create the <Async> component when the user ID changes
 const App = () => {
-	return (R) => (
-		<Async future={MyAsyncComponent({ api: 'some/path' })} fallback={() => <div>Loading...</div>} />
-	)
-}
+	const currentUserId = signal(1);
 
-// Option 2: Using the fallback prop directly
-const AppAlternative = () => {
 	return (R) => (
-		<MyAsyncComponent api="some/path" fallback={<div>Loading...</div>} />
-	)
-}
+		<div>
+			<Fn>
+				{() => () =>
+					<Async
+						future={UserProfile({ userId: currentUserId.value })}
+						fallback={() => <div>Loading user...</div>}
+					/>
+				}
+			</Fn>
+			<button on:click={() => currentUserId.value++}>
+				Load Next User ({currentUserId})
+			</button>
+		</div>
+	);
+};
 ```
 
-To create an async component, define a function that returns a promise. Inside, you can perform async operations and use `capture` to bring in functions from the parent context.
+#### Async Components with `capture` and `expose`
+
+To create an async component that can communicate with its context (e.g., expose its internal state), you need `capture`.
+
+`capture` records the current rendering context. When you call the captured function later (like after a promise resolves), it runs within that original context, allowing it to interact correctly with signals and other reactive APIs.
 
 ```jsx
 import { capture, expose } from 'refui'
 
-const MyAsyncComponent = async ({ api }) => {
-	// `capture` allows a function from the parent's rendering context to be
-	// called from within the async component. `expose` is one such function
-	// that lets the async component pass data back out once resolved.
-	const exposeCaptured = capture(expose)
+const DataFetcher = async ({ url }) => {
+	// `capture` records the current render context so `expose` works correctly later.
+	const exposeCaptured = capture(expose);
 
-	const resp = await fetch(api)
-	const result = await resp.text()
+	try {
+		const response = await fetch(url);
+		const data = await response.json();
 
-	exposeCaptured({ result })
+		// Expose the final data. This runs in the original context.
+		exposeCaptured({ data });
 
-	return (R) => <div>{result}</div>
-}
+		// The promise resolves with the final render function
+		return (R) => <pre>{JSON.stringify(data, null, 2)}</pre>;
+
+	} catch (error) {
+		exposeCaptured({ error });
+		return (R) => <div>Error: {error.message}</div>;
+	}
+};
 ```
 
 ### Render
