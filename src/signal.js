@@ -463,10 +463,7 @@ function derive(sig, key, compute) {
 		let disposer = null
 
 		const _dispose = function() {
-			if (disposer) {
-				disposer()
-				disposer = null
-			}
+			disposer?.()
 		}
 
 		sig.connect(pure(function() {

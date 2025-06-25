@@ -171,10 +171,17 @@ function createRenderer(nodeOps, rendererID) {
 			const node = tag === Fragment ? createFragment('') : createNode(tag)
 
 			if (props) {
+				// `children` is omitted when passing to the node
 				const { $ref, children, ..._props } = props
 				setProps(node, _props)
 				if ($ref) {
-					$ref.value = node
+					if (isSignal($ref)) {
+						$ref.value = node
+					} else if (typeof $ref === 'function') {
+						$ref(node)
+					} else if (process.env.NODE_ENV !== 'production') {
+						throw new Error(`Invalid $ref type: ${typeof $ref}`)
+					}
 				}
 			}
 
