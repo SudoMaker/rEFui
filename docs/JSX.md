@@ -12,6 +12,8 @@ This is the recommended approach as it provides the most flexibility, allowing y
 
 With this setup, your components should be functions that accept a renderer `R` and return the element tree.
 
+**Please note**, rEFui does not require JSX inject for the classic transform. The render factory is passed through `R` in runtime.
+
 ### Configuration
 
 #### Babel
