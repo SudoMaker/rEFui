@@ -90,9 +90,13 @@ function getCurrentSelf() {
 	return currentCtx?.self
 }
 
-function Fn({ name = 'Fn', ctx }, handler, handleError) {
+function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	if (!handler) {
 		return nop
+	}
+
+	if (!catchErr) {
+		catchErr = handleErr
 	}
 
 	const run = currentCtx?.run
@@ -130,7 +134,7 @@ function Fn({ name = 'Fn', ctx }, handler, handleError) {
 						newResult = R.ensureElement((typeof newRender === 'function') ? newRender(R) : newRender)
 					} catch (err) {
 						errored = true
-						const errorHandler = peek(handleError)
+						const errorHandler = peek(catchErr)
 						if (errorHandler) {
 							newResult = R.ensureElement(errorHandler(err, name, ctx))
 						} else {
@@ -161,7 +165,7 @@ function Fn({ name = 'Fn', ctx }, handler, handleError) {
 	}
 }
 
-function For({ name = 'For', entries, track, indexed }, item) {
+function For({ name = 'For', entries, track, indexed }, itemTemplate) {
 	let currentData = []
 
 	let kv = track && new Map()
@@ -215,7 +219,7 @@ function For({ name = 'For', entries, track, indexed }, item) {
 		function getItemNode(itemKey) {
 			let node = nodeCache.get(itemKey)
 			if (!node) {
-				const newDataItem = kv ? kv.get(itemKey) : itemKey
+				const item = kv ? kv.get(itemKey) : itemKey
 				let idxSig = ks ? ks.get(itemKey) : 0
 				if (ks && !idxSig) {
 					idxSig = signal(0)
@@ -224,7 +228,7 @@ function For({ name = 'For', entries, track, indexed }, item) {
 				const dispose = collectDisposers(
 					[],
 					function() {
-						node = item(newDataItem, idxSig, R)
+						node = R.c(itemTemplate, { item, index: idxSig })
 						nodeCache.set(itemKey, node)
 					},
 					function(batch) {
@@ -478,19 +482,70 @@ function Dynamic({ is, ctx, ...props }, ...children) {
 	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
-function Async({ future, fallback }) {
+function _asyncContainer(name, fallback, catchErr, props, ...children) {
 	const self = getCurrentSelf()
-	const component = signal(fallback)
-	Promise.resolve(future).then(capture(function(result) {
+	const component = signal()
+	let currentDispose = null
+
+	const inputFuture = Promise.resolve(this)
+	const resolvedFuture = inputFuture.then(capture(function(result) {
 		if (self[KEY_CTX]) {
-			watch(function() {
+			currentDispose?.()
+			currentDispose = watch(function() {
 				component.value = read(result)
 			})
 		}
 	}))
-	return Fn({ name: 'Async' }, function() {
+
+	if (catchErr) {
+		resolvedFuture.catch(capture(function(error) {
+			if (self[KEY_CTX]) {
+				currentDispose?.()
+				currentDispose = watch(function () {
+					const handler = read(catchErr)
+					if (handler) {
+						if (typeof handler === 'function') {
+							component.value = handler({ ...props, error }, ...children)
+						} else {
+							component.value = handler
+						}
+					}
+				})
+			}
+		}))
+	}
+
+	if (fallback) {
+		nextTick(capture(function() {
+			if (self[KEY_CTX] && !component.peek()) {
+				currentDispose?.()
+				currentDispose = watch(function () {
+					const handler = read(fallback)
+					if (handler) {
+						if (typeof handler === 'function') {
+							component.value = handler({ ...props }, ...children)
+						} else {
+							component.value = handler
+						}
+					}
+				})
+			}
+		}))
+	}
+
+	return Fn({ name }, function() {
 		return component.value
 	})
+}
+
+function Async({ future, fallback, catch: catchErr, ...props }, then, now, handleErr) {
+	future = Promise.resolve(future).then(capture(function(result) {
+		return Fn({ name: 'Then' }, () => {
+			const handler = read(then)
+			return then?.({ ...props, result })
+		})
+	}))
+	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, props)
 }
 
 function Render({ from }) {
@@ -535,7 +590,8 @@ class Component {
 			ctx.dispose = collectDisposers(disposers, function() {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
-					renderFn = Async({future: renderFn, fallback: props && props.fallback || null})
+					const { fallback, catch: catchErr, ..._props } = props
+					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, _props, ...children)
 				}
 				ctx.render = renderFn
 			}, () => {

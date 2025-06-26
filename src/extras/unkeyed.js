@@ -1,7 +1,7 @@
 import { signal, watch, read } from '../signal.js'
 import { For } from '../component.js'
 
-export function UnKeyed({ entries, ...args }, item) {
+export function UnKeyed({ entries, ...args }, itemTemplate) {
 	const rawSigEntries = []
 	const sigEntries = signal(rawSigEntries)
 
@@ -18,6 +18,6 @@ export function UnKeyed({ entries, ...args }, item) {
 	})
 
 	return function(R) {
-		return R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, item)
+		return R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, itemTemplate)
 	}
 }
