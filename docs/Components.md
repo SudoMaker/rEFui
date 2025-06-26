@@ -63,6 +63,11 @@ const AppAlternative = ({ value }) => {
 
 Renders a list of items from an array or a signal of an array. `For` is reactive to the list change itself, with a highly optimized reconcile algorithm that only executes the least necessary steps to update the list.
 
+The child of a `<For>` component can be a **component** or a **function** that returns a renderable node.
+
+-   **Component:** Pass a component function directly. It will receive `item` and `index` as props. This is the recommended approach for better code organization.
+-   **Function:** Pass a function that takes `item` and `index` as arguments (destructured from a props object) and returns a node.
+
 Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
 
 **Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](#unkeyed) component instead.
@@ -70,55 +75,114 @@ Items are tracked by the value of each entry by default, but when you're replaci
 ```jsx
 import { signal, For, $ } from 'refui';
 
+// Define a separate component for list items
+const TodoItem = ({ item, index }) => {
+	const toggleTodo = () => {
+		item.completed.value = !item.completed.value;
+	};
+
+	return (R) => (
+		<li>
+			<span
+				style={$(() =>
+					item.completed.value ? 'text-decoration: line-through' : ''
+				)}
+			>
+				{$(() => index.value + 1)}. {item.text}
+			</span>
+			<button on:click={toggleTodo}>
+				{$(() => (item.completed.value ? 'Undo' : 'Complete'))}
+			</button>
+		</li>
+	);
+};
+
 export const TodoList = () => {
 	const newTodoText = signal('');
-  const todos = signal([
-    { text: 'Learn rEFui', completed: signal(false) },
-    { text: 'Build an app', completed: signal(false) },
-  ]);
+	const todos = signal([
+		{ text: 'Learn rEFui', completed: signal(false) },
+		{ text: 'Build an app', completed: signal(false) },
+	]);
 
-  const addTodo = () => {
-    const newTodo = {
-      text: newTodoText.peek(),
-      completed: signal(false),
-    };
-    // We don't need to recreate the whole array
-    // You can just modify the current one and trigger an update manually instead
-    todos.value.push(newTodo);
-    todos.trigger();
-    newTodoText.value = ''
-  };
+	const addTodo = () => {
+		const newTodo = {
+			text: newTodoText.peek(),
+			completed: signal(false),
+		};
+		todos.value.push(newTodo);
+		todos.trigger();
+		newTodoText.value = ''
+	};
 
-  const toggleTodo = (completed) => {
-    completed.value = !completed.value;
-  };
-
-  return (R) => (
-    <div>
+	return (R) => (
+		<div>
 			<input value={newTodoText} on:input={(e) => { newTodoText.value = e.target.value }} />
-      <button on:click={addTodo}>Add Todo</button>
-      <ul>
-        <For entries={todos} indexed={true}>
-          {(item, index) => {
-            return (
-              <li>
-                <span
-                  style={$(() =>
-                    item.completed.value ? 'text-decoration: line-through' : ''
-                  )}
-                >
-                  {$(() => index + 1)}. {item.text}
-                </span>
-                <button on:click={() => toggleTodo(item.completed)}>
-                  {$(() => (item.completed.value ? 'Undo' : 'Complete'))}
-                </button>
-              </li>
-            );
-          }}
-        </For>
-      </ul>
-    </div>
-  );
+			<button on:click={addTodo}>Add Todo</button>
+			<ul>
+				<For entries={todos} indexed={true}>
+					{TodoItem}
+				</For>
+			</ul>
+		</div>
+	);
+};
+
+// Alternatively, you can use an inline function for simpler cases:
+const SimpleTodoList = () => {
+	const todos = signal([
+		{ id: 1, text: 'Learn rEFui' },
+		{ id: 2, text: 'Build an app' },
+	]);
+
+	return (R) => (
+		<ul>
+			<For entries={todos}>
+				{({ item }) => <li>{item.text}</li>}
+			</For>
+		</ul>
+	);
+};
+```
+
+#### Exposed Methods
+
+The `<For>` component exposes several methods on its instance that allow you to interact with the list imperatively. You can get a reference to the component instance using the `$ref` prop.
+
+-   `getItem(key)`: Retrieves the original data item associated with a given key. (Only available when `track` is used).
+-   `remove(key)`: Removes an item from the list by its key. (Only available when `track` is used).
+-   `clear()`: Removes all items from the list.
+
+Here's an example of how to use them:
+
+```jsx
+import { signal, For, $ } from 'refui';
+
+const InteractiveList = () => {
+    const listRef = signal();
+    const items = signal([
+        { id: 1, text: 'First' },
+        { id: 2, text: 'Second' },
+        { id: 3, text: 'Third' },
+    ]);
+
+    const removeItem = () => {
+        // Remove item with id 2
+        listRef.peek()?.remove(2);
+    };
+
+    const clearList = () => {
+        listRef.peek()?.clear();
+    };
+
+    return (R) => (
+        <div>
+            <For entries={items} track="id" $ref={listRef}>
+                {({ item }) => <div>{item.text}</div>}
+            </For>
+            <button on:click={removeItem}>Remove Second</button>
+            <button on:click={clearList}>Clear All</button>
+        </div>
+    );
 };
 ```
 
@@ -151,6 +215,54 @@ const App = ({ condition }) => {
 		</Fn>
 	)
 }
+```
+
+#### Advanced Usage: `ctx` and `catch`
+
+The `Fn` component accepts two additional props for more advanced scenarios:
+
+-   `ctx`: A value or signal that is passed as the first argument to the child handler function. This is useful for providing context to the handler without creating closures in the render path.
+-   `catch`: A function that gets called if an error is thrown during the rendering of the handler's result. It receives the `error`, the component `name`, and the `ctx` as arguments, allowing you to create robust error boundaries.
+
+Here's how you can use them together:
+
+```jsx
+import { Fn, read, signal } from 'refui'
+
+// This component might throw an error
+const UserProfile = ({ user }) => (R) => {
+  if (!user || !user.name) {
+    throw new Error("User name is missing!");
+  }
+  return <div>Welcome, {user.name}</div>;
+};
+
+const App = () => {
+  const userSignal = signal({ name: 'John Doe' });
+
+  // A handler to render error states
+  const renderError = (R) => (error, name, ctx) => (
+    <div style="color: red;">
+      <p>Oops! Something went wrong in "{name}":</p>
+      <p><b>{error.message}</b></p>
+      <p>Context when error occurred:</p>
+      <pre>{JSON.stringify(read(ctx), null, 2)}</pre>
+    </div>
+  );
+
+  // The handler function passed to <Fn>. It receives the context.
+  const userProfileHandler = (user) => UserProfile({ user });
+
+  setTimeout(() => userSignal.value = { name: null }, 2000); // Simulate an error condition
+
+  return (R) => (
+    <Fn ctx={userSignal} catch={renderError(R)} name="UserProfileBoundary">
+      {userProfileHandler}
+			{/* Alternatively, handleError can be written as the second child of Fn */}
+			{renderError(R)}
+    </Fn>
+  );
+};
 ```
 
 ### Dynamic
@@ -235,75 +347,109 @@ const ComponentSwitcher = () => {
 
 ### Async
 
-Manages the lifecycle of asynchronous components by accepting a `future` prop, which should be a promise that resolves to a renderable component. While the promise is pending, it shows a `fallback` UI.
+Manages the lifecycle of asynchronous operations. It uses a render-prop pattern, where you provide components or functions as children to render different states (`pending`, `resolved`, `rejected`).
 
-**Important**: The `future` prop is **not** reactive. To re-run the async operation with new inputs, you must create a new component instance by re-rendering the `<Async>` component. A common pattern is to wrap it in a component that controls its lifecycle, like `<Fn>`.
+**Props:**
+
+-   `future`: A promise or a function that returns a promise. The promise should resolve to a value.
+-   `fallback`: (Optional) A component, function, or node to display while the promise is pending.
+-   `catch`: (Optional) A handler for when the promise rejects.
+
+Any other props passed to `<Async>` will be passed through to the `then`, `fallback`, and `catch` handlers.
+
+**Children:**
+
+`<Async>` expects children to be provided in a specific order to handle different states:
+
+1.  **`then` (required):** The first child is a component or function that renders when the promise resolves successfully. It receives a `result` prop with the resolved value, along with any other props passed to `<Async>`.
+2.  **`fallback` (optional):** The second child is a component or function to render while the promise is pending. It can also be provided via the `fallback` prop.
+3.  **`catch` (optional):** The third child is a handler for when the promise rejects. It receives an `error` prop. It can also be provided via the `catch` prop.
+
+#### Basic Usage with Functions
 
 ```jsx
-import { Async, signal, Fn } from 'refui'
+import { Async } from 'refui';
+
+const fetchMessage = () => new Promise(resolve => setTimeout(() => resolve('Data loaded!'), 1000));
+
+const App = () => (R) => (
+    <Async
+        future={fetchMessage()}
+        fallback={() => <p>Loading...</p>}
+        catch={({ error }) => <p>Error: {error.message}</p>}
+    >
+        {({ result }) => <p>Success: {result}</p>}
+    </Async>
+);
+```
+
+#### Usage with Components and Prop-drilling
+
+You can pass components directly as children. Any extra props on `<Async>` will be passed down to them.
+
+```jsx
+import { Async } from 'refui';
+
+const SuccessComponent = ({ result, message }) => (R) => (
+    <p>{message}: {result}</p>
+);
+
+const LoadingComponent = ({ message }) => (R) => (
+    <p>{message}</p>
+);
+
+const ErrorComponent = ({ error }) => (R) => (
+    <p>Failed to load: {error.message}</p>
+);
+
+const fetchUser = () => Promise.resolve('John Doe');
+
+const App = () => (R) => (
+    <Async
+        future={fetchUser()}
+        message="User loaded" // This prop is passed down
+    >
+        {SuccessComponent}
+        {LoadingComponent}
+        {ErrorComponent}
+    </Async>
+);
+```
+
+#### Automatic Async Components
+
+If a component itself returns a promise (i.e., it's an `async` function), rEFui will automatically wrap it in a boundary similar to `<Async>`. You can provide `fallback` and `catch` props directly to the component invocation.
+
+```jsx
+import { signal, Fn } from 'refui';
 
 // An async component that fetches user data
 const UserProfile = async ({ userId }) => {
 	const response = await fetch(`https://jsonplaceholder.typicode.com/users/${userId}`);
-	const userData = await response.json();
+	if (!response.ok) throw new Error('User not found');
+	const user = await response.json();
 
-	return (R) => (
-		<div>
-			<h2>{userData.name}</h2>
-			<p>Email: {userData.email}</p>
-		</div>
-	);
+	return (R) => <div>Hello, {user.name}</div>;
 };
 
-// Use <Fn> to re-create the <Async> component when the user ID changes
+// Use <Fn> to re-create the component when the ID changes
 const App = () => {
-	const currentUserId = signal(1);
+    const userId = signal(1);
 
-	return (R) => (
-		<div>
-			<Fn>
-				{() => () =>
-					<Async
-						future={UserProfile({ userId: currentUserId.value })}
-						fallback={() => <div>Loading user...</div>}
-					/>
-				}
-			</Fn>
-			<button on:click={() => currentUserId.value++}>
-				Load Next User ({currentUserId})
-			</button>
-		</div>
-	);
-};
-```
-
-#### Async Components with `capture` and `expose`
-
-To create an async component that can communicate with its context (e.g., expose its internal state), you need `capture`.
-
-`capture` records the current rendering context. When you call the captured function later (like after a promise resolves), it runs within that original context, allowing it to interact correctly with signals and other reactive APIs.
-
-```jsx
-import { capture, expose } from 'refui'
-
-const DataFetcher = async ({ url }) => {
-	// `capture` records the current render context so `expose` works correctly later.
-	const exposeCaptured = capture(expose);
-
-	try {
-		const response = await fetch(url);
-		const data = await response.json();
-
-		// Expose the final data. This runs in the original context.
-		exposeCaptured({ data });
-
-		// The promise resolves with the final render function
-		return (R) => <pre>{JSON.stringify(data, null, 2)}</pre>;
-
-	} catch (error) {
-		exposeCaptured({ error });
-		return (R) => <div>Error: {error.message}</div>;
-	}
+    return (R) => (
+        <div>
+            <Fn>
+                {() => (
+                    <UserProfile
+                        userId={userId.value}
+                        fallback={() => <div>Loading...</div>}
+                        catch={({ error }) => <div>Error: {error.message}</div>}
+                    />
+                )}
+            </Fn>
+            <button on:click={() => userId.value++}>Load next</button>
+        </div>
+    );
 };
 ```
 
@@ -353,7 +499,7 @@ import { derivedExtract } from 'refui'
 const App = ({ reactiveList }) => {
 	return (R) => (
 		<UnKeyed entries={reactiveList}>
-			{(item) => {
+			{({ item }) => {
 				// derivedExtract ensures that we react to changes in the 'name' signal
 				const { name } = derivedExtract(item)
 				return <div>{name}</div>

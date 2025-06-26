@@ -77,13 +77,13 @@ function createCache(tpl) {
 		return function(R) {
 			const cache = new WeakMap()
 			expose({ cache })
-			return R.c(For, { entries: components }, function(row) {
-				let node = cache.get(row)
+			return R.c(For, { entries: components }, function({ item }) {
+				let node = cache.get(item)
 				if (!node) {
 					node = untrack(function() {
-						return render(row, R)
+						return render(item, R)
 					})
-					cache.set(row, node)
+					cache.set(item, node)
 				}
 				return node
 			})

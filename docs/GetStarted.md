@@ -256,7 +256,7 @@ const LoginStatus = () => {
 
 ### Rendering Lists with `For`
 
-The `<For>` component efficiently renders and updates lists of items.
+The `<For>` component efficiently renders and updates lists of items. You can provide a function as a child that receives the `item` and returns a renderable node.
 
 For a more dynamic example, checkout [For](Components.md#for).
 
@@ -273,9 +273,36 @@ const TodoList = () => {
 	return (R) => (
 		<ul>
 			<For entries={todos}>
-				{(item) => <li>{item.text}</li>}
+				{({ item }) => <li>{item.text}</li>}
 			</For>
 		</ul>
+	);
+};
+```
+
+### Handling Asynchronous Operations with `Async`
+
+The `<Async>` component simplifies handling promises. You provide it a `future` (a promise) and children to render for the `pending`, `resolved`, and `error` states.
+
+```jsx
+import { Async } from 'refui';
+
+// A mock API call that resolves after 1 second
+const fetchUser = () => new Promise((resolve) => {
+	setTimeout(() => resolve({ name: 'John Doe' }), 1000);
+});
+
+const UserProfile = () => {
+	const userPromise = fetchUser();
+
+	return (R) => (
+		<Async
+			future={userPromise}
+			fallback={() => <p>Loading user...</p>}
+			catch={({ error }) => <p>Error: {error.message}</p>}
+		>
+			{({ result: user }) => <p>Welcome, {user.name}!</p>}
+		</Async>
 	);
 };
 ```
