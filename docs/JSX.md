@@ -6,6 +6,12 @@ Like Solid.js, rEFui is a [Retained Mode](https://en.wikipedia.org/wiki/Retained
 
 > **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
 
+## Table of Contents
+
+- [Classic Transform (Preferred)](#classic-transform-preferred)
+- [Automatic Runtime](#automatic-runtime)
+- [Hot Module Replacement](#hot-module-replacement)
+
 ## Classic Transform (Preferred)
 
 This is the recommended approach as it provides the most flexibility, allowing you to use different renderers on a per-component basis. To use it, you need to configure your transpiler (like Babel or esbuild) to use the classic JSX runtime and specify the pragma.
@@ -122,3 +128,38 @@ R.render(root, App)
 ```
 
 Now, any `.jsx` or `.tsx` file will be automatically transformed to use the initialized runtime, so you don't need any special imports to write JSX.
+
+## Hot Module Replacement
+
+For development, use **refurbish** HMR plugin to provide fast, reliable hot module replacement for your components.
+
+### Why refurbish?
+
+refurbish is specifically designed for rEFui's component model and handles the complexity of HMR automatically. You don't need to add `import.meta.hot` checks or other HMR boilerplate to your components.
+
+### Quick Setup
+
+Install refurbish:
+
+```bash
+npm install -D refurbish
+```
+
+Add to your `vite.config.js`:
+
+```javascript
+import { defineConfig } from 'vite';
+import refurbish from 'refurbish/vite';
+
+export default defineConfig({
+	plugins: [refurbish()],
+	esbuild: {
+		jsxFactory: 'R.c',
+		jsxFragment: 'R.f',
+	},
+});
+```
+
+That's it! Your rEFui components will now hot-reload during development, preserving component state and providing instant feedback.
+
+> **Learn More**: Visit the [refurbish repository](https://github.com/SudoMaker/refurbish) for Webpack configuration and advanced options.

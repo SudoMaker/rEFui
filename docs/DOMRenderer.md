@@ -161,6 +161,50 @@ const MyComponent = () => {
 };
 ```
 
+### Conditional Class Application
+
+When using the browser preset, you can use the `class:` directive to conditionally apply CSS classes. This is much more direct than complex conditional expressions.
+
+```jsx
+import { signal } from 'refui';
+
+const NavigationItem = ({ href, children, currentPath }) => {
+	const isActive = currentPath.eq(href);
+	const isHovered = signal(false);
+
+	return (R) => (
+		<a
+			href={href}
+			class:active={isActive}           // Apply 'active' class conditionally
+			class:hover={isHovered}           // Apply 'hover' class conditionally
+			on:mouseenter={() => isHovered.value = true}
+			on:mouseleave={() => isHovered.value = false}
+		>
+			{children}
+		</a>
+	);
+};
+
+// You can combine multiple conditional classes
+const StatusCard = ({ status, isLoading }) => {
+	const isError = status.eq('error');
+	const isSuccess = status.eq('success');
+
+	return (R) => (
+		<div
+			class="card"                      // Static class
+			class:loading={isLoading}         // Conditional: loading state
+			class:error={isError}             // Conditional: error state
+			class:success={isSuccess}         // Conditional: success state
+		>
+			Status: {status}
+		</div>
+	);
+};
+```
+
+> **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](Presets.md#browser).
+
 ## Event Handling
 
 The DOM renderer provides a flexible event system that works seamlessly with signals.

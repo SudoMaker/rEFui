@@ -7,6 +7,7 @@ Signals can be used without rEFui by importing directly from `refui/signal`.
 ## Table of Contents
 
 - [Core Concepts](#core-concepts)
+- [Important Notice](#important-notice)
 - [Basic Usage](#basic-usage)
 - [API Reference](#api-reference)
 - [Advanced Features](#advanced-features)
@@ -22,6 +23,9 @@ Effects are functions that automatically re-run when their dependencies (signals
 
 ### Computations
 Computed signals derive their value from other signals and automatically update when dependencies change.
+
+## Important notice
+Signal effects are semi-lazily computed, that means, no matter how many times you changed the value of a signal, its effects will only be executed once at the end of this tick. So if you modifred a signal's value and want to retrieve its updated derived signals value, you'll need to use `nextTick(cb)` or `await tick()` to get the new value.
 
 ## Basic Usage
 
@@ -44,14 +48,17 @@ console.log(count.value) // 5
 ### Creating Computed Signals
 
 ```javascript
-import { signal, computed } from './signal.js'
+import { signal, computed, nextTick } from './signal.js'
 
 const count = signal(0)
 const doubled = computed(() => count.value * 2)
 
 console.log(doubled.value) // 0
 count.value = 5
-console.log(doubled.value) // 10
+
+nextTick(() => {
+		console.log(doubled.value) // 10
+})
 ```
 
 ### Effects
@@ -67,7 +74,10 @@ const dispose = watch(() => {
 })
 
 count.value = 1 // Logs: "Count changed: 1"
-count.value = 2 // Logs: "Count changed: 2"
+
+nextTick(() => {
+	count.value = 2 // Logs: "Count changed: 2"
+})
 
 // Clean up the effect
 dispose()
