@@ -453,6 +453,52 @@ const App = () => {
 };
 ```
 
+#### Error Handling in Async Components
+
+When a component function is `async`, rEFui automatically creates an async boundary. The `fallback` and `catch` props work directly on the component:
+
+```jsx
+// Async component that might fail
+const StoryItem = async ({ id }) => {
+	const story = await fetchStory(id); // This might throw
+
+	return (R) => (
+		<article>
+			<h2>{story.title}</h2>
+			<p>By {story.author}</p>
+		</article>
+	);
+};
+
+// Usage with error handling
+const StoryList = () => {
+	const storyIds = signal([1, 2, 3, 4, 5]);
+
+	return (R) => (
+		<div>
+			<For entries={storyIds}>
+				{({ item: id }) => (
+					<StoryItem
+						id={id}
+						fallback={() => <div class="loading">Loading story...</div>}
+						catch={({ error }) => (
+							<div class="error">
+								Failed to load story {id}: {error.message}
+								<button on:click={() => window.location.reload()}>
+									Retry
+								</button>
+							</div>
+						)}
+					/>
+				)}
+			</For>
+		</div>
+	);
+};
+```
+
+> **Important**: When using implicit async components (async functions), the `fallback` and `catch` props are applied **directly to the component invocation**, not to a wrapping `<Async>` component. This makes async error handling much more streamlined.
+
 ### Render
 
 Renders a component instance that was created separately using `createComponent`. This is useful for manually managing component lifecycles or rendering components stored in signals.

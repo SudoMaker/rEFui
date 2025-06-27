@@ -11,6 +11,7 @@ Welcome to rEFui! This guide will walk you through the core concepts and help yo
 	- [Renderers](#renderers)
 - [Project Setup](#project-setup)
 	- [Configuring JSX](#configuring-jsx)
+	- [Best Practices](#best-practices)
 - [A Note on Reactivity in JSX](#a-note-on-reactivity-in-jsx)
 - [Your First Component](#your-first-component)
 	- ["Hello, World!"](#hello-world)
@@ -101,6 +102,51 @@ export default defineConfig({
 ```
 
 > For more details on JSX configuration, see the [**JSX Setup Guide**](JSX.md).
+
+## Best Practices
+
+### Renderer Instance Management
+
+**Create renderer instances once** at your application's entry point (typically `main.js` or `index.js`). Avoid creating multiple renderer instances within components.
+
+```jsx
+// ✅ Good: Create renderer once in main.js
+import { createDOMRenderer } from 'refui/dom';
+import { defaults } from 'refui/browser';
+
+// Single renderer instance
+export const renderer = createDOMRenderer(defaults);
+
+// Use throughout your app
+renderer.render(document.getElementById('app'), App);
+```
+
+```jsx
+// ❌ Avoid: Creating renderers in components
+const MyComponent = () => {
+	// Don't do this - creates unnecessary renderer instances
+	const renderer = createDOMRenderer(defaults);
+
+	return (R) => <div>Hello</div>;
+};
+```
+
+### Component Organization
+
+Keep your components focused and reusable. When components grow large, consider breaking them into smaller, composable pieces.
+
+```jsx
+// ✅ Good: Small, focused components
+const UserName = ({ user }) => (R) => <span>{user.name}</span>;
+const UserEmail = ({ user }) => (R) => <span>{user.email}</span>;
+
+const UserCard = ({ user }) => (R) => (
+	<div>
+		<UserName user={user} />
+		<UserEmail user={user} />
+	</div>
+);
+```
 
 ## A Note on Reactivity in JSX
 

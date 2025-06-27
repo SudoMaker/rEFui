@@ -95,12 +95,12 @@ async function update(newModule, invalidate) {
 			} else {
 				invalid = compareVal(origVal, newVal)
 				if (!invalid) {
-					console.warn(`[rEFui HMR] Export "${key}" in "${(new URL(url)).pathname}" does not seem to have changed. Refresh the page manually if neessary.`)
+					console.warn(`[rEFui HMR] Export "${key}" does not seem to have changed. Refresh the page manually if neessary.`)
 				}
 			}
 
 			if (invalid) {
-				invalidate(`[rEFui HMR] Non HMR-able export "${key}" changed in "${(new URL(url)).pathname}".`)
+				invalidate(`[rEFui HMR] Non HMR-able export "${key}" changed.`)
 			}
 		}
 	}
