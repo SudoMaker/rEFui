@@ -663,3 +663,189 @@ const App = () => {
 	)
 }
 ```
+
+### Parse
+
+Efficiently parses and renders text content using a custom parser function. The `Parse` component is optimized with built-in memoization, only re-parsing when the text or parser function changes.
+
+**Props:**
+
+-   `text`: A string or signal containing the text to parse.
+-   `parser`: A function that takes `(text, R)` as arguments and returns a renderable node or an array of nodes. The renderer `R` is passed to enable the parser to create DOM elements.
+
+The component automatically handles reactive updates when either the text content or parser function changes, making it ideal for dynamic content parsing scenarios.
+
+```jsx
+import { Parse } from 'refui/extras'
+import { signal } from 'refui'
+
+// Simple markdown-like parser example
+const simpleMarkdownParser = (text, R) => {
+	// Convert **bold** to <strong> tags
+	const boldRegex = /\*\*(.*?)\*\*/g
+	const parts = text.split(boldRegex)
+
+	const elements = parts.map((part, index) => {
+		if (index % 2 === 1) {
+			// Odd indices are the bold content
+			return R.c('strong', null, part)
+		}
+		return part
+	})
+
+	return elements
+}
+
+// Code syntax highlighter parser
+const codeParser = (code, R) => {
+	// Simple syntax highlighting for keywords
+	const keywords = ['function', 'const', 'let', 'var', 'if', 'else', 'return']
+	let highlightedCode = code
+
+	keywords.forEach(keyword => {
+		const regex = new RegExp(`\\b${keyword}\\b`, 'g')
+		highlightedCode = highlightedCode.replace(regex, `<span class="keyword">${keyword}</span>`)
+	})
+
+	return R.c('pre', { innerHTML: highlightedCode })
+}
+
+const App = () => {
+	const markdownText = signal('This is **bold text** and this is normal.')
+	const codeText = signal('function hello() {\n  const message = "Hello World"\n  return message\n}')
+	const currentParser = signal(simpleMarkdownParser)
+
+	const switchParser = () => {
+		currentParser.value = currentParser.value === simpleMarkdownParser
+			? codeParser
+			: simpleMarkdownParser
+
+		markdownText.value = currentParser.value === codeParser
+			? codeText.value
+			: 'This is **bold text** and this is normal.'
+	}
+
+	return (R) => (
+		<div>
+			<h2>Parse Component Demo</h2>
+
+			<div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+				<Parse text={markdownText} parser={currentParser} />
+			</div>
+
+			<button on:click={switchParser}>
+				Switch Parser (Markdown ↔ Code)
+			</button>
+
+			<div style="margin-top: 20px;">
+				<textarea
+					rows="4"
+					cols="50"
+					value={markdownText}
+					on:input={(e) => markdownText.value = e.target.value}
+					placeholder="Edit the text to see live parsing..."
+				/>
+			</div>
+		</div>
+	)
+}
+```
+
+#### Advanced Usage: Custom HTML Parser
+
+```jsx
+import { Parse } from 'refui/extras'
+import { signal } from 'refui'
+
+// HTML-like parser that converts custom tags to components
+const customHtmlParser = (text, R) => {
+	// Convert [button:text] to actual button elements
+	const buttonRegex = /\[button:(.*?)\]/g
+	const linkRegex = /\[link:(.*?)\|(.*?)\]/g
+
+	let result = text
+
+	// Replace button syntax
+	result = result.replace(buttonRegex, (match, buttonText) => {
+		return `<button onclick="alert('${buttonText} clicked!')">${buttonText}</button>`
+	})
+
+	// Replace link syntax
+	result = result.replace(linkRegex, (match, url, linkText) => {
+		return `<a href="${url}" target="_blank">${linkText}</a>`
+	})
+
+	return R.c('div', { innerHTML: result })
+}
+
+const CustomHtmlDemo = () => {
+	const content = signal(`
+		Welcome to our site!
+
+		[button:Click Me]
+
+		Visit our [link:https://example.com|homepage] for more info.
+
+		[button:Another Button]
+	`)
+
+	return (R) => (
+		<div>
+			<h3>Custom HTML Parser</h3>
+			<Parse text={content} parser={customHtmlParser} />
+
+			<textarea
+				rows="6"
+				cols="60"
+				value={content}
+				on:input={(e) => content.value = e.target.value}
+				placeholder="Try editing: [button:Text] or [link:url|text]"
+			/>
+		</div>
+	)
+}
+```
+
+#### Performance Benefits
+
+The `Parse` component includes automatic memoization that prevents unnecessary re-parsing:
+
+```jsx
+import { Parse } from 'refui/extras'
+import { signal } from 'refui'
+
+const expensiveParser = (text, R) => {
+	console.log('Parser called!') // This will only log when text or parser changes
+
+	// Simulate expensive parsing operation
+	const words = text.split(' ')
+	return words.map((word, index) =>
+		R.c('span', {
+			key: index,
+			style: `color: hsl(${index * 30}, 70%, 50%);`
+		}, word + ' ')
+	)
+}
+
+const PerformanceDemo = () => {
+	const text = signal('Hello world this is a test')
+	const counter = signal(0)
+
+	// This counter update won't trigger re-parsing
+	setInterval(() => counter.value++, 1000)
+
+	return (R) => (
+		<div>
+			<p>Counter (doesn't affect parsing): {counter}</p>
+			<Parse text={text} parser={expensiveParser} />
+			<input
+				value={text}
+				on:input={(e) => text.value = e.target.value}
+				placeholder="Only changing this text will trigger re-parsing"
+			/>
+		</div>
+	)
+}
+```
+
+**Note:** The parser function should return renderable content that can be handled by the renderer. This can be DOM elements created with `R.c()`, text nodes, or arrays of such elements.
