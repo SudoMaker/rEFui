@@ -146,6 +146,9 @@ function _onDispose(cb) {
 
 function onDispose(cb) {
 	if (currentDisposers) {
+		if (process.env.NODE_ENV !== 'production' && typeof cb !== 'function') {
+			throw new TypeError(`Callback must be a function but got ${Object.prototype.toString.call(cb)}`)
+		}
 		return _onDispose(cb)
 	}
 	return cb
