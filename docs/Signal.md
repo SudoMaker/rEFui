@@ -164,6 +164,13 @@ Manually connects an effect to the signal.
 mySignal.connect(() => console.log('Signal changed'))
 ```
 
+#### `.touch()`
+Subscribes the current effect to this signal without reading its value. This is useful when you want to trigger an effect when a signal changes, but you don't need its value inside the effect.
+
+```javascript
+mySignal.touch()
+```
+
 ### Signal Properties
 
 #### `.value`
@@ -238,6 +245,20 @@ Reads all values and passes them to a handler function.
 
 ```javascript
 const result = readAll([signal1, signal2], (a, b) => a + b)
+```
+
+#### `poke(signal, newValue)`
+Pokes a value into a signal, same as `signal.poke(newValue)`. Has no effect if the value to be written is not a signal.
+
+```javascript
+poke(count, 42)
+```
+
+#### `touch(value)`
+Touches a signal to register a dependency if it's a signal. Has no effect if the value is not a signal.
+
+```javascript
+touch(someValue) // Works with signals or regular values
 ```
 
 ### Effect Management
@@ -348,17 +369,56 @@ onDispose(() => {
 })
 ```
 
-#### `useEffect(effect)`
-Registers an effect with automatic cleanup.
+#### `useEffect(effect, ...args)`
+Registers an effect that runs automatically and handles its own cleanup. The `effect` function is executed immediately and re-executed whenever its signal dependencies change.
+
+If the `effect` function returns another function, that returned function will be used as a `cleanup` handler. The cleanup is called right before the effect re-runs, and also when the component/scope is disposed.
+
+Any additional arguments passed to `useEffect` after the `effect` function will be passed along to the `effect` function when it's called.
+
+- `effect`: The function to execute.
+- `...args`: Optional arguments to pass to the effect function.
+- Returns: A function to cancel the effect manually.
+
 
 ```javascript
+// Example 1: Basic side effect with cleanup
+const interval = signal(1000)
 useEffect(() => {
-	const interval = setInterval(() => {
-		console.log('Tick')
-	}, 1000)
+	const timer = setInterval(() => {
+		console.log('Timer tick')
+	}, interval)
 
-	return () => clearInterval(interval)
+	// Cleanup function
+	return () => {
+		console.log('Clearing timer')
+		clearInterval(timer)
+	}
 })
+
+// Will stop the previous timer and restart a new timer with the interval 2000
+interval.value = 2000
+
+// Example 2: Effect with dependencies
+const count = signal(0)
+useEffect(() => {
+	console.log(`The count is: ${count.value}`)
+
+	// This effect has a dependency on `count`.
+	// It will re-run whenever `count.value` changes.
+})
+
+// Example 3: Passing arguments to an effect
+const name = signal('Alice')
+
+function logName(user) {
+		console.log(`Current user: ${user.value}`)
+}
+
+useEffect(logName, name)
+
+// Later...
+name.value = 'Bob' // Will trigger the effect and log "Current user: Bob"
 ```
 
 #### `collectDisposers(disposers, fn, cleanup?)`
@@ -408,6 +468,42 @@ nextTick(() => {
 })
 ```
 
+### Special Signal Behaviors
+Signals have some special behaviors when used in certain contexts, thanks to `toJSON`, `Symbol.toPrimitive`, and `Symbol.iterator` implementations.
+
+#### `JSON.stringify(signal)`
+When a signal is stringified using `JSON.stringify`, it automatically returns its value by calling `.get()`.
+
+```javascript
+const data = signal({ a: 1 })
+JSON.stringify({ data }) // '{"data":{"a":1}}'
+```
+
+#### Coercion
+Signals can be automatically coerced to primitives, which calls `.get()`.
+
+```javascript
+const count = signal(5)
+console.log(count + 5) // 10
+console.log(`${count}`) // "5"
+if (count) { /* ... */ } // true if count.value is truthy
+```
+
+#### Iteration
+If a signal contains an iterable, it can be used in a `for...of` loop or with the spread syntax, which calls `.get()`.
+
+```javascript
+const items = signal([1, 2, 3])
+for (const item of items) {
+	console.log(item)
+}
+// 1
+// 2
+// 3
+
+const spreadItems = [...items] // [1, 2, 3]
+```
+
 ## Advanced Features
 
 ### Custom Effects
@@ -430,19 +526,6 @@ count.value = 1
 count.value = 2
 count.value = 3
 // Only triggers effects once with final value
-```
-
-### Pure Functions
-
-Mark functions as pure to optimize execution. Used internally, don't recommend for general usage:
-
-```javascript
-import { pure } from './signal.js'
-
-const pureComputation = pure(() => {
-	// This won't trigger user effects
-	return expensiveCalculation()
-})
 ```
 
 ## Best Practices
