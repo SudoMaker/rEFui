@@ -150,7 +150,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 						R.appendNode(fragment, newResult)
 						onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
 					} else {
-						if (errored) {
+						if (errored && prevDispose) {
 							onDispose(prevDispose)
 						}
 					}
