@@ -1,4 +1,4 @@
-import { nop, removeFromArr } from './utils.js'
+import { removeFromArr } from './utils.js'
 
 let sigID = 0
 let ticking = false
@@ -148,11 +148,26 @@ function onDispose(cb) {
 	if (currentDisposers) {
 		return _onDispose(cb)
 	}
-	return nop
+	return cb
 }
 
-function useEffect(effect) {
-	onDispose(effect())
+function useEffect(effect, ...args) {
+	let cleanup = null
+	let cancelled = false
+	const _dispose = watch(function() {
+		cleanup?.()
+		cleanup = effect(...args)
+	})
+	const cancelEffect = function() {
+		if (cancelled) {
+			return
+		}
+		cancelled = true
+		cleanup?.()
+		_dispose()
+	}
+	onDispose(cancelEffect)
+	return cancelEffect
 }
 
 function _frozen(capturedDisposers, capturedEffects, ...args) {
@@ -240,6 +255,10 @@ const Signal = class {
 		return !!(userEffects.length || signalEffects.length)
 	}
 
+	touch() {
+		this.connect(currentEffect)
+	}
+
 	get() {
 		this.connect(currentEffect)
 		return this._.value
@@ -293,25 +312,25 @@ const Signal = class {
 
 	and(val) {
 		return signal(this, function(i) {
-			return read(val) && i
+			return i && read(val)
 		})
 	}
 
 	or(val) {
 		return signal(this, function(i) {
-			return read(val) || i
+			return i || read(val)
 		})
 	}
 
 	eq(val) {
 		return signal(this, function(i) {
-			return read(val) === i
+			return i === read(val)
 		})
 	}
 
 	neq(val) {
 		return signal(this, function(i) {
-			return read(val) !== i
+			return i !== read(val)
 		})
 	}
 
@@ -376,6 +395,12 @@ function poke(val, newVal) {
 		return val.poke(newVal)
 	}
 	return newVal
+}
+
+function touch(val) {
+	if (isSignal(val)) {
+		val.touch()
+	}
 }
 
 function read(val) {
@@ -639,6 +664,7 @@ export {
 	watch,
 	peek,
 	poke,
+	touch,
 	read,
 	readAll,
 	merge,
