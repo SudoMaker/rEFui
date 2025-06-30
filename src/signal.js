@@ -400,9 +400,11 @@ function poke(val, newVal) {
 	return newVal
 }
 
-function touch(val) {
-	if (isSignal(val)) {
-		val.touch()
+function touch(...vals) {
+	for (let i of vals) {
+		if (isSignal(i)) {
+			i.touch()
+		}
 	}
 }
 
@@ -413,8 +415,8 @@ function read(val) {
 	return val
 }
 
-function readAll(vals, handler) {
-	return handler(...vals.map(read))
+function readAll(...vals) {
+	return vals.map(read)
 }
 
 function _write(val, newVal) {
