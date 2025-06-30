@@ -240,11 +240,11 @@ write(count, 42)
 write(count, prev => prev + 1)
 ```
 
-#### `readAll(values, handler)`
-Reads all values and passes them to a handler function.
+#### `readAll(...values)`
+Reads all values and return an array of plain values.
 
 ```javascript
-const result = readAll([signal1, signal2], (a, b) => a + b)
+const [val1, val2] = readAll(signal1, signal2)
 ```
 
 #### `poke(signal, newValue)`
@@ -254,11 +254,11 @@ Pokes a value into a signal, same as `signal.poke(newValue)`. Has no effect if t
 poke(count, 42)
 ```
 
-#### `touch(value)`
-Touches a signal to register a dependency if it's a signal. Has no effect if the value is not a signal.
+#### `touch(...values)`
+Touches a list of signals to register a dependency. Has no effect if the value is not a signal.
 
 ```javascript
-touch(someValue) // Works with signals or regular values
+touch(someValue, someOtherValue) // Works with signals or regular values
 ```
 
 ### Effect Management
