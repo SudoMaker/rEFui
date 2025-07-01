@@ -1,6 +1,7 @@
-import { render, createComponent } from './component.js'
-import { isSignal } from './signal.js'
-import { removeFromArr } from './utils.js'
+import { isSignal } from 'refui/signal'
+import { render, createComponent } from 'refui/components'
+import { removeFromArr } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
 const Fragment = '<>'
 
@@ -26,8 +27,8 @@ function createRenderer(nodeOps, rendererID) {
 
 	function createFragment(name) {
 		const fragment = createFragmentRaw()
-		const anchorStart = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `<${name}>`))
-		const anchorEnd = createAnchor((process.env.NODE_ENV === 'production') ? '' : ((name === undefined || name === null) ? null : `</${name}>`))
+		const anchorStart = createAnchor(isProduction ? '' : ((name === undefined || name === null) ? null : `<${name}>`))
+		const anchorEnd = createAnchor(isProduction ? '' : ((name === undefined || name === null) ? null : `</${name}>`))
 		appendNodeRaw(fragment, anchorStart, anchorEnd)
 		parentMap.set(anchorStart, fragment)
 		parentMap.set(anchorEnd, fragment)
@@ -179,7 +180,7 @@ function createRenderer(nodeOps, rendererID) {
 						$ref.value = node
 					} else if (typeof $ref === 'function') {
 						$ref(node)
-					} else if (process.env.NODE_ENV !== 'production') {
+					} else if (!isProduction) {
 						throw new Error(`Invalid $ref type: ${typeof $ref}`)
 					}
 				}

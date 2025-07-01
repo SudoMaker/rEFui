@@ -1,5 +1,6 @@
-import { nop } from '../utils.js'
-import { wrap as wrapDev } from './jsx-dev-runtime.js'
+import { wrap as wrapDev } from 'refui/jsx-dev-runtime'
+import { nop } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
 let jsx = nop
 let jsxs = nop
@@ -31,7 +32,7 @@ function wrap(R) {
 
 	Fragment = R.f
 
-	if (process.env.NODE_ENV !== 'production') {
+	if (!isProduction) {
 		wrapDev(R)
 	}
 

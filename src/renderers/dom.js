@@ -1,6 +1,7 @@
-import { isSignal, nextTick, peek, bind } from '../signal.js'
-import { createRenderer } from '../renderer.js'
-import { nop, cachedStrKeyNoFalsy, splitFirst } from '../utils.js'
+import { isSignal, nextTick, peek, bind } from 'refui/signal'
+import { createRenderer } from 'refui/renderer'
+import { nop, cachedStrKeyNoFalsy, splitFirst } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
 /*
 const NODE_TYPES = {
@@ -104,7 +105,7 @@ function createDOMRenderer({
 		return getNodeCreator(tagName)()
 	}
 	function createAnchor(anchorName) {
-		if (process.env.NODE_ENV !== 'production' && anchorName) {
+		if (!isProduction && anchorName) {
 			return doc.createComment(anchorName)
 		}
 		return doc.createTextNode('')

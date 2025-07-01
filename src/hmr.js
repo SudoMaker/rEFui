@@ -1,7 +1,8 @@
-import { signal } from './signal.js'
-import { isPrimitive } from './utils.js'
+import { signal } from 'refui/signal'
+import { isPrimitive } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
-export const hotEnabled = !!import.meta./* @refui webpack */hot && (process.env.NODE_ENV !== 'production')
+export const hotEnabled = !isProduction && import.meta./* @refui webpack */hot
 
 export const KEY_HMRWRAP = Symbol('K_HMRWRAP')
 export const KEY_HMRWRAPPED = Symbol('K_HMRWARPPED')

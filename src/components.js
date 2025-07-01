@@ -1,8 +1,9 @@
-import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from './signal.js'
-import { nop, removeFromArr, isThenable, isPrimitive } from './utils.js'
-import { hotEnabled, enableHMR } from './hmr.js'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from 'refui/signal'
+import { hotEnabled, enableHMR } from 'refui/hmr'
+import { nop, removeFromArr, isThenable, isPrimitive } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
-const KEY_CTX = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_Ctx')
+const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
 
 let currentCtx = null
 
@@ -426,7 +427,7 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 			}
 		} else if (typeof $ref === 'function') {
 			syncRef = $ref
-		} else if (process.env.NODE_ENV !== 'production') {
+		} else if (!isProduction) {
 			throw new Error(`Invalid $ref type: ${typeof $ref}`)
 		}
 	}
@@ -628,7 +629,7 @@ const createComponent = (function() {
 				$ref.value = node
 			} else if (typeof $ref === 'function') {
 				$ref(component)
-			} else if (process.env.NODE_ENV !== 'production') {
+			} else if (!isProduction) {
 				throw new Error(`Invalid $ref type: ${typeof $ref}`)
 			}
 		}

@@ -1,5 +1,5 @@
-import { Fn } from '../component.js'
-import { read } from '../signal.js'
+import { read } from 'refui/signal'
+import { Fn } from 'refui/components'
 
 export function Parse({ text, parser }) {
 	let currentText = ''
