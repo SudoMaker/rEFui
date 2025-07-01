@@ -1,4 +1,4 @@
-import { nextTick, bind } from '../signal.js'
+import { nextTick, bind } from 'refui/signal'
 
 function reverseMap(keyValsMap) {
 	const reversed = {}

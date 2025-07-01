@@ -1,4 +1,5 @@
-import { removeFromArr } from './utils.js'
+import { removeFromArr } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
 let sigID = 0
 let ticking = false
@@ -146,7 +147,7 @@ function _onDispose(cb) {
 
 function onDispose(cb) {
 	if (currentDisposers) {
-		if (process.env.NODE_ENV !== 'production' && typeof cb !== 'function') {
+		if (!isProduction && typeof cb !== 'function') {
 			throw new TypeError(`Callback must be a function but got ${Object.prototype.toString.call(cb)}`)
 		}
 		return _onDispose(cb)
@@ -209,7 +210,7 @@ function untrack(fn) {
 
 const Signal = class {
 	constructor(value, compute) {
-		if (process.env.NODE_ENV === 'development' && new.target !== Signal) {
+		if (!isProduction && new.target !== Signal) {
 			throw new Error('Signal must not be extended!')
 		}
 

@@ -1,5 +1,5 @@
-import { signal, untrack, onDispose } from '../signal.js'
-import { render, expose, createComponent, For } from '../component.js'
+import { signal, untrack } form 'refui/signal'
+import { createComponent, For, expose, onDispose, render } from 'refui/components'
 
 function createCache(tpl) {
 	let dataArr = []

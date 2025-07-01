@@ -1,6 +1,6 @@
-import { signal, onDispose } from '../signal.js'
-import { dispose, getCurrentSelf, For, Fn } from '../component.js'
-import { removeFromArr } from '../utils.js'
+import { signal } from 'refui/signal'
+import { onDispose, dispose, getCurrentSelf, For, Fn } from 'refui/components'
+import { removeFromArr } from 'refui/utils'
 
 function dumbFn(_) {
 	return _

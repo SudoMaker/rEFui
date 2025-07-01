@@ -1,5 +1,5 @@
-import { signal, watch, read } from '../signal.js'
-import { For } from '../component.js'
+import { signal, watch, read } from 'refui/signal'
+import { For } from 'refui/components'
 
 export function UnKeyed({ entries, ...args }, itemTemplate) {
 	const rawSigEntries = []

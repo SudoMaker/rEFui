@@ -16,6 +16,8 @@ npm i refui
 
 [Playground](https://stackblitz.com/edit/refui-starter-template?file=src%2Fapp.jsx)
 
+[Hacker News Demo](https://github.com/ClassicOldSong/refui-hackernews-demo)
+
 ```jsx
 import { signal } from 'refui'
 import { createDOMRenderer } from 'refui/dom'
@@ -129,6 +131,44 @@ See [Components](docs/Components.md)
 ## Prebuilt version
 
 You're building your app with a toolchain/compiler/transpiler anyways, so there's no need to provide a prebuilt version.
+
+## CDN
+
+You can use rEFui directly in modern browsers without building. Define your import map like this:
+
+```html
+<script type="importmap">
+	{
+		"imports": {
+			"refui": "https://esm.run/refui",
+			"refui/dom": "https://esm.run/refui",
+			"refui/browser": "https://esm.run/refui",
+			"htm": "https://esm.run/htm"
+		}
+	}
+</script>
+<script type="module" src="main.js"></script>
+```
+
+Then in your `main.js`:
+
+```js
+import { createDOMRenderer } from 'refui/dom';
+import { defaults } from 'refui/browser';
+import htm from 'htm';
+
+const { render, createElement } = createDOMRenderer(defaults);
+
+const html = htm.bind(createElement);
+
+const App = () => {
+	return html`<h1>Hello World!</h1>`
+}
+
+render(document.body, App)
+```
+
+[Live Example](https://stackblitz.com/edit/refui-htm-demo)
 
 ## License
 MIT

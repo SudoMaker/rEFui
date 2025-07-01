@@ -1,5 +1,5 @@
-import { nop } from '../utils.js'
-import { isSignal } from '../signal.js'
+import { isSignal } from 'refui/signal'
+import { nop } from 'refui/utils'
 
 let jsxDEV = nop
 let Fragment = '<>'

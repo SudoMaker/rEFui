@@ -1,11 +1,12 @@
-import { isSignal, nextTick, peek, bind } from '../signal.js'
-import { createRenderer } from '../renderer.js'
-import { nop, cachedStrKeyNoFalsy, removeFromArr } from '../utils.js'
+import { isSignal, nextTick, peek, bind } from 'refui/signal'
+import { createRenderer } from 'refui/renderer'
+import { nop, cachedStrKeyNoFalsy, removeFromArr } from 'refui/utils'
+import { isProduction } from 'refui/constants'
 
-const FLAG_NODE = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Node')
-const FLAG_FRAG = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_Fragment')
-const FLAG_SELF_CLOSING = Symbol(process.env.NODE_ENV === 'production' ? '' : 'F_SelfClosing')
-const KEY_TAG_NAME = Symbol(process.env.NODE_ENV === 'production' ? '' : 'K_TagName')
+const FLAG_NODE = Symbol(isProduction ? '' : 'F_Node')
+const FLAG_FRAG = Symbol(isProduction ? '' : 'F_Fragment')
+const FLAG_SELF_CLOSING = Symbol(isProduction ? '' : 'F_SelfClosing')
+const KEY_TAG_NAME = Symbol(isProduction ? '' : 'K_TagName')
 
 const escapeMap = {
 	'<': '&lt;',
@@ -62,7 +63,7 @@ function createHTMLRenderer ({
 		return node
 	}
 	function createAnchor(anchorName) {
-		if (process.env.NODE_ENV !== 'production' && anchorName) {
+		if (!isProduction && anchorName) {
 			return makeNode([`<!--${escapeHtml(anchorName)}-->`])
 		}
 		return makeNode([''])
