@@ -188,16 +188,76 @@ Boolean indicating if the signal has any connected effects.
 console.log(mySignal.connected) // true/false
 ```
 
+#### `.hasValue()`
+Checks if the signal has a non-nullish value (not `undefined` or `null`).
+
+```javascript
+const name = signal('John')
+const empty = signal(null)
+
+console.log(name.hasValue()) // Should return true
+console.log(empty.hasValue()) // Should return false
+```
+
+#### `.nullishThen(value)`
+Returns a new signal that provides a fallback value when the current signal is nullish (`undefined` or `null`). This is similar to the nullish coalescing operator (`??`) but for signals.
+
+```javascript
+const username = signal(null)
+const defaultName = username.nullishThen('Anonymous')
+
+console.log(defaultName.value) // 'Anonymous'
+
+username.value = 'Alice'
+// defaultName will reactively update to 'Alice'
+
+username.value = undefined
+// defaultName will reactively update back to 'Anonymous'
+```
+
 ### Signal Operations
 
 Signals support various comparison and logical operations:
 
+#### `.inverse()`
+Returns a signal that negates the current signal's value.
+
+```javascript
+const isEnabled = signal(true)
+const isDisabled = isEnabled.inverse() // !isEnabled.value
+```
+
 #### `.and(value)`, `.or(value)`
-Logical operations.
+Basic logical operations.
 
 ```javascript
 const isPositive = count.gt(0)
 const isValid = isPositive.and(isEnabled)
+const hasValueOrDefault = value.or(defaultValue)
+```
+
+#### `.andNot(value)`, `.orNot(value)`
+Logical operations with negated second operand.
+
+```javascript
+const isPositiveAndNotZero = count.andNot(count.eq(0)) // count > 0 && !(count === 0)
+const isValidOrNotDisabled = isValid.orNot(isDisabled) // isValid || !isDisabled
+```
+
+#### `.inverseAnd(value)`, `.inverseOr(value)`
+Logical operations with negated first operand (the signal itself).
+
+```javascript
+const isInactiveAndVisible = isActive.inverseAnd(isVisible) // !isActive && isVisible
+const isInactiveOrVisible = isActive.inverseOr(isVisible) // !isActive || isVisible
+```
+
+#### `.inverseAndNot(value)`, `.inverseOrNot(value)`
+Logical operations with both operands negated.
+
+```javascript
+const isInactiveAndHidden = isActive.inverseAndNot(isVisible) // !isActive && !isVisible
+const isInactiveOrHidden = isActive.inverseOrNot(isVisible) // !isActive || !isVisible
 ```
 
 #### `.eq(value)`, `.neq(value)`
@@ -314,6 +374,17 @@ Creates a template string signal.
 
 ```javascript
 const message = tpl`Hello ${name}, you have ${count} items`
+```
+
+#### `not(value)`
+Creates a signal that negates the input value. Works with both signals and static values.
+
+```javascript
+const isEnabled = signal(true)
+const isDisabled = not(isEnabled) // Creates a signal that returns !isEnabled.value
+
+const alwaysFalse = not(true) // Creates a signal that always returns false
+const isDifferent = not(value.eq(expectedValue)) // Negates a comparison
 ```
 
 #### `derive(signal, key, compute?)`

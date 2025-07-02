@@ -1,4 +1,4 @@
-import { signal, untrack } form 'refui/signal'
+import { signal, untrack } from 'refui/signal'
 import { createComponent, For, expose, onDispose, render } from 'refui/components'
 
 function createCache(tpl) {

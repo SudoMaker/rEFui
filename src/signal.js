@@ -314,15 +314,69 @@ const Signal = class {
 		}
 	}
 
+	hasValue() {
+		const val = this.get()
+		return val !== undefined && val !== null
+	}
+
+	inverse() {
+		return signal(this, function(i) {
+			return !i
+		})
+	}
+
+	nullishThen(val) {
+		return signal(this, function(i) {
+			const _val = read(val)
+			return (i === undefined || i === null) ? _val : i
+		})
+	}
+
 	and(val) {
 		return signal(this, function(i) {
 			return i && read(val)
 		})
 	}
 
+	andNot(val) {
+		return signal(this, function(i) {
+			return i && !read(val)
+		})
+	}
+
+	inverseAnd(val) {
+		return signal(this, function(i) {
+			return !i && read(val)
+		})
+	}
+
+	inverseAndNot(val) {
+		return signal(this, function(i) {
+			return !i && !read(val)
+		})
+	}
+
 	or(val) {
 		return signal(this, function(i) {
 			return i || read(val)
+		})
+	}
+
+	orNot(val) {
+		return signal(this, function(i) {
+			return i || !read(val)
+		})
+	}
+
+	inverseOr(val) {
+		return signal(this, function(i) {
+			return !i || read(val)
+		})
+	}
+
+	inverseOrNot(val) {
+		return signal(this, function(i) {
+			return !i || !read(val)
 		})
 	}
 
@@ -460,6 +514,12 @@ function tpl(strs, ...exprs) {
 	const raw = { raw: strs }
 	return signal(null, function() {
 		return String.raw(raw, ...exprs)
+	})
+}
+
+function not(val) {
+	return signal(null, function() {
+		return !read(val)
 	})
 }
 
@@ -667,6 +727,7 @@ export {
 	derivedExtract,
 	makeReactive,
 	tpl,
+	not,
 	watch,
 	peek,
 	poke,
