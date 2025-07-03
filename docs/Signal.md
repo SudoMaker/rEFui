@@ -120,6 +120,40 @@ console.log(isSignal(count)) // true
 console.log(isSignal(42)) // false
 ```
 
+#### `ensureSignal(value)` / `signal.ensure(value)` / `Signal.ensure(value)`
+Ensures a value is a signal. If the value is already a signal, it returns the signal unchanged. If not, it creates a new signal with that value.
+
+- `value`: Value to ensure as a signal
+- Returns: Signal
+
+```javascript
+const existingSignal = signal(42)
+const newSignal = signal(100)
+
+const ensured1 = ensureSignal(existingSignal) // Returns the same signal
+const ensured2 = ensureSignal(50) // Creates a new signal(50)
+const ensured3 = signal.ensure('hello') // Creates a new signal('hello')
+
+console.log(ensured1 === existingSignal) // true
+console.log(isSignal(ensured2)) // true
+```
+
+#### `ensureSignalAll(...values)` / `signal.ensureAll(...values)` / `Signal.ensureAll(...values)`
+Applies `ensureSignal()` to multiple values, returning an array of signals.
+
+- `...values`: Values to ensure as signals
+- Returns: Array of signals
+
+```javascript
+const mixed = [signal(1), 2, signal(3), 4]
+const allSignals = ensureSignalAll(...mixed)
+// Returns: [signal(1), signal(2), signal(3), signal(4)]
+
+// Using the static method
+const signals = signal.ensureAll('a', signal('b'), 'c')
+// Returns: [signal('a'), signal('b'), signal('c')]
+```
+
 ### Signal Instance Methods
 
 #### `.get()`

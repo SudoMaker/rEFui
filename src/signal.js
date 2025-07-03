@@ -246,6 +246,17 @@ const Signal = class {
 		}
 	}
 
+	static ensure(val) {
+		if (isSignal(val)) {
+			return val
+		}
+		return signal(val)
+	}
+
+	static ensureAll(...vals) {
+		return vals.map(this.ensure)
+	}
+
 	get value() {
 		return this.get()
 	}
@@ -428,6 +439,21 @@ const Signal = class {
 	}
 }
 
+function signal(value, compute) {
+	return new Signal(value, compute)
+}
+
+Object.defineProperties(signal, {
+	ensure: {
+		value: Signal.ensure.bind(Signal),
+		enumerable: true
+	},
+	ensureAll: {
+		value: Signal.ensureAll.bind(Signal),
+		enumerable: true
+	}
+})
+
 function isSignal(val) {
 	return val && val.constructor === Signal
 }
@@ -440,6 +466,7 @@ function watch(effect) {
 
 	return _dispose
 }
+
 
 function peek(val) {
 	while (isSignal(val)) {
@@ -498,10 +525,6 @@ function listen(vals, cb) {
 			val.connect(cb)
 		}
 	}
-}
-
-function signal(value, compute) {
-	return new Signal(value, compute)
 }
 
 function computed(fn) {
@@ -719,6 +742,8 @@ export {
 	Signal,
 	signal,
 	isSignal,
+	ensure as ensureSignal,
+	ensureAll as ensureSignalAll,
 	computed,
 	connect,
 	bind,
