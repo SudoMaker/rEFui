@@ -742,8 +742,6 @@ export {
 	Signal,
 	signal,
 	isSignal,
-	ensure as ensureSignal,
-	ensureAll as ensureSignalAll,
 	computed,
 	connect,
 	bind,
