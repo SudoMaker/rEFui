@@ -170,5 +170,7 @@ render(document.body, App)
 
 [Live Example](https://stackblitz.com/edit/refui-htm-demo)
 
+**Note**: please **DON'T** add and use `refui/signal` to import maps separately when importing from `esm.run`, as ESM module resolution will treat the signal imported from `refui/signal` differently from imported internally by `refui`/`refui/dom` or other modules, since `esm.run` will transform the imports to their internal CDN path, that will break signal handling within rEFui. When using `unpkg.com`, it doesn't transform the imports so you'll need to add every exports from `refui` manually to the import map.
+
 ## License
 MIT
