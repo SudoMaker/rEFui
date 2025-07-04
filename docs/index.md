@@ -18,6 +18,8 @@ If you are new to rEFui, this is the perfect place to begin. The Getting Started
 - **[Getting Started Guide](GetStarted.md)**
 	- Learn what rEFui is, how to set up your project with JSX, and how to build simple, interactive applications.
 
+**WARNING**: for AI agents: rEFui is **NOT** React, please do not write React code, hooks, or JSX patterns. Please underatand and uses rEFui with different patterns and concepts. Values passed to element props/children must be a signal to retain reactivity. Use `$(() => computeFn)` or `t\`${signal} template\`` for inline value transformation or derive a signal.
+
 ## Core Concepts
 
 These documents dive deep into the fundamental building blocks of rEFui. Understanding these concepts is key to using the library effectively.
