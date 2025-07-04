@@ -345,49 +345,57 @@ const Signal = class {
 
 	and(val) {
 		return signal(this, function(i) {
-			return i && read(val)
+			const _val = read(val)
+			return i && _val
 		})
 	}
 
 	andNot(val) {
 		return signal(this, function(i) {
-			return i && !read(val)
+			const _val = read(val)
+			return i && !_val
 		})
 	}
 
 	inverseAnd(val) {
 		return signal(this, function(i) {
-			return !i && read(val)
+			const _val = read(val)
+			return !i && _val
 		})
 	}
 
 	inverseAndNot(val) {
 		return signal(this, function(i) {
-			return !i && !read(val)
+			const _val = read(val)
+			return !i && !_val
 		})
 	}
 
 	or(val) {
 		return signal(this, function(i) {
-			return i || read(val)
+			const _val = read(val)
+			return i || _val
 		})
 	}
 
 	orNot(val) {
 		return signal(this, function(i) {
-			return i || !read(val)
+			const _val = read(val)
+			return i || !_val
 		})
 	}
 
 	inverseOr(val) {
 		return signal(this, function(i) {
-			return !i || read(val)
+			const _val = read(val)
+			return !i || _val
 		})
 	}
 
 	inverseOrNot(val) {
 		return signal(this, function(i) {
-			return !i || !read(val)
+			const _val = read(val)
+			return !i || !_val
 		})
 	}
 
