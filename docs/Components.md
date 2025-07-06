@@ -530,6 +530,164 @@ const App = () => {
 }
 ```
 
+### lazy
+
+Creates a lazy-loaded component that can be dynamically imported and rendered. This is useful for code splitting and performance optimization, allowing components to be loaded only when needed while preserving the current rendering context.
+
+The `lazy` function takes a loader function (typically a dynamic import) and an optional symbol to extract from the loaded module. It returns a function that can be called with additional arguments to render the lazy component.
+
+**Parameters:**
+
+- `loader`: A function that returns a Promise resolving to the module/component
+- `symbol` (optional): The symbol to extract from the loaded module (defaults to 'default' for ES modules)
+
+**Returns:** A function that can be called with additional arguments to render the lazy component
+
+#### Basic Usage
+
+```jsx
+import { lazy, Fn } from 'refui'
+
+// Create a lazy-loaded component
+const LazyComponent = lazy(() => import('./MyComponent.js'))
+
+// Use it in your application
+const App = () => (R) => (
+	<div>
+		<h1>My App</h1>
+		<Fn>
+			{() => LazyComponent({ message: 'Hello from lazy component!' })}
+		</Fn>
+	</div>
+)
+```
+
+#### Loading Specific Exports
+
+```jsx
+import { lazy } from 'refui'
+
+// Load a specific named export
+const LazyButton = lazy(() => import('./components.js'), 'Button')
+const LazyModal = lazy(() => import('./components.js'), 'Modal')
+
+const App = () => (R) => (
+	<div>
+		<LazyButton text="Click me" />
+		<LazyModal isOpen={true} />
+	</div>
+)
+```
+
+#### Dynamic Component Loading
+
+```jsx
+import { lazy, signal, Dynamic } from 'refui'
+
+const Dashboard = lazy(() => import('./Dashboard.js'))
+const Profile = lazy(() => import('./Profile.js'))
+const Settings = lazy(() => import('./Settings.js'))
+
+const App = () => {
+	const pages = {
+		dashboard: Dashboard,
+		profile: Profile,
+		settings: Settings
+	}
+
+	const currentPage = signal('dashboard')
+	const currentComponent = signal(pages.dashboard)
+
+	const switchPage = (page) => {
+		currentPage.value = page
+		currentComponent.value = pages[page]
+	}
+
+	return (R) => (
+		<div>
+			<nav>
+				<button on:click={() => switchPage('dashboard')}>Dashboard</button>
+				<button on:click={() => switchPage('profile')}>Profile</button>
+				<button on:click={() => switchPage('settings')}>Settings</button>
+			</nav>
+
+			<main>
+				<Dynamic is={currentComponent} />
+			</main>
+		</div>
+	)
+}
+```
+
+#### Error Handling with Lazy Components
+
+Lazy components are just async components and can handle loading errors using the `catch` prop directly:
+
+```jsx
+import { lazy } from 'refui'
+
+const LazyFeature = lazy(() => import('./FeatureComponent.js'))
+
+const App = () => (R) => (
+	<div>
+		<LazyFeature
+			title="My Feature"
+			fallback={() => <div>Loading feature...</div>}
+			catch={({ error }) => (
+				<div style="color: red; padding: 10px; border: 1px solid red;">
+					<h3>Failed to load feature component</h3>
+					<p>Error: {error.message}</p>
+					<button on:click={() => window.location.reload()}>
+						Retry
+					</button>
+				</div>
+			)}
+		/>
+	</div>
+)
+```
+
+#### Performance Considerations
+
+The `lazy` helper preserves the current rendering context when loading components, ensuring that reactive signals and other context-dependent features work correctly. This makes it ideal for:
+
+- **Code splitting**: Break large applications into smaller chunks
+- **Conditional loading**: Load components only when certain conditions are met
+- **Route-based loading**: Load page components as users navigate
+- **Feature flags**: Dynamically load features based on user permissions
+
+```jsx
+import { lazy, signal, If } from 'refui'
+
+const AdminPanel = lazy(() => import('./AdminPanel.js'))
+const UserDashboard = lazy(() => import('./UserDashboard.js'))
+
+const App = () => {
+	const isAdmin = signal(false)
+	const isLoading = signal(true)
+
+	// Simulate auth check
+	setTimeout(() => {
+		isAdmin.value = Math.random() > 0.5 // Random admin status
+		isLoading.value = false
+	}, 1000)
+
+	return (R) => (
+		<div>
+			<If condition={isLoading}>
+				{() => <div>Checking permissions...</div>}
+				{() => (
+					<If condition={isAdmin}>
+						{() => AdminPanel()}
+						{() => UserDashboard()}
+					</If>
+				)}
+			</If>
+		</div>
+	)
+}
+```
+
 ## Extra Components
 
 Extra components for more advanced scenarios are located in the `refui/extras` path.
