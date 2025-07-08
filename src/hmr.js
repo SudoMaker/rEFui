@@ -2,7 +2,7 @@ import { signal } from 'refui/signal'
 import { isPrimitive } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
-export const hotEnabled = !isProduction && import.meta./* @refui webpack */hot
+export const hotEnabled = !isProduction && !!/* @refui webpack */import.meta.hot
 
 export const KEY_HMRWRAP = Symbol('K_HMRWRAP')
 export const KEY_HMRWRAPPED = Symbol('K_HMRWARPPED')

@@ -91,6 +91,32 @@ function getCurrentSelf() {
 	return currentCtx?.self
 }
 
+async function _lazyLoad(loader, symbol, ...args) {
+	const run = snapshot()
+	if (!this.cache) {
+		const result = await loader()
+		if ((symbol === undefined || symbol === null) && typeof result === 'function') {
+			this.cache = result
+		} else {
+			this.cache = result[symbol ?? 'default']
+		}
+
+		if (hotEnabled) {
+			const component = this.cache
+			this.cache = function(...args) {
+				return function(R) {
+					return R.c(component, ...args)
+				}
+			}
+		}
+	}
+
+	return run(this.cache, ...args)
+}
+function lazy(loader, symbol) {
+	return _lazyLoad.bind({__proto__: null, cache: null}, loader, symbol)
+}
+
 function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	if (!handler) {
 		return nop
@@ -651,6 +677,7 @@ export {
 	render,
 	dispose,
 	getCurrentSelf,
+	lazy,
 	Fn,
 	For,
 	If,
