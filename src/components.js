@@ -114,7 +114,7 @@ async function _lazyLoad(loader, symbol, ...args) {
 	return run(this.cache, ...args)
 }
 function lazy(loader, symbol) {
-	return _lazyLoad.bind({__proto__: null, cache: null}, loader, symbol)
+	return _lazyLoad.bind({ cache: null }, loader, symbol)
 }
 
 function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
