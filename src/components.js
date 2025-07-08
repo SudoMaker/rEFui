@@ -642,13 +642,13 @@ class Component {
 	}
 }
 
+const emptyProp = { $ref: null }
 const createComponent = (function() {
 	function createComponentRaw(tpl, props, ...children) {
-		props ??= {}
 		if (isSignal(tpl)) {
-			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props, ...children)
+			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props ?? {}, ...children)
 		}
-		const { $ref, ..._props } = props
+		const { $ref, ..._props } = (props ?? emptyProp)
 		const component = new Component(tpl, _props, ...children)
 		if ($ref) {
 			if (isSignal($ref)) {
@@ -664,7 +664,10 @@ const createComponent = (function() {
 
 	if (hotEnabled) {
 		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
-		return enableHMR({ builtins, _dynContainer, Component, createComponentRaw })
+		function makeDyn(tpl, handleErr) {
+			return _dynContainer.bind(tpl, null, handleErr, tpl)
+		}
+		return enableHMR({ builtins, makeDyn, Component, createComponentRaw })
 	}
 
 	return createComponentRaw
