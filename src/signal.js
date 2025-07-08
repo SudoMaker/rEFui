@@ -541,8 +541,11 @@ function listen(vals, cb) {
 function computed(fn) {
 	return signal(null, fn)
 }
+function _merged(vals) {
+	return this(...readAll(...vals))
+}
 function merge(vals, handler) {
-	return computed(readAll.bind(null, vals, handler))
+	return computed(_merged.bind(handler, vals))
 }
 function tpl(strs, ...exprs) {
 	const raw = { raw: strs }
