@@ -59,8 +59,11 @@ function tick() {
 	return currentTick
 }
 
-function nextTick(cb) {
-	return tick().then(cb)
+function nextTick(cb, ...args) {
+	if (args.length) {
+		cb = cb.bind(null, ...args)
+	}
+	return tick().finally(cb)
 }
 
 function flushQueues() {
