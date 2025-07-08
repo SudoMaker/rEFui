@@ -187,6 +187,27 @@ Manually triggers updates for all connected effects.
 mySignal.trigger()
 ```
 
+#### `.refresh()`
+Re-evaluates a computed signal's computation function and updates the signal if the result has changed. This method only works on computed signals (signals created with a computation function). For regular signals, this method has no effect.
+
+This is useful when you need to manually force a computed signal to re-evaluate its computation, for example when external dependencies that aren't tracked by the signal system may have changed.
+
+```javascript
+const count = signal(0)
+const doubled = computed(() => count.value * 2)
+
+// Manually refresh the computed signal
+doubled.refresh()
+
+// Example with external dependency
+let externalValue = 10
+const computed = signal(null, () => count.value + externalValue)
+
+// Later, when externalValue changes outside the signal system
+externalValue = 20
+computed.refresh() // Force re-evaluation with new externalValue
+```
+
 #### `.connect(effect)`
 Manually connects an effect to the signal.
 

@@ -306,6 +306,17 @@ const Signal = class {
 		tick()
 	}
 
+	refresh() {
+		const { compute, value } = this._
+		if (compute) {
+			const val = peek(compute(value))
+			if (value !== val) {
+				this._.value = val
+				this.trigger()
+			}
+		}
+	}
+
 	connect(effect) {
 		if (!effect) {
 			return
