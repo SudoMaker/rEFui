@@ -33,7 +33,7 @@ function wrapComponent(fn) {
 	return wrapped
 }
 
-function handleError(err, _, {name, hot}) {
+function handleError(err, _, { name, hot }) {
 	if (hot) {
 		console.error(`[rEFui HMR] Error happened when rendering <${name}>:\n`, err)
 	} else {
@@ -41,7 +41,7 @@ function handleError(err, _, {name, hot}) {
 	}
 }
 
-export function enableHMR({builtins, _dynContainer, Component, createComponentRaw}) {
+export function enableHMR({ builtins, makeDyn, Component, createComponentRaw }) {
 	console.info('[rEFui HMR] Hot Module Replacement enabled. Check https://github.com/SudoMaker/refurbish for details.')
 	return function(tpl, props, ...children) {
 		let hotLevel = 0
@@ -57,8 +57,7 @@ export function enableHMR({builtins, _dynContainer, Component, createComponentRa
 		}
 
 		if (hotLevel) {
-			const ret = new Component(_dynContainer.bind(tpl, null, handleError, tpl), props ?? {}, ...children)
-			return ret
+			return new Component(makeDyn(tpl, handleError), props ?? {}, ...children)
 		}
 
 		return createComponentRaw(tpl, props, ...children)

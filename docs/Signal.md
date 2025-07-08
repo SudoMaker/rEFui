@@ -187,6 +187,27 @@ Manually triggers updates for all connected effects.
 mySignal.trigger()
 ```
 
+#### `.refresh()`
+Re-evaluates a computed signal's computation function and updates the signal if the result has changed. This method only works on computed signals (signals created with a computation function). For regular signals, this method has no effect.
+
+This is useful when you need to manually force a computed signal to re-evaluate its computation, for example when external dependencies that aren't tracked by the signal system may have changed.
+
+```javascript
+const count = signal(0)
+const doubled = computed(() => count.value * 2)
+
+// Manually refresh the computed signal
+doubled.refresh()
+
+// Example with external dependency
+let externalValue = 10
+const computed = signal(null, () => count.value + externalValue)
+
+// Later, when externalValue changes outside the signal system
+externalValue = 20
+computed.refresh() // Force re-evaluation with new externalValue
+```
+
 #### `.connect(effect)`
 Manually connects an effect to the signal.
 
@@ -560,12 +581,39 @@ tick().then(() => {
 })
 ```
 
-#### `nextTick(callback?)`
-Waits for the next tick.
+#### `nextTick(callback, ...args)`
+Waits for the next tick and executes a callback after all pending signal updates and effects have been processed. Returns a Promise that resolves after the callback completes.
+
+- `callback`: Function to execute after the tick completes
+- `...args`: Optional arguments to pass to the callback function
+- Returns: Promise that resolves after the callback executes
+
+This is essential when you need to access updated computed signal values after making changes, since signal effects are processed asynchronously.
 
 ```javascript
+const count = signal(0)
+const doubled = computed(() => count.value * 2)
+
+count.value = 5
+
+// Without nextTick - might still see old value
+console.log(doubled.value) // Could be 0 (old value)
+
+// With nextTick - guaranteed to see updated value
 nextTick(() => {
-	console.log('Next tick')
+	console.log(doubled.value) // Will be 10 (updated value)
+})
+
+// With additional arguments
+const logValue = (prefix, signal) => {
+	console.log(prefix, signal.value)
+}
+
+nextTick(logValue, 'Doubled:', doubled)
+
+// Can also be used with async/await
+await nextTick(() => {
+	console.log('All updates processed')
 })
 ```
 

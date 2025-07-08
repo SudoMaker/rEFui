@@ -59,8 +59,11 @@ function tick() {
 	return currentTick
 }
 
-function nextTick(cb) {
-	return tick().then(cb)
+function nextTick(cb, ...args) {
+	if (args.length) {
+		cb = cb.bind(null, ...args)
+	}
+	return tick().finally(cb)
 }
 
 function flushQueues() {
@@ -303,6 +306,17 @@ const Signal = class {
 		tick()
 	}
 
+	refresh() {
+		const { compute, value } = this._
+		if (compute) {
+			const val = peek(compute(value))
+			if (value !== val) {
+				this._.value = val
+				this.trigger()
+			}
+		}
+	}
+
 	connect(effect) {
 		if (!effect) {
 			return
@@ -538,8 +552,11 @@ function listen(vals, cb) {
 function computed(fn) {
 	return signal(null, fn)
 }
+function _merged(vals) {
+	return this(...readAll(...vals))
+}
 function merge(vals, handler) {
-	return computed(readAll.bind(null, vals, handler))
+	return computed(_merged.bind(handler, vals))
 }
 function tpl(strs, ...exprs) {
 	const raw = { raw: strs }
