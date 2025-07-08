@@ -581,12 +581,39 @@ tick().then(() => {
 })
 ```
 
-#### `nextTick(callback?)`
-Waits for the next tick.
+#### `nextTick(callback, ...args)`
+Waits for the next tick and executes a callback after all pending signal updates and effects have been processed. Returns a Promise that resolves after the callback completes.
+
+- `callback`: Function to execute after the tick completes
+- `...args`: Optional arguments to pass to the callback function
+- Returns: Promise that resolves after the callback executes
+
+This is essential when you need to access updated computed signal values after making changes, since signal effects are processed asynchronously.
 
 ```javascript
+const count = signal(0)
+const doubled = computed(() => count.value * 2)
+
+count.value = 5
+
+// Without nextTick - might still see old value
+console.log(doubled.value) // Could be 0 (old value)
+
+// With nextTick - guaranteed to see updated value
 nextTick(() => {
-	console.log('Next tick')
+	console.log(doubled.value) // Will be 10 (updated value)
+})
+
+// With additional arguments
+const logValue = (prefix, signal) => {
+	console.log(prefix, signal.value)
+}
+
+nextTick(logValue, 'Doubled:', doubled)
+
+// Can also be used with async/await
+await nextTick(() => {
+	console.log('All updates processed')
 })
 ```
 
