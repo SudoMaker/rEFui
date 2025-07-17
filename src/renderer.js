@@ -1,5 +1,5 @@
 import { isSignal } from 'refui/signal'
-import { render, createComponent } from 'refui/components'
+import { render, createComponent, Fn } from 'refui/components'
 import { removeFromArr } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
@@ -151,6 +151,9 @@ function createRenderer(nodeOps, rendererID) {
 						} else if (isSignal(child)) {
 							flushTextBuffer()
 							normalizedChildren.push(createTextNode(child))
+						} else if (typeof child === 'function') {
+							flushTextBuffer()
+							normalizedChildren.push(createElement(Fn, { name: 'Inline' }, child))
 						} else if (Array.isArray(child)) {
 							flatChildren(child)
 						} else {

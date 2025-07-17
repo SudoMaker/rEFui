@@ -217,6 +217,32 @@ const App = ({ condition }) => {
 }
 ```
 
+For simplicity, you can write functions directly inline without wrapped in a `Fn` tag:
+
+```jsx
+const App = ({ condition }) => {
+	return (R) => (
+		<div>
+			Condition is {() => {
+				switch (read(condition)) {
+					case 'italic':
+						return <i>Italic</i>
+					case 'bold':
+						return <b>Bold</b>
+					default:
+						return <span>Unknown</span>
+				}
+			}}
+		</div>
+	)
+}
+
+```
+
+Inline functions are not unwrapped when passed to components, so you can process them within your components before actually being rendered.
+
+**Note**: Although `Fn` is much more efficient when updating than re-rendering the whole tree in other immediate mode frameworks like React, it's still more expensive than signals for rendering texts only. If you want simple conditional text like adding `s`/`es` to plural nouns, just use a computed signal.
+
 #### Advanced Usage: `ctx` and `catch`
 
 The `Fn` component accepts two additional props for more advanced scenarios:
