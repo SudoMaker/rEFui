@@ -146,13 +146,13 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 				return
 			}
 
-			const newRender = newHandler(read(ctx))
+			const newRender = newHandler(ctx)
 			if (newRender === currentRender) {
 				return
 			}
 
 			currentRender = newRender
-			if (newRender) {
+			if (newRender !== undefined && newRender !== null) {
 				const prevDispose = currentDispose
 				currentDispose = run(function() {
 					let newResult = null
@@ -173,7 +173,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 						prevDispose()
 					}
 
-					if (newResult) {
+					if (newResult !== undefined && newResult !== null) {
 						R.appendNode(fragment, newResult)
 						onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
 					} else {
