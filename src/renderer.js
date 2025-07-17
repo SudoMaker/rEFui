@@ -46,7 +46,10 @@ function createRenderer(nodeOps, rendererID) {
 	}
 
 	function _expandFragment(anchorStart, children, anchorEnd, flags) {
-		return [anchorStart, ...flattenChildren(children), anchorEnd]
+		const flattened = flattenChildren(children)
+		flattened.unshift(anchorStart)
+		flattened.push(anchorEnd)
+		return flattened
 	}
 	function expandFragment(node) {
 		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
@@ -73,7 +76,9 @@ function createRenderer(nodeOps, rendererID) {
 		if (isFragment(node)) {
 			const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
 			if (flags.connected) {
-				appendNodeRaw(node, ..._expandFragment(anchorStart, children, anchorEnd, flags))
+				const expanded = _expandFragment(anchorStart, children, anchorEnd, flags)
+				expanded.unshift(node)
+				appendNodeRaw.apply(null, expanded)
 				flags.connected = false
 			}
 		} else {
@@ -93,7 +98,9 @@ function createRenderer(nodeOps, rendererID) {
 				removeNode(node)
 				parentMap.set(node, parent)
 			}
-			appendNodeRaw(parent, ...flattenChildren(nodes))
+			const flattened = flattenChildren(nodes)
+			flattened.unshift(parent)
+			appendNodeRaw.apply(null, flattened)
 		}
 	}
 
@@ -189,7 +196,10 @@ function createRenderer(nodeOps, rendererID) {
 				}
 			}
 
-			if (normalizedChildren.length) appendNode(node, ...normalizedChildren)
+			if (normalizedChildren.length) {
+				normalizedChildren.unshift(node)
+				appendNode.apply(null, normalizedChildren)
+			}
 
 			return node
 		}
@@ -200,7 +210,7 @@ function createRenderer(nodeOps, rendererID) {
 	}
 
 	function renderComponent(target, ...args) {
-		const instance = createComponent(...args)
+		const instance = createComponent.apply(null, args)
 		const node = render(instance, renderer)
 		if (target && node) appendNode(target, node)
 		return instance
