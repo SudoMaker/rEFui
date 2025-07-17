@@ -317,7 +317,7 @@ const Signal = class {
 		}
 	}
 
-	connect(effect) {
+	connect(effect, runImmediate = true) {
 		if (!effect) {
 			return
 		}
@@ -334,7 +334,7 @@ const Signal = class {
 				})
 			}
 		}
-		if (currentEffect !== effect) {
+		if (runImmediate && currentEffect !== effect) {
 			effect()
 		}
 	}
@@ -571,20 +571,25 @@ function not(val) {
 	})
 }
 
-function connect(sigs, effect) {
-	const prevEffect = currentEffect
-	currentEffect = effect
+function connect(sigs, effect, runImmediate = true) {
 	for (let sig of sigs) {
-		sig.connect(effect)
+		sig.connect(effect, false)
 	}
-	effect()
-	currentEffect = prevEffect
+	if (runImmediate) {
+		const prevEffect = currentEffect
+		currentEffect = effect
+		try {
+			effect()
+		} finally {
+			currentEffect = prevEffect
+		}
+	}
 }
 
 function bind(handler, val) {
 	if (isSignal(val)) {
 		val.connect(function() {
-			handler(peek(val))
+			handler(val.peek())
 		})
 	}
 	else if (typeof val === 'function') {
@@ -594,6 +599,20 @@ function bind(handler, val) {
 	} else {
 		handler(val)
 	}
+}
+
+function useAction(val, compute) {
+	val = signal(val, compute)
+	function onAction(cb) {
+		val.connect(function() {
+			cb(val.peek())
+		}, false)
+	}
+	function trigger(newVal) {
+		val.value = newVal
+		val.trigger()
+	}
+	return [onAction, trigger]
 }
 
 function derive(sig, key, compute) {
@@ -770,6 +789,7 @@ export {
 	computed,
 	connect,
 	bind,
+	useAction,
 	derive,
 	extract,
 	derivedExtract,
