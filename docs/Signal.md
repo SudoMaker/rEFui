@@ -208,11 +208,17 @@ externalValue = 20
 computed.refresh() // Force re-evaluation with new externalValue
 ```
 
-#### `.connect(effect)`
+#### `.connect(effect, runImmediate = true)`
 Manually connects an effect to the signal.
+
+- `effect`: The effect function to connect
+- `runImmediate`: Whether to run the effect immediately (default: true)
 
 ```javascript
 mySignal.connect(() => console.log('Signal changed'))
+
+// Connect without running immediately
+mySignal.connect(() => console.log('Signal changed'), false)
 ```
 
 #### `.touch()`
@@ -386,13 +392,22 @@ const dispose = watch(() => {
 })
 ```
 
-#### `connect(signals, effect)`
+#### `connect(signals, effect, runImmediate = true)`
 Connects multiple signals to an effect.
+
+- `signals`: Array of signals to connect to
+- `effect`: The effect function to connect
+- `runImmediate`: Whether to run the effect immediately (default: true)
 
 ```javascript
 connect([signal1, signal2], () => {
 	console.log('Signals changed')
 })
+
+// Connect without running immediately
+connect([signal1, signal2], () => {
+	console.log('Signals changed')
+}, false)
 ```
 
 #### `bind(handler, value)`
@@ -409,6 +424,35 @@ Listens to multiple signals with a single callback.
 listen([signal1, signal2], () => {
 	console.log('One of the signals changed')
 })
+```
+
+#### `useAction(value?, compute?)`
+Creates an action system with an event handler and trigger function. This is useful for creating event-driven patterns where you want to listen for specific actions and respond to them.
+
+- `value`: Initial value for the internal signal
+- `compute`: Optional computation function for the internal signal
+- Returns: `[onAction, trigger]` tuple
+
+```javascript
+const [onPageLoad, triggerPageLoad] = useAction('idle')
+
+// Listen for page load actions
+onPageLoad((state) => {
+	console.log('Page load state:', state)
+})
+
+// Trigger actions
+triggerPageLoad('loading')
+triggerPageLoad('complete')
+
+// With computation
+const [onCounterChange, triggerCounterChange] = useAction(0, (val) => val * 2)
+
+onCounterChange((doubled) => {
+	console.log('Counter doubled:', doubled)
+})
+
+triggerCounterChange(5) // Logs: "Counter doubled: 10"
 ```
 
 ### Advanced Signal Operations
