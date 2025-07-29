@@ -44,7 +44,7 @@
     "url": "git+https://github.com/SudoMaker/rEFui.git"
   },
   "author": "Yukino Song <yukino@sudomaker.com>",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bugs": "https://github.com/SudoMaker/rEFui/issues",
   "homepage": "https://github.com/SudoMaker/rEFui"
 }
