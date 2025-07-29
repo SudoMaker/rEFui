@@ -41,7 +41,7 @@ Days later, they come to me and say they get it running without my help. I asked
 
 ## Appendix
 
-- GPT o3 Analysis of Inspacial-dev's codebase against its copied targets:
+- GPT o3 Analysis of [a forked Inspacial-dev's codebase for evidence saving](https://github.com/ClassicOldSong/inspatial-dev-evidence-save) against its copied targets:
 
 ## 1  Executive summary
 
