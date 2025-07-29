@@ -43,6 +43,8 @@ Days later, they come to me and say they get it running without my help. I asked
 
 - GPT o3 Analysis of [a forked Inspacial-dev's codebase for evidence saving](https://github.com/ClassicOldSong/inspatial-dev-evidence-save) against its copied targets:
 
+Note: this analysis does not cover all copied code. The `@in/teract` and `signal-lite` packages are all just re-branded rEFui's signal implementation.
+
 ## 1  Executive summary
 
 | Package (name @ version)            | Principal upstream it matches         | Evidence of copying¹                                                                                          | Licence removed?                     |
