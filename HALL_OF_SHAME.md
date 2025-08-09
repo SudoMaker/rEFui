@@ -1,6 +1,6 @@
 # Hall of Shame
 
-[@inspatial/run](https://jsr.io/@inspatial/run) rebrands rEFui with AI, without attribution(and done poorly).
+[InspacialLabs](https://github.com/inspatiallabs/inspatial-dev) rebrands rEFui with AI, without attribution(and done poorly).
 
 They later added a [`CREDITS.md`](https://github.com/inspatiallabs/inspatial-dev/blob/33aaad73c88898dfe6192347bddab7be20f7f1d8/CREDITS.md) in [this commit](https://github.com/inspatiallabs/inspatial-dev/commit/894051b76a73fdc166fad90053757c25524c2580), but still violating all of the well known licenses: all licenses used in the projects they copycat require containing a copy of the original license, and crediting the code in each file respectively.
 
