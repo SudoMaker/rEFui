@@ -472,7 +472,7 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 				$ref.value = node
 			}
 		} else if (typeof $ref === 'function') {
-			syncRef = freeze($ref)
+			syncRef = $ref
 		} else if (!isProduction) {
 			throw new Error(`Invalid $ref type: ${typeof $ref}`)
 		}
