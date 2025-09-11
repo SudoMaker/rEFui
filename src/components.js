@@ -672,7 +672,7 @@ const createComponent = (function() {
 		const component = new Component(tpl, _props, ...children)
 		if ($ref) {
 			if (isSignal($ref)) {
-				$ref.value = node
+				$ref.value = component
 			} else if (typeof $ref === 'function') {
 				$ref(component)
 			} else if (!isProduction) {

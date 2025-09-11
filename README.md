@@ -2,7 +2,7 @@
 
 <h1 align="center">rEFui</h1>
 
-Pronunced as /ɹiːˈfjuːəl/, refuel
+Pronounced as /ɹiːˈfjuːəl/ — “refuel”
 
 The [Retained Mode](https://en.wikipedia.org/wiki/Retained_mode) JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
 
@@ -66,7 +66,7 @@ const App = () => {
 		<>
 			<actionbar title="Hello, rEFui!"></actionbar>
 			<stacklayout>
-				<label>You have taapped {count} time(s)</label>
+			<label>You have tapped {count} time(s)</label>
 				<button class="-primary" on:tap={increment}>Tap me!</button>
 			</stacklayout>
 		</>
@@ -115,9 +115,24 @@ For detailed instructions on configuring JSX for your project, please see the [J
 
 ## Hot Module Replacement
 
-rEFui comes with built-in HMR support, but still requires a plugin for the packager to inject a minimal portion of boilerplate code to make it work while developing.
+rEFui has built-in HMR hooks. Use the refurbish plugin for your bundler to inject the minimal dev boilerplate.
 
-For more details, checkout [refurbish](https://github.com/SudoMaker/refurbish)
+Vite quick setup:
+
+```js
+// vite.config.js
+import { defineConfig } from 'vite'
+import refurbish from 'refurbish/vite'
+
+export default defineConfig({
+  plugins: [refurbish()],
+  esbuild: { jsxFactory: 'R.c', jsxFragment: 'R.f' }
+})
+```
+
+Notes:
+- In dev with HMR, dynamic wrapping means `$ref` is the reliable way to access component instances; avoid relying on return values from `createComponent()`/`renderer.render()` except for manual `dispose()`.
+- For webpack and advanced options, see [refurbish](https://github.com/SudoMaker/refurbish).
 
 ## Built-in Components
 
@@ -138,14 +153,14 @@ You can use rEFui directly in modern browsers without building. Define your impo
 
 ```html
 <script type="importmap">
-	{
-		"imports": {
-			"refui": "https://esm.run/refui",
-			"refui/dom": "https://esm.run/refui",
-			"refui/browser": "https://esm.run/refui",
-			"htm": "https://esm.run/htm"
-		}
-	}
+{
+  "imports": {
+    "refui": "https://esm.run/refui",
+    "refui/dom": "https://esm.run/refui/dom",
+    "refui/browser": "https://esm.run/refui/browser",
+    "htm": "https://esm.run/htm"
+  }
+}
 </script>
 <script type="module" src="main.js"></script>
 ```
