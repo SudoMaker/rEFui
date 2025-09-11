@@ -1040,3 +1040,24 @@ const PerformanceDemo = () => {
 ```
 
 **Note:** The parser function should return renderable content that can be handled by the renderer. This can be DOM elements created with `R.c()`, text nodes, or arrays of such elements.
+## Hot Module Replacement
+
+rEFui supports HMR via the refurbish plugin. This preserves component state during edits and avoids manual boilerplate.
+
+Vite setup:
+
+```js
+// vite.config.js
+import { defineConfig } from 'vite'
+import refurbish from 'refurbish/vite'
+
+export default defineConfig({
+	plugins: [refurbish()],
+	esbuild: { jsxFactory: 'R.c', jsxFragment: 'R.f' }
+})
+```
+
+Tips:
+- Use `$ref` to access component instances during dev/HMR; wrappers can change return values from `createComponent()`/`renderer.render()`.
+- Use the return value mainly for `dispose(instance)` when you render manually.
+- See refurbish docs for webpack and advanced options.

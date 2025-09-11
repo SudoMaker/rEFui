@@ -39,7 +39,7 @@ Signal effects are semi-lazily computed, that means, no matter how many times yo
 ### Creating Signals
 
 ```javascript
-import { signal } from './signal.js'
+import { signal } from 'refui/signal'
 
 // Create a signal with an initial value
 const count = signal(0)
@@ -55,7 +55,7 @@ console.log(count.value) // 5
 ### Creating Computed Signals
 
 ```javascript
-import { signal, computed, nextTick } from './signal.js'
+import { signal, computed, nextTick } from 'refui/signal'
 
 const count = signal(0)
 const doubled = computed(() => count.value * 2)
@@ -71,7 +71,7 @@ nextTick(() => {
 ### Effects
 
 ```javascript
-import { signal, watch } from './signal.js'
+import { signal, watch } from 'refui/signal'
 
 const count = signal(0)
 
@@ -771,7 +771,7 @@ count.value = 3
 ### Counter Example
 
 ```javascript
-import { signal, computed, watch } from './signal.js'
+import { signal, computed, watch } from 'refui/signal'
 
 const count = signal(0)
 const doubled = computed(() => count.value * 2)

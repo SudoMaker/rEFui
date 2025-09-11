@@ -119,7 +119,7 @@ Once your build tool is configured, you need to initialize the runtime with a re
 
 ```javascript
 import { createDOMRenderer } from 'refui/dom'
-import { defaults } from 'refui/presets/browser'
+import { defaults } from 'refui/browser'
 import { wrap } from 'refui/jsx-runtime'
 import App from './App.jsx' // Your root component
 

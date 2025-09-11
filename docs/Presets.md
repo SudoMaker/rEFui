@@ -18,7 +18,7 @@ For details, check out [HALL_OF_SHAME.md](../HALL_OF_SHAME.md)
 import { createDOMRenderer } from 'refui/dom'
 import { defaults } from 'refui/browser'
 
-export default const Renderer = createDOMRenderer(defaults)
+export const renderer = createDOMRenderer(defaults)
 ```
 
 ### Directives
