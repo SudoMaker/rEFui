@@ -457,6 +457,18 @@ const Signal = class {
 		})
 	}
 
+	gte(val) {
+		return signal(this, function(i) {
+			return i >= read(val)
+		})
+	}
+
+	lte(val) {
+		return signal(this, function(i) {
+			return i <= read(val)
+		})
+	}
+
 	toJSON() {
 		return this.get()
 	}

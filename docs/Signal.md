@@ -325,12 +325,14 @@ const isZero = count.eq(0)
 const isNotZero = count.neq(0)
 ```
 
-#### `.gt(value)`, `.lt(value)`
+#### `.gt(value)`, `.lt(value)`, `.gte(value)`, `.lte(value)`
 Numeric comparisons.
 
 ```javascript
 const isPositive = count.gt(0)
 const isNegative = count.lt(0)
+const isNonNegative = count.gte(0)
+const isNonPositive = count.lte(0)
 ```
 
 ### Utility Functions
