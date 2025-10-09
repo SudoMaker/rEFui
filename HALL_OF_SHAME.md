@@ -14,7 +14,7 @@ In the section `💖 Our Commitment to Open Source`, they write:
 > - 🔄 Contributing Back: We contribute improvements, bug fixes, and features upstream
 > - 📖 Knowledge Sharing: We open source our own innovations when possible`
 
-Please DO NOT TURST ANY WORD THEY SAY. They're very good at lingual manipulation. They have totally no ability to contribute back, nor sharing any of their knowledge. They never clearly answered my questions, only vaguely promising their "sponsorship" and "job offers" at a really low price considering what things they want me to do.
+Please DO NOT TRUST ANY WORD THEY SAY. They're very good at lingual manipulation. They have totally no ability to contribute back, nor sharing any of their knowledge. They never clearly answered my questions, only vaguely promising their "sponsorship" and "job offers" at a really low price considering what things they want me to do.
 
 After they laundered the code from rEFui, they also generated a sample project with AI[^2], but failed to get it running. So they reached me and ask me to fix it. I was already suspicious about their ability to code, so I didn't give them a direct fix, but point out a very obvious error the AI wrotes. They didn't get it. Anyone who read the README of rEFui with little JSX knowledge should know what's wrong.
 
