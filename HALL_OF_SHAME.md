@@ -1,5 +1,7 @@
 # Hall of Shame
 
+**This is not a compliant about using AI to assist developing, but incapable people using AI to do unethical things.**
+
 [InspacialLabs](https://github.com/inspatiallabs) rebrands and extract multiple of my works including rEFui, [refurbish](https://github.com/SudoMaker/refurbish) and [undom-ng](https://github.com/ClassicOldSong/undom-ng) to [inspatial-kit](https://github.com/inspatiallabs/inspatial-kit) with AI, without proper attribution
 
 They later added a [`CREDITS.md`](https://github.com/inspatiallabs/inspatial-dev/blob/33aaad73c88898dfe6192347bddab7be20f7f1d8/CREDITS.md) in [this commit](https://github.com/inspatiallabs/inspatial-dev/commit/894051b76a73fdc166fad90053757c25524c2580), but still violating all of the well known licenses: all licenses used in the projects they copycat require containing a copy of the original license, and crediting the code in each file respectively. **They now have removed the orignal repository and made it into a new one trying to hide what they did.**
@@ -14,11 +16,13 @@ In the section `💖 Our Commitment to Open Source`, they write:
 > - 🔄 Contributing Back: We contribute improvements, bug fixes, and features upstream
 > - 📖 Knowledge Sharing: We open source our own innovations when possible`
 
-Please DO NOT TURST ANY WORD THEY SAY. They're very good at lingual manipulation. They have totally no ability to contribute back, nor sharing any of their knowledge. They never clearly answered my questions, only vaguely promising their "sponsorship" and "job offers" at a really low price considering what things they want me to do.
+Please DO NOT TRUST ANY WORD THEY SAY. They're very good at lingual manipulation. They have totally no ability to contribute back, nor sharing any of their knowledge. They never clearly answered my questions, only vaguely promising their "sponsorship" and "job offers" at a really low price considering what things they want me to do.
 
 After they laundered the code from rEFui, they also generated a sample project with AI[^2], but failed to get it running. So they reached me and ask me to fix it. I was already suspicious about their ability to code, so I didn't give them a direct fix, but point out a very obvious error the AI wrotes. They didn't get it. Anyone who read the README of rEFui with little JSX knowledge should know what's wrong.
 
 Days later, they come to me and say they get it running without my help. I asked them again what's wrong about that line of code, they refused to answer, clearly showing that they still used AI to correct the problem, but not understanding the code themselves.
+
+They showed totally no respect to what I have created with my painstaking effort, but only want to squeeze value from it without putting any of their own into it.
 
 ## Whole timeline about this incident:
 
@@ -37,6 +41,13 @@ Days later, they come to me and say they get it running without my help. I asked
 * **2025-07-24 to 2025-07-29**: ClassicOldSong repeatedly highlights basic technical mistakes in benemma’s code and explicitly questions benemma’s understanding of JSX, React, and Deno. Despite multiple hints and requests for clarification, benemma avoids addressing technical questions directly, reinforcing ClassicOldSong’s suspicions about his technical competence and honesty.
 
 * **2025-07-29**: The conversation escalates as ClassicOldSong directly challenges benemma to answer straightforward technical questions, pointing out benemma’s consistent avoidance of technical clarity. benemma admits limited coding abilities but maintains respect and admiration for ClassicOldSong’s work. ClassicOldSong ultimately rejects further collaboration and sponsorship, citing significant doubts about benemma’s honesty and capability.
+
+## Added incidents:
+
+After this file gets posted on [HackerNews](https://news.ycombinator.com/item?id=45477661), I got attacked by a famous frontend advocater who is also the author of [ast-grep](https://github.com/ast-grep/ast-grep), saying that my intelligence and logic is `barely so so`, and they followed up saying that they're showing empathy for someone that acts like a `disabled people`. They didn't even bother to read the description of this whole Hall of Shame and started to draw conclusions.
+
+![](https://github.com/user-attachments/assets/9ae7c263-dc93-4c8d-baec-7d2a8854feba)
+![](https://github.com/user-attachments/assets/b22c945f-90d1-47c6-8e69-5ca47bfcf819)
 
 
 ## Appendix
