@@ -137,6 +137,20 @@ function lazy(loader, symbol) {
 	return _lazyLoad.bind({ cache: null }, loader, symbol)
 }
 
+function memo(fn) {
+	let cached = null
+	const captured = capture(fn)
+	return function(...args) {
+		if (cached) return cached
+		return (cached = captured(...args))
+	}
+}
+function useMemo(fn) {
+	return function() {
+		return memo(fn)
+	}
+}
+
 function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	if (!handler) {
 		return nop
@@ -701,6 +715,8 @@ export {
 	dispose,
 	getCurrentSelf,
 	lazy,
+	memo,
+	useMemo,
 	Fn,
 	For,
 	If,
