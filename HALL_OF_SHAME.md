@@ -44,7 +44,7 @@ They showed totally no respect to what I have created with my painstaking effort
 
 ## Added incidents:
 
-After this file gets posted on [HackerNews](https://news.ycombinator.com/item?id=45477661), I got attacked by a famous frontend advocater who is also the author of [ast-grep](https://github.com/ast-grep/ast-grep), saying that my intelligence and logic is `barely so so`, and they followed up saying that they're showing empathy for someone that acts like a `disabled people`. They didn't even bother to read the description of this whole Hall of Shame and started to draw conclusions.
+After this file gets posted on [HackerNews](https://news.ycombinator.com/item?id=45477661), I got attacked by a famous frontend advocater who is also the author of [ast-grep](https://github.com/ast-grep/ast-grep), saying that my intelligence and logic are "barely so so", and they followed up saying that they're showing empathy for someone that acts like a "disabled people". They didn't even bother to read the description of this whole Hall of Shame and started to draw conclusions.
 
 ![](https://github.com/user-attachments/assets/9ae7c263-dc93-4c8d-baec-7d2a8854feba)
 ![](https://github.com/user-attachments/assets/b22c945f-90d1-47c6-8e69-5ca47bfcf819)
