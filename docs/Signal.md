@@ -272,6 +272,24 @@ username.value = undefined
 // defaultName will reactively update back to 'Anonymous'
 ```
 
+#### `.choose(trueValue, falseValue)`
+Creates a derived signal that resolves to `trueValue` when the source signal is truthy and `falseValue` otherwise.
+
+- `trueValue` and `falseValue` can be plain values, signals, or functions.
+- The chosen branch is evaluated lazily when the derived signal is read, so expensive computations only run for the active branch.
+
+```javascript
+const isDarkMode = signal(false)
+const themeAsset = isDarkMode.choose('dark.css', 'light.css')
+
+console.log(themeAsset.value) // 'light.css'
+
+isDarkMode.value = true
+nextTick(() => {
+	console.log(themeAsset.value) // 'dark.css'
+})
+```
+
 ### Signal Operations
 
 Signals support various comparison and logical operations:
@@ -301,6 +319,28 @@ const isPositiveAndNotZero = count.andNot(count.eq(0)) // count > 0 && !(count =
 const isValidOrNotDisabled = isValid.orNot(isDisabled) // isValid || !isDisabled
 ```
 
+#### `.andOr(andValue, orValue)`
+Combines logical AND and OR in a single helper.
+
+- When the source signal resolves to a truthy value, the derived signal resolves to `andValue`.
+- When the source signal is falsy, the derived signal resolves to `orValue`.
+- Both arguments can be plain values or signals. They are only read when their branch is chosen.
+
+```javascript
+const isAuthenticated = signal(false)
+const userDisplay = signal('Guest')
+const fallbackName = 'Anonymous'
+
+const currentUser = isAuthenticated.andOr(userDisplay, fallbackName)
+
+console.log(currentUser.value) // 'Anonymous'
+
+isAuthenticated.value = true
+nextTick(() => {
+	console.log(currentUser.value) // 'Guest'
+})
+```
+
 #### `.inverseAnd(value)`, `.inverseOr(value)`
 Logical operations with negated first operand (the signal itself).
 
@@ -315,6 +355,56 @@ Logical operations with both operands negated.
 ```javascript
 const isInactiveAndHidden = isActive.inverseAndNot(isVisible) // !isActive && !isVisible
 const isInactiveOrHidden = isActive.inverseOrNot(isVisible) // !isActive || !isVisible
+```
+
+#### `.inverseAndOr(andValue, orValue)`
+Variant of `.andOr` that negates the base signal before evaluating branches.
+
+- When the source signal is falsy, the derived signal resolves to `andValue`.
+- When the source signal is truthy, the derived signal resolves to `orValue`.
+
+```javascript
+const isOffline = signal(true)
+const reconnectHint = 'Tap to reconnect'
+const onlineMessage = signal('You are online')
+
+const bannerText = isOffline.inverseAndOr(reconnectHint, onlineMessage)
+
+console.log(bannerText.value) // 'Tap to reconnect'
+
+isOffline.value = false
+nextTick(() => {
+	console.log(bannerText.value) // 'You are online'
+})
+```
+
+#### `.select(options)`
+Creates a derived signal that treats the current value as a lookup key inside `options`.
+
+- `options` may be a plain object, an array, or a signal that resolves to any of those. Passing a `Map` is not supported.
+- When the key is missing, the derived signal resolves to `undefined`.
+
+```javascript
+const status = signal('idle')
+const messages = signal({
+	idle: 'Waiting…',
+	success: 'All good!',
+	error: 'Something went wrong!'
+})
+
+const statusMessage = status.select(messages)
+
+console.log(statusMessage.value) // 'Waiting…'
+
+status.value = 'success'
+nextTick(() => {
+	console.log(statusMessage.value) // 'All good!'
+})
+
+messages.value = { idle: 'Ready when you are!' }
+nextTick(() => {
+	console.log(statusMessage.value) // undefined
+})
 ```
 
 #### `.eq(value)`, `.neq(value)`
@@ -600,8 +690,8 @@ const dispose = collectDisposers([], () => {
 
 ### Control Flow
 
-#### `untrack(fn)`
-Runs a function without tracking dependencies.
+#### `untrack(fn, ...args)`
+Runs a function without tracking dependencies. Arguments are passed as-is to the fn.
 
 ```javascript
 const result = untrack(() => {

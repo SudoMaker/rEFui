@@ -216,7 +216,7 @@ function freeze(fn) {
  return _frozen.bind(fn, currentDisposers, currentEffect)
 }
 
-function untrack(fn) {
+function untrack(fn, ...args) {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
 
@@ -224,7 +224,7 @@ function untrack(fn) {
 	currentEffect = null
 
 	try {
-		return fn()
+		return fn(...args)
 	} finally {
 		currentDisposers = prevDisposers
 		currentEffect = prevEffect
@@ -377,6 +377,21 @@ const Signal = class {
 		})
 	}
 
+	choose(trueVal, falseVal) {
+		return signal(this, function(i) {
+			const _trueVal = read(trueVal)
+			const _falseVal = read(falseVal)
+			return i ? trueVal : falseVal
+		})
+	}
+
+	select(options) {
+		return signal(this, function (i) {
+			const _options = read(options)
+			return Reflect.get(_options, i)
+		})
+	}
+
 	and(val) {
 		return signal(this, function(i) {
 			const _val = read(val)
@@ -391,6 +406,14 @@ const Signal = class {
 		})
 	}
 
+	andOr(andVal, orVal) {
+		return signal(this, function(i) {
+			const _andVal = read(andVal)
+			const _orVal = read(orVal)
+			return i && _andVal || orVal
+		})
+	}
+
 	inverseAnd(val) {
 		return signal(this, function(i) {
 			const _val = read(val)
@@ -402,6 +425,14 @@ const Signal = class {
 		return signal(this, function(i) {
 			const _val = read(val)
 			return !i && !_val
+		})
+	}
+
+	inverseAndOr(andVal, orVal) {
+		return signal(this, function(i) {
+			const _andVal = read(andVal)
+			const _orVal = read(orVal)
+			return !i && _andVal || orVal
 		})
 	}
 

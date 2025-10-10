@@ -40,7 +40,7 @@ const App = () => {
 			</If>
 
 			<button on:click={() => isLoggedIn.value = !isLoggedIn.value}>
-				{$(() => isLoggedIn.value ? 'Logout' : 'Login')}
+				{isLoggedIn.choose('Logout', 'Login')}
 			</button>
 		</div>
 	);
@@ -84,14 +84,12 @@ const TodoItem = ({ item, index }) => {
 	return (R) => (
 		<li>
 			<span
-				style={$(() =>
-					item.completed.value ? 'text-decoration: line-through' : ''
-				)}
+				style={item.completed.choose('text-decoration: line-through', '')}
 			>
 				{$(() => index.value + 1)}. {item.text}
 			</span>
 			<button on:click={toggleTodo}>
-				{$(() => (item.completed.value ? 'Undo' : 'Complete'))}
+				{item.completed.choose('Undo', 'Complete'))}
 			</button>
 		</li>
 	);
@@ -551,6 +549,80 @@ const App = () => {
 			}}>
 				Update Instance
 			</button>
+		</div>
+	)
+}
+```
+
+### memo
+
+Provides component-scoped memoization for functions that should only run once during an instance's lifetime. Call `memo` inside a component to capture the current rendering context, then reuse the returned function to access the cached result without re-running the original logic.
+
+**Parameters:**
+
+- `fn`: A function that produces the value you want to cache. It is executed the first time the memoized wrapper runs.
+
+**Returns:** A function that, when called, returns the cached result from the initial invocation.
+
+#### Usage Notes
+
+- The wrapped function runs at most once per parent function evaluation. Subsequent calls return the cached value.
+- The captured context ensures that any signals read during the first execution are tracked correctly, and `onDispose` handlers registered inside `fn` are tied to the component lifecycle.
+- Because the value never re-computes automatically, avoid reading reactive data inside `fn` if you expect it to change. Use signals or derived values outside of `memo` when you need updates.
+- Call `memo` inline inside the component factory or inside the returned render function. Hoisting `memo` outside the component will capture the wrong context and break caching. If you prefer to prepare helpers up front, use the provided `useMemo` wrapper and invoke it inside the component.
+- When the memoized value creates components or side effects, the cached instance stays reactive even if you temporarily detach it from the renderer. Cleanup registered inside `fn` is recorded on the captured context, so release references or trigger disposal when the instance is no longer needed.
+
+Unlike React or Solid, `memo` here captures the current reactive context and defers execution until the returned function is actually run (for example when a conditional branch is selected). This allows inline usage inside JSX-style control flow without introducing dedicated hooks.
+
+#### Inline Branching Example
+
+```jsx
+import { memo, signal, If, $ } from 'refui'
+
+const ToggleMessage = () => {
+	const isOpen = signal(false)
+
+	return (R) => (
+		<div>
+			<button on:click={() => isOpen.value = !isOpen.value}>
+				{isOpen.choose('Hide', 'Show')} details
+			</button>
+
+			<If condition={isOpen}>
+				{memo(() => <p class="details">Detailed view created once</p>)}
+				{memo(() => <p class="summary">Summary created once</p>)}
+			</If>
+		</div>
+	)
+}
+```
+
+#### `useMemo` Wrapper Example
+
+The exported `useMemo` helper builds a wrapper you can invoke inside the component to obtain the memoized branch. This is useful when you want to reuse the same memo across multiple render positions.
+
+Each call to `useMemo` returns a function; invoke that function inside your component so the enclosed `memo` call captures the correct reactive context.
+
+```jsx
+import { useMemo, signal, If, $ } from 'refui'
+
+const renderDetails = useMemo((R) => <p class="details">Detailed view created once</p>)
+
+const renderSummary = useMemo((R) => <p class="summary">Summary created once</p>)
+
+const ToggleMessage = () => {
+	const isOpen = signal(false)
+
+	return (R) => (
+		<div>
+			<button on:click={() => isOpen.value = !isOpen.value}>
+				{isOpen.choose('Hide', 'Show')} details
+			</button>
+
+			<If condition={isOpen}>
+				{renderDetails()}
+				{renderSummary()}
+			</If>
 		</div>
 	)
 }
