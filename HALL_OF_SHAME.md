@@ -1,6 +1,6 @@
 # Hall of Shame
 
-**This is not a compliant about using AI to assist developing, but incapable people using AI to do unethical things.**
+**This is not a complaint about using AI to assist developing, but incapable people using AI to do unethical things.**
 
 [InspacialLabs](https://github.com/inspatiallabs) rebrands and extract multiple of my works including rEFui, [refurbish](https://github.com/SudoMaker/refurbish) and [undom-ng](https://github.com/ClassicOldSong/undom-ng) to [inspatial-kit](https://github.com/inspatiallabs/inspatial-kit) with AI, without proper attribution
 
