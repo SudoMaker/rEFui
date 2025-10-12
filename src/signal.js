@@ -28,46 +28,47 @@ let currentDisposers = null
 let currentResolve = null
 let currentTick = null
 
-let signalQueue = new Set()
-let effectQueue = new Set()
-let runQueue = new Set()
+let signalQueue = []
+let effectQueue = []
 
 // Scheduler part
 
 function scheduleSignal(signalEffects) {
-	return signalQueue.add(signalEffects)
+	return signalQueue.push(signalEffects)
 }
 function scheduleEffect(effects) {
-	return effectQueue.add(effects)
+	return effectQueue.push(effects)
 }
 
-function flushRunQueue() {
-	for (let i of runQueue) i()
-	runQueue.clear()
+let flushID = 0
+function flushRunQueue(queue) {
+	flushID += 1;
+	for (let collection of queue) {
+		if (collection.__refui_flush_id != flushID) {
+			collection.__refui_flush_id = flushID
+			for (let effect of collection) {
+				if (effect.__refui_flush_id != flushID) {
+					effect.__refui_flush_id = flushID
+					effect()
+				}
+			}
+		}
+	}
 }
 
 function sortQueue(a, b) {
 	return a._id - b._id
 }
 function flushQueue(queue, sorted) {
-	while (queue.size) {
-		const queueArr = Array.from(queue)
-		queue.clear()
+	while (queue.length) {
+		const queueArr = queue.slice()
+		queue.length = 0
 
 		if (sorted && queueArr.length > 1) {
 			queueArr.sort(sortQueue)
-			const tempArr = [...(new Set([].concat(...queueArr).reverse()))].reverse()
-			runQueue = new Set(tempArr)
-		} else if (queueArr.length > 10000) {
-			let flattenedArr = []
-			for (let i = 0; i < queueArr.length; i += 10000) {
-				flattenedArr = flattenedArr.concat(...queueArr.slice(i, i + 10000))
-			}
-			runQueue = new Set(flattenedArr)
-		} else {
-			runQueue = new Set([].concat(...queueArr))
 		}
-		flushRunQueue()
+
+		flushRunQueue(queueArr)
 	}
 }
 
@@ -87,11 +88,9 @@ function nextTick(cb, ...args) {
 }
 
 function flushQueues() {
-	if (signalQueue.size || effectQueue.size) {
+	if (signalQueue.length || effectQueue.length) {
 		flushQueue(signalQueue, true)
-		signalQueue = new Set(signalQueue)
 		flushQueue(effectQueue)
-		effectQueue = new Set(effectQueue)
 		return Promise.resolve().then(flushQueues)
 	}
 }
@@ -304,7 +303,11 @@ const Signal = class {
 
 	set(val) {
 		const { compute, value } = this._
-		val = compute ? peek(compute(read(val))) : read(val)
+		val = compute ? peek(
+			compute(
+				read(val)
+			)
+		) : read(val)
 		if (value !== val) {
 			this._.value = val
 			this.trigger()
@@ -348,9 +351,7 @@ const Signal = class {
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
 					removeFromArr(effects, effect)
-					if (runQueue.size) {
-						runQueue.delete(effect)
-					}
+					effect.__refui_flush_id = flushID
 				})
 			}
 		}
@@ -544,6 +545,13 @@ function isSignal(val) {
 }
 
 function watch(effect) {
+	if (!Object.hasOwn(effect, '__refui_flush_id')) {
+		Object.defineProperty(effect, '__refui_flush_id', {
+			value: flushID,
+			writable: true
+		})
+	}
+
 	const prevEffect = currentEffect
 	currentEffect = effect
 	const _dispose = collectDisposers([], effect)
