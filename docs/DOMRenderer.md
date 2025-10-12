@@ -205,6 +205,55 @@ const StatusCard = ({ status, isLoading }) => {
 
 > **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](Presets.md#browser).
 
+## Macro Directives (`m:`)
+
+Macro directives let you attach reusable DOM behaviors to elements by prefixing a prop with `m:`. When the renderer sees `m:macroName`, it looks up a handler registered on the renderer and calls it with the element and the value you passed.
+
+### Registering a macro
+
+You can provide macros when creating the renderer, or register them later with `renderer.useMacro`. Handlers are responsible for managing reactive values themselves.
+
+```javascript
+import { createDOMRenderer } from 'refui/dom'
+import { defaults } from 'refui/browser'
+import { bind, nextTick } from 'refui/signal'
+
+const renderer = createDOMRenderer({
+	...defaults,
+	macros: {
+		tooltip(node, value) {
+			bind(function(text) {
+				node.setAttribute('aria-label', text ?? '')
+			}, value)
+		}
+	}
+})
+
+renderer.useMacro({
+	name: 'autofocus',
+	handler(node, value) {
+		if (!value) return
+		nextTick(function() {
+			node.focus()
+		})
+	}
+})
+```
+
+### Using macros in JSX
+
+After the renderer knows about a macro, you can opt-in from JSX with the `m:` directive. JSX boolean syntax (`m:autofocus`) passes `true`; you can also pass signals or other values that your handler understands.
+
+```jsx
+const Field = ({ helperText }) => (R) => (
+	<div class="field" m:tooltip={helperText}>
+		<input type="text" m:autofocus />
+	</div>
+)
+```
+
+Because the macro handler receives the raw value, use `bind` or `isSignal` inside the handler when you need reactive updates.
+
 ## Event Handling
 
 The DOM renderer provides a flexible event system that works seamlessly with signals.
