@@ -46,6 +46,9 @@ Follow these guides for detailed instructions on specific topics, from rendering
 - **[Migration & QA](MigrationGuide.md)**
 	- Questions and walkthroughs for teams migrating from React, Solid, Vue or Svelte, highlighting differences in signals, JSX, lifecycle, and retained rendering.
 
+- **[LLM Guidelines](LLMGuidelines.md)**
+	- Best practices for AI code generators to keep rEFui usage correct and avoid leaking patterns from other frameworks.
+
 ## API Reference
 
 For experienced developers who need detailed information about specific functions, classes, and utilities.

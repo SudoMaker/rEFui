@@ -13,6 +13,7 @@ Use the sections below as a migration checklist or as an FAQ during onboarding.
 - **Retained mode renderer**: Components return factory functions `(R) => ...` so the renderer can reuse DOM nodes. There is no virtual DOM diffing or template patching stage.
 - **Signals everywhere**: Props, children, and derived values must remain signals to stay reactive. Plain expressions need wrapping with `$(() => ... )`, `tpl`, or a derived helper.
 - **Pure asynchronous scheduling**: Signals flush on the async tick queue to minimize redundant DOM work. This "real workload" optimization can underperform in synthetic benchmarks that expect synchronous updates, but keeps production UIs fast.
+- **Toolchain agnostic**: Any JSX-capable transpiler—Babel, esbuild, SWC, TypeScript—or even runtime JSX alternatives like HTM can drive rEFui. There’s no framework-specific compiler step, aligning with rEFui’s philosophy of using readily available tools to reach optimal performance.
 - **Tick-based scheduling**: Signal updates batch until the end of the current microtask. Use `nextTick`/`tick` when you need to observe post-update values.
 - **Macro/Directive split**: Built-in directives (`class:`, `style:`) live in presets. Custom behaviors attach through `m:` macros registered on the renderer.
 - **Lifecycle scopes**: `onDispose`, `watch`, and component scopes line up with rEFui's retained fragments, not hook rules or template scopes.

@@ -6,6 +6,10 @@ Pronounced as /ɹiːˈfjuːəl/ — “refuel”
 
 The [Retained Mode](https://en.wikipedia.org/wiki/Retained_mode) JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
 
+rEFui stays toolchain-agnostic: any JSX-capable transpiler (Babel, esbuild, SWC, TypeScript, etc.) works out of the box, and you can even pair it with runtime pragmas like HTM — no framework-specific compiler required.
+
+Design philosophy: use accessible tooling while delivering optimized, high-performance UIs.
+
 ## Usage
 
 ```shell
