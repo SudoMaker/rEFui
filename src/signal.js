@@ -355,6 +355,14 @@ const Signal = class {
 				})
 			}
 		}
+
+		if (!Object.hasOwn(effect, '__refui_flush_id')) {
+			Object.defineProperty(effect, '__refui_flush_id', {
+				value: flushID,
+				writable: true
+			})
+		}
+
 		if (runImmediate && currentEffect !== effect) {
 			effect()
 		}
@@ -545,13 +553,6 @@ function isSignal(val) {
 }
 
 function watch(effect) {
-	if (!Object.hasOwn(effect, '__refui_flush_id')) {
-		Object.defineProperty(effect, '__refui_flush_id', {
-			value: flushID,
-			writable: true
-		})
-	}
-
 	const prevEffect = currentEffect
 	currentEffect = effect
 	const _dispose = collectDisposers([], effect)
