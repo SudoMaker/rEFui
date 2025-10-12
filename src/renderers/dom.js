@@ -53,7 +53,8 @@ function createDOMRenderer({
 	tagNamespaceMap = {},
 	tagAliases = {},
 	propAliases = {},
-	onDirective
+	onDirective,
+	macros = {}
 } = {}) {
 	let eventPassiveSupported = false
 	let eventOnceSupported = false
@@ -236,6 +237,11 @@ function createDOMRenderer({
 							return addListener(node, prop, val)
 						}
 					}
+					if (prefix === 'm') {
+						return function (node, val) {
+							return macros[key](node, val)
+						}
+					}
 					if (onDirective) {
 						const setter = onDirective(prefix, key, prop)
 						if (setter) {
@@ -278,6 +284,10 @@ function createDOMRenderer({
 		for (let prop in props) getPropSetter(prop)(node, props[prop])
 	}
 
+	function useMacro({name, handler}) {
+		macros[name] = handler
+	}
+
 	const nodeOps = {
 		isNode,
 		createNode,
@@ -287,7 +297,9 @@ function createDOMRenderer({
 		setProps,
 		insertBefore,
 		appendNode,
-		removeNode
+		removeNode,
+		macros,
+		useMacro
 	}
 
 	return createRenderer(nodeOps, rendererID)
