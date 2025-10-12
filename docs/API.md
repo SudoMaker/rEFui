@@ -130,6 +130,27 @@ R.c(Fragment, null,
 )
 ```
 
+### `renderer.macros` (DOM renderer)
+
+When you create a DOM renderer, it exposes a mutable `macros` object. Keys in this object correspond to macro names used by the `m:` directive, and values are handlers with the signature `(node, value) => void`. You can seed this object when calling `createDOMRenderer` or mutate it later.
+
+### `renderer.useMacro({ name, handler })` (DOM renderer)
+
+Registers a macro handler on the DOM renderer. The handler receives the element and the bound value and should take care of subscribing to signals if it needs to react to changes.
+
+```jsx
+renderer.useMacro({
+	name: 'autofocus',
+	handler(node, value) {
+		if (!value) return
+		node.focus()
+	}
+})
+
+// Later in JSX
+const Input = () => (R) => <input type="text" m:autofocus />
+```
+
 ## Context & Lifecycle APIs
 
 ### `capture(fn)`
