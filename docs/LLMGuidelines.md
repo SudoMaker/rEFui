@@ -44,8 +44,8 @@ export const Counter = ({ initial = 0 }) => {
 
 - Create state with `signal(initialValue)`; update via `.value = next` or helpers like `write`, `poke`.
 - Derive values with `computed(() => ...)`, `.choose`, `.select`, `.and`, `.or`, etc.
-- Watch for changes with `watch(effect)` or `useEffect(effect, ...args)`. Both run immediately by default; pass `false` to postpone the first run.
-- Never rely on synchronous propagation. When you need the updated value of a computed or DOM measurement, schedule work with `nextTick(callback)` or `await tick()`.
+- Watch for changes with `watch(effect)` or `useEffect(effect, ...args)`. Both run once immediately—if you must defer, wire the signals manually with `connect([...sources], effect, false)` and invoke the effect later.
+- Never rely on synchronous propagation. When you need the updated value of a computed or DOM measurement, schedule work with `nextTick(callback)` or `await nextTick()`. Reserve `tick()` for manually kicking the scheduler; do not `await tick()` expecting it to flush.
 - For conditional dependency tracking without reading values, use `.touch()` or `listen`/`connect` helpers.
 - When mutating arrays or objects, call `signal.trigger()` or use `makeReactive`, `derive`, or `extract` to keep nested data reactive.
 

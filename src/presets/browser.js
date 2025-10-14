@@ -126,7 +126,7 @@ export const directives = {
 
 			function handler(newVal) {
 				return nextTick(function() {
-					if (newVal === undefined || val === null || val === false) {
+					if (newVal === undefined || newVal === null || newVal === false) {
 						styleObj[key] = 'unset'
 					} else {
 						styleObj[key] = newVal

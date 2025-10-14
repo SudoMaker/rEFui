@@ -61,7 +61,7 @@ const AppAlternative = ({ value }) => {
 
 ### For
 
-Renders a list of items from an array or a signal of an array. `For` is reactive to the list change itself, with a highly optimized reconcile algorithm that only executes the least necessary steps to update the list.
+Renders a list of items from a signal that resolves to an array (or any value exposing the signal interface like `.value` and `.trigger()`). `For` is reactive to the list change itself, with a highly optimized reconcile algorithm that only executes the least necessary steps to update the list. Passing a plain array renders a static snapshot; updates and the imperative helpers require a reactive signal.
 
 The child of a `<For>` component can be a **component** or a **function** that returns a renderable node.
 
@@ -84,12 +84,12 @@ const TodoItem = ({ item, index }) => {
 	return (R) => (
 		<li>
 			<span
-				style={item.completed.choose('text-decoration: line-through', '')}
+				style:textDecoration={item.completed.choose('line-through', 'unset')}
 			>
 				{$(() => index.value + 1)}. {item.text}
 			</span>
 			<button on:click={toggleTodo}>
-				{item.completed.choose('Undo', 'Complete'))}
+				{item.completed.choose('Undo', 'Complete')}
 			</button>
 		</li>
 	);

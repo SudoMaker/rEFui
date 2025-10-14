@@ -25,7 +25,7 @@ Effects are functions that automatically re-run when their dependencies (signals
 Computed signals derive their value from other signals and automatically update when dependencies change.
 
 ## Important notice
-Signal effects are semi-lazily computed, that means, no matter how many times you changed the value of a signal, its effects will only be executed once at the end of this tick. So if you modifred a signal's value and want to retrieve its updated derived signals value, you'll need to use `nextTick(cb)` or `await tick()` to get the new value.
+Signal effects are semi-lazily computed, that means, no matter how many times you changed the value of a signal, its effects will only be executed once at the end of this tick. So if you modifred a signal's value and want to retrieve its updated derived signals value, you'll need to use `nextTick(cb)` or `await nextTick()` to get the new value. The lower-level `tick()` API exists to manually trigger a flush; prefer `nextTick` when you need to await the scheduler rather than calling `tick()` directly.
 
 ## Basic Usage
 
@@ -477,6 +477,7 @@ Creates an effect that runs when dependencies change.
 
 - `effect`: Function to run
 - Returns: Dispose function
+- Behavior: `watch` runs the effect immediately once and then again whenever any tracked signal changes. There is no `runImmediate` flag—if you need to defer the first execution, wire the effect manually with `connect([signal], effect, false)` and call the effect yourself at the appropriate time.
 
 ```javascript
 const dispose = watch(() => {
@@ -628,7 +629,7 @@ onDispose(() => {
 ```
 
 #### `useEffect(effect, ...args)`
-Registers an effect that runs automatically and handles its own cleanup. The `effect` function is executed immediately and re-executed whenever its signal dependencies change.
+Registers an effect that runs automatically and handles its own cleanup. The `effect` function is executed immediately and re-executed whenever its signal dependencies change. Similar to `watch`, there is no option to skip the initial run—use `nextTick` or `connect` if you need to defer invocation.
 
 If the `effect` function returns another function, that returned function will be used as a `cleanup` handler. The cleanup is called right before the effect re-runs, and also when the component/scope is disposed.
 

@@ -54,11 +54,13 @@ renderer.render(document.getElementById('app'), App);
 
 rEFui's power comes from its reactive signal system. Here's an example with interactive state:
 
-> **Note on Expressions**: Because rEFui is a retained-mode renderer, any dynamic expression in JSX must be wrapped in a computed signal (`$()`) to be reactive.
+> **Note on Expressions**: Because rEFui is a retained-mode renderer, you only need to wrap expressions that dereference `.value` or perform inline computations in a computed signal (`$()`) to keep them reactive.
 >
-> - `<div>Count: {count}</div>` - **Correct**: The renderer handles the signal directly.
-> - `<div>{$(() => `Count is ${count.value}`)}</div>` - **Correct**: The expression is wrapped.
-> - `<div>Count is {count.value}</div>` - **Incorrect**: The expression is evaluated once and will not update.
+> - `<div>Count: {count}</div>` - **Correct**: Passing the signal itself keeps it reactive.
+> - `<div>{$(() => `Count is ${count.value}`)}</div>` - **Correct**: Wrap computed strings or `.value` access.
+> - `<div>Count is {count.value}</div>` - **Incorrect**: Dereferencing `.value` inline is evaluated once and will not update.
+
+If you know a value will never change after the initial render, you can pass a plain literal—or even `signal.value`—so the renderer keeps it static and skips wiring a subscription.
 
 ```jsx
 import { createDOMRenderer } from 'refui/dom';
@@ -205,6 +207,8 @@ const StatusCard = ({ status, isLoading }) => {
 
 > **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](Presets.md#browser).
 
+> **Tailwind CSS tip**: Tailwind’s scanner only picks up class names that appear inside literal `class="..."` attributes. Keep your full utility list in the static `class` attribute, then layer `class:` toggles for conditional pieces. For example, `class="card text-sm error"` plus `class:error={isError}` ensures Tailwind sees `card`, `text-sm`, and `error` while still letting you flip the class on and off at runtime.
+
 ## Macro Directives (`m:`)
 
 Macro directives let you attach reusable DOM behaviors to elements by prefixing a prop with `m:`. When the renderer sees `m:macroName`, it looks up a handler registered on the renderer and calls it with the element and the value you passed.
@@ -253,6 +257,8 @@ const Field = ({ helperText }) => (R) => (
 ```
 
 Because the macro handler receives the raw value, use `bind` or `isSignal` inside the handler when you need reactive updates.
+
+Keep macros for behaviors that genuinely repeat across components. When a DOM tweak only appears in one place, inline it inside the component instead—doing so keeps reviews and refactors straightforward.
 
 ## Event Handling
 

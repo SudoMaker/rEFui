@@ -115,11 +115,11 @@ const BlogIndex = () => {
 		<div>
 			<h1>My Blog</h1>
 			<For entries={posts} track="id">
-				{(post) => (
+				{({ item }) => (
 					<BlogPost
-						title={post.title}
-						content={post.content}
-						published={post.published}
+						title={item.title}
+						content={item.content}
+						published={item.published}
 					/>
 				)}
 			</For>
@@ -159,4 +159,4 @@ const ServerComponent = () => {
 
 The HTML output will contain the static values, not the reactive bindings. For client-side hydration, you would need to recreate the reactive state on the client.
 
-**Note**: any changes made to an existing signal will only take effect after the current tick. You'll need to use `await tick()` and then serialize the render result to get the updated value.
+**Note**: any changes made to an existing signal will only take effect after the current tick. Call `await nextTick()` (or `nextTick(callback)`) before serializing again to pick up the new value.
