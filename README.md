@@ -10,8 +10,9 @@ rEFui stays toolchain-agnostic: any JSX-capable transpiler (Babel, esbuild, SWC,
 
 Design philosophy: use accessible tooling while delivering optimized, high-performance UIs.
 
-> [!INFO]
+> [!NOTE]
 > **Typing status**
+> 
 > LLM generated TypeScript declarations ship with the package. I personally don’t use TypeScript, so if you notice gaps or regressions, please open an issue or PR — help keeping the types healthy is very welcome!
 
 ## Usage

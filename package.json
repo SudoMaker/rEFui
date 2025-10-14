@@ -1,10 +1,23 @@
 {
   "name": "refui",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "The JavaScript framework that refuels your UI projects, across web, native, and embedded",
   "main": "src/index.js",
   "type": "module",
   "types": "src/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "renderers/*": [
+        "./src/renderers/*.d.ts"
+      ],
+      "presets/*": [
+        "./src/presets/*.d.ts"
+      ],
+      "extras/*": [
+        "./src/extras/*.d.ts"
+      ]
+    }
+  },
   "scripts": {},
   "keywords": [
     "refui",
@@ -19,19 +32,71 @@
     "ui"
   ],
   "exports": {
-    ".": "./src/index.js",
-    "./hmr": "./src/hmr.js",
-    "./signal": "./src/signal.js",
-    "./renderer": "./src/renderer.js",
-    "./components": "./src/components.js",
-    "./constants": "./src/constants.js",
-    "./utils": "./src/utils.js",
-    "./dom": "./src/renderers/dom.js",
-    "./html": "./src/renderers/html.js",
-    "./jsx-runtime": "./src/renderers/jsx-runtime.js",
-    "./jsx-dev-runtime": "./src/renderers/jsx-dev-runtime.js",
-    "./browser": "./src/presets/browser.js",
-    "./extras": "./src/extras/index.js",
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./hmr": {
+      "types": "./src/hmr.d.ts",
+      "import": "./src/hmr.js",
+      "default": "./src/hmr.js"
+    },
+    "./signal": {
+      "types": "./src/signal.d.ts",
+      "import": "./src/signal.js",
+      "default": "./src/signal.js"
+    },
+    "./renderer": {
+      "types": "./src/renderer.d.ts",
+      "import": "./src/renderer.js",
+      "default": "./src/renderer.js"
+    },
+    "./components": {
+      "types": "./src/components.d.ts",
+      "import": "./src/components.js",
+      "default": "./src/components.js"
+    },
+    "./constants": {
+      "types": "./src/constants.d.ts",
+      "import": "./src/constants.js",
+      "default": "./src/constants.js"
+    },
+    "./utils": {
+      "types": "./src/utils.d.ts",
+      "import": "./src/utils.js",
+      "default": "./src/utils.js"
+    },
+    "./dom": {
+      "types": "./src/renderers/dom.d.ts",
+      "import": "./src/renderers/dom.js",
+      "default": "./src/renderers/dom.js"
+    },
+    "./html": {
+      "types": "./src/renderers/html.d.ts",
+      "import": "./src/renderers/html.js",
+      "default": "./src/renderers/html.js"
+    },
+    "./jsx-runtime": {
+      "types": "./src/renderers/jsx-runtime.d.ts",
+      "import": "./src/renderers/jsx-runtime.js",
+      "default": "./src/renderers/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./src/renderers/jsx-dev-runtime.d.ts",
+      "import": "./src/renderers/jsx-dev-runtime.js",
+      "default": "./src/renderers/jsx-dev-runtime.js"
+    },
+    "./browser": {
+      "types": "./src/presets/browser.d.ts",
+      "import": "./src/presets/browser.js",
+      "default": "./src/presets/browser.js"
+    },
+    "./extras": {
+      "types": "./src/extras/index.d.ts",
+      "import": "./src/extras/index.js",
+      "default": "./src/extras/index.js"
+    },
     "./renderers/": "./src/renderers/",
     "./presets/": "./src/presets/",
     "./extras/": "./src/extras/",
