@@ -57,6 +57,11 @@
       "import": "./src/components.js",
       "default": "./src/components.js"
     },
+    "./reflow": {
+      "types": "./src/reflow.d.ts",
+      "import": "./src/reflow.js",
+      "default": "./src/reflow.js"
+    },
     "./constants": {
       "types": "./src/constants.d.ts",
       "import": "./src/constants.js",
