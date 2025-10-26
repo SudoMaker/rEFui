@@ -684,7 +684,7 @@ function useAction(val, compute) {
 		val.value = newVal
 		val.trigger()
 	}
-	return [onAction, trigger]
+	return [onAction, trigger, val.touch.bind(val)]
 }
 
 function derive(sig, key, compute) {

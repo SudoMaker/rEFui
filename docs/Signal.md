@@ -520,33 +520,43 @@ listen([signal1, signal2], () => {
 ```
 
 #### `useAction(value?, compute?)`
-Creates an action system with an event handler and trigger function. This is useful for creating event-driven patterns where you want to listen for specific actions and respond to them.
+Creates an action system with an event handler and trigger function. This is useful for setting up lightweight event buses or responding to imperative notifications without wiring an external emitter.
 
 - `value`: Initial value for the internal signal
-- `compute`: Optional computation function for the internal signal
-- Returns: `[onAction, trigger]` tuple
+- `compute`: Optional computation function that derives the stored value before listeners run
+- Returns: `[onAction, trigger, touch]`
+	- `onAction(listener)` registers a callback bound to the current reactive scope. Do **not** call `onAction` from inside reactive effects or loops—each call adds another listener that will fire on every trigger. If you need to ignore future events, gate inside the callback or dispose the surrounding scope.
+	- `trigger(nextValue?)` updates the internal signal and synchronously notifies every registered listener. Like other signal updates, multiple triggers within the same tick are batched and delivered once using the latest value.
+	- `touch()` exposes the underlying signal's `.touch()` helper. It does **not** deliver payloads; call it inside an effect when you want that effect to re-run (and therefore inspect shared state) whenever the action fires. The cleanup returned by `watch`/`useEffect` removes the subscription.
 
 ```javascript
-const [onPageLoad, triggerPageLoad] = useAction('idle')
+import { useAction, useEffect } from 'refui'
 
-// Listen for page load actions
-onPageLoad((state) => {
-	console.log('Page load state:', state)
+const [onSubmit, triggerSubmit, touchSubmit] = useAction({ status: 'idle' })
+
+let ignoreUpdates = false
+onSubmit((payload) => {
+	if (ignoreUpdates) return
+	console.log('Action payload:', payload)
 })
 
-// Trigger actions
-triggerPageLoad('loading')
-triggerPageLoad('complete')
+// Batch safe: only the last trigger inside a tick notifies listeners
+triggerSubmit({ status: 'loading' })
+triggerSubmit({ status: 'done' })
 
-// With computation
-const [onCounterChange, triggerCounterChange] = useAction(0, (val) => val * 2)
-
-onCounterChange((doubled) => {
-	console.log('Counter doubled:', doubled)
+// Mark an effect as interested in future triggers without re-registering listeners
+useEffect(() => {
+	touchSubmit()
+	console.log('submit changed')
+	return () => {
+		// scope disposal automatically unregisters listeners added above
+	}
 })
 
-triggerCounterChange(5) // Logs: "Counter doubled: 10"
+ignoreUpdates = true // guard future callbacks without adding/removing listeners
 ```
+
+Avoid overusing `useAction`; the built-in signal graph already covers most reactive flows. Reach for actions only when you need an imperative bridge and keep the listener graph shallow to maintain predictability.
 
 ### Advanced Signal Operations
 
@@ -903,3 +913,6 @@ function toggleTodo(id) {
 ```
 
 This reactive signal system provides a powerful foundation for building reactive applications with automatic dependency tracking and efficient updates.
+watch(() => {
+	touchCounter()
+})
