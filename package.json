@@ -1,6 +1,6 @@
 {
   "name": "refui",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "The JavaScript framework that refuels your UI projects, across web, native, and embedded",
   "main": "src/index.js",
   "type": "module",
@@ -56,6 +56,11 @@
       "types": "./src/components.d.ts",
       "import": "./src/components.js",
       "default": "./src/components.js"
+    },
+    "./reflow": {
+      "types": "./src/reflow.d.ts",
+      "import": "./src/reflow.js",
+      "default": "./src/reflow.js"
     },
     "./constants": {
       "types": "./src/constants.d.ts",

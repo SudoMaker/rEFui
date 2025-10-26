@@ -18,9 +18,19 @@
  * under the License.
  */
 
-export { computed as $, merge as $$, tpl as t } from './signal.js'
+import type { ComponentTemplate, PossibleRender } from './components.js'
+import type { Fragment } from './renderer.js'
 
-export * from './signal.js'
-export * from './renderer.js'
-export * from './components.js'
-export * from './reflow.js'
+export interface ReflowRuntime {
+	readonly Fragment: typeof Fragment
+	readonly f: typeof Fragment
+	createElement(component: typeof Fragment, props?: { children?: any } | null, ...children: any[]): PossibleRender
+	createElement<P = any>(
+		component: ComponentTemplate<P>,
+		props?: (P & { children?: any }) | null,
+		...children: any[]
+	): PossibleRender
+	c: ReflowRuntime['createElement']
+}
+
+export const R: ReflowRuntime

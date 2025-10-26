@@ -169,24 +169,30 @@ function createRenderer(nodeOps, rendererID) {
 					mergedTextBuffer = ''
 				}
 			}
+			function processChild(child) {
+				if (child !== null && child !== undefined) {
+					if (isNode(child)) {
+						flushTextBuffer()
+						normalizedChildren.push(child)
+					} else if (isSignal(child)) {
+						flushTextBuffer()
+						normalizedChildren.push(createTextNode(child))
+					} else if (typeof child === 'function') {
+						let result = child
+						do {
+							result = result(renderer)
+						} while (typeof result === 'function')
+						processChild(result)
+					} else if (Array.isArray(child)) {
+						flatChildren(child)
+					} else {
+						mergedTextBuffer += child
+					}
+				}
+			}
 			function flatChildren(childArr) {
 				for (let child of childArr) {
-					if (child !== null && child !== undefined) {
-						if (isNode(child)) {
-							flushTextBuffer()
-							normalizedChildren.push(child)
-						} else if (isSignal(child)) {
-							flushTextBuffer()
-							normalizedChildren.push(createTextNode(child))
-						} else if (typeof child === 'function') {
-							flushTextBuffer()
-							normalizedChildren.push(createElement(Fn, { name: 'Inline' }, child))
-						} else if (Array.isArray(child)) {
-							flatChildren(child)
-						} else {
-							mergedTextBuffer += child
-						}
-					}
+					processChild(child)
 				}
 			}
 			flatChildren(children)

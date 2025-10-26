@@ -189,10 +189,13 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 			if (newRender !== undefined && newRender !== null) {
 				const prevDispose = currentDispose
 				currentDispose = run(function() {
-					let newResult = null
+					let newResult = newRender
 					let errored = false
 					try {
-						newResult = R.ensureElement((typeof newRender === 'function') ? newRender(R) : newRender)
+						while (typeof newResult === 'function') {
+							newResult = newResult(R)
+						}
+						newResult = R.ensureElement(newResult)
 					} catch (err) {
 						errored = true
 						const errorHandler = peek(catchErr)
@@ -456,8 +459,11 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 
 	if (isSignal(condition)) {
 		return Fn({ name: 'If' }, function() {
-			if (condition.value) return trueBranch
-			else return falseBranch
+			if (condition.value) {
+				return trueBranch
+			} else {
+				return falseBranch
+			}
 		})
 	}
 
@@ -635,9 +641,11 @@ class Component {
 		const disposers = []
 
 		ctx.run = capture(function(fn, ...args) {
-			let result
+			let result = fn
 			const cleanup = collectDisposers([], function() {
-				result = fn(...args)
+				do {
+					result = result(...args)
+				} while (typeof result === 'function')
 			}, function(batch) {
 				if (!batch) {
 					removeFromArr(disposers, cleanup)

@@ -237,11 +237,6 @@ function createDOMRenderer({
 							return addListener(node, prop, val)
 						}
 					}
-					if (prefix === 'm') {
-						return function (node, val) {
-							return macros[key](node, val)
-						}
-					}
 					if (onDirective) {
 						const setter = onDirective(prefix, key, prop)
 						if (setter) {
@@ -251,6 +246,11 @@ function createDOMRenderer({
 					const nsuri = namespaces[prefix] || prefix
 					return function(node, val) {
 						return setAttrNS(node, key, val, nsuri)
+					}
+				}
+				case 'm': {
+					return function (node, val) {
+						return macros[key](node, val)
 					}
 				}
 				case 'attr': {

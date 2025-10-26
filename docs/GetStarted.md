@@ -195,6 +195,8 @@ const CorrectCounter = () => {
 
 **Key Takeaway**: If you have an expression in JSX that depends on a signal, wrap it in `$(...)` to ensure it updates when the signal's value changes. Simple signal references, like `{count}`, are automatically handled by the renderer.
 
+Inline helper functions follow the same rule. When a function appears inline as a child or prop value, rEFui evaluates it immediately—recursively invoking any returned functions until it resolves to a concrete node. These calls run during render only and do not subscribe to signals, so prefer explicit signals or computed wrappers for reactive behavior.
+
 ## Your First Component
 
 Let's create and render a "Hello, World!" component to the DOM.
