@@ -65,6 +65,89 @@ If you don't want to configure your build tool, you can add pragma comments to t
 // Your component code here
 ```
 
+### Reflow Runtime Helper
+
+The classic transform ships with a helper at `refui/reflow` (re-exported from `refui`) that provides a renderer-agnostic JSX runtime. Use it to author pure application logic without binding it to a specific renderer. Prefer exporting pure components from these modules; low-level host elements are available but reduce portability, so keep them inside narrow platform-specific branches.
+
+Reflow is useful when you're sharing logic between multiple platforms that share same basic app logics, so you can focus on these logic without be distracted by nuanced platform specific UI logics, like animations, styling etc.
+
+Reflow mode only supports the classic JSX transform; if your project uses the automatic runtime, compile the modules that rely on reflow separately with the classic pragma configuration.
+
+The helper surfaces a module-level `R`, but the renderer still receives its own `R` argument at render time. The parameter shadows the outer reference, so they do not interfere; only toolchains that mishandle shadowing (notably some SWC-based runtimes) may run into trouble, in which case isolate those modules or swap to the automatic transform without using Reflow mode.
+
+```jsx
+import { signal, useAction, read, watch, onDispose, R } from 'refui'
+// Module-level R is also available via `refui/reflow` when you need JSX helpers outside render scope
+
+const platform = globalThis.RUNTIME_PLATFORM ?? 'browser'
+
+export const CounterDisplay = ({ count }) => {
+	if (platform === 'browser') return (R) => <span>{count}</span>
+	if (platform === 'nativescript') return (R) => <text>{count}</text>
+	if (platform === 'cheesedom') return (R) => <text>{count}</text>
+
+	if (platform === 'breadboard') {
+		const display = new LED('max7219')
+		watch(() => {
+			display.setText(read(count).toString(10))
+		})
+
+		onDispose(() => {
+			display.close()
+		})
+	}
+
+	return null
+}
+
+export const CounterBtn = ({ onIncrement }) => {
+	let lastInc = 0
+	const debounced = () => {
+		const now = Date.now()
+		if (now - lastInc < 100) return
+		lastInc = now
+		onIncrement()
+	}
+
+	if (platform === 'browser') return (R) => <button on:click={debounced}>+</button>
+	if (platform === 'nativescript') return (R) => <button on:tap={debounced}><text>+</text></button>
+	if (platform === 'cheesedom') return (R) => <object on:clicked={debounced}><text>+</text></object>
+
+	if (platform === 'breadboard') {
+		const gpio = GPIO.open('A1', 'input')
+		gpio.on('edge_up', onIncrement)
+
+		onDispose(() => {
+			gpio.close()
+		})
+	}
+
+	return null
+}
+
+export const App = () => {
+	const count = signal(0)
+	const [whenIncrement, increment] = useAction()
+
+	whenIncrement(() => {
+		count.value += 1
+	})
+
+	return (
+		<>
+			<CounterDisplay count={count} />
+			<CounterBtn onIncrement={increment} />
+		</>
+	)
+}
+```
+
+Reflow assumes components stay stateless at declaration time, so inline functions are evaluated immediately and recursively until a non-function value is produced. Treat them as utility helpers; they do not become reactive computations.
+
+Because the helper focuses on render-agnostic logic, `$ref` bindings resolve only for concrete DOM elements in browser output (and comparable host nodes elsewhere). Component references are not retained in reflow mode, so prefer explicit wiring through props and signals.
+
+Expect a small performance overhead when running in development with reflow enabled because the runtime tracks additional metadata, while production builds skip instance allocation and execute functional components as plain functions for better throughput.
+
 ## Automatic Runtime
 
 This approach uses a single, globally defined renderer. While slightly easier to set up, it is less flexible than the classic transform.

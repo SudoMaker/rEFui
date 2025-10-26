@@ -215,29 +215,7 @@ const App = ({ condition }) => {
 }
 ```
 
-For simplicity, you can write functions directly inline without wrapped in a `Fn` tag:
-
-```jsx
-const App = ({ condition }) => {
-	return (R) => (
-		<div>
-			Condition is {() => {
-				switch (read(condition)) {
-					case 'italic':
-						return <i>Italic</i>
-					case 'bold':
-						return <b>Bold</b>
-					default:
-						return <span>Unknown</span>
-				}
-			}}
-		</div>
-	)
-}
-
-```
-
-Inline functions are not unwrapped when passed to components, so you can process them within your components before actually being rendered.
+Inline helper functions that you place directly in JSX are evaluated immediately—rEFui keeps calling the returned value with renderer object as the only parameter until it resolves to a concrete node. Because this evaluation happens synchronously during render, no reactive tracking is established. Use them only for constant branches or to invoke pure helpers. When you need the branching to respond to signals, keep the logic inside `<Fn>` or derive a computed signal instead.
 
 **Note**: Although `Fn` is much more efficient when updating than re-rendering the whole tree in other immediate mode frameworks like React, it's still more expensive than signals for rendering texts only. If you want simple conditional text like adding `s`/`es` to plural nouns, just use a computed signal.
 
