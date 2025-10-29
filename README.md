@@ -134,8 +134,12 @@ import { defineConfig } from 'vite'
 import refurbish from 'refurbish/vite'
 
 export default defineConfig({
-  plugins: [refurbish()],
-  esbuild: { jsxFactory: 'R.c', jsxFragment: 'R.f' }
+	plugins: [refurbish()],
+	esbuild: {
+		jsxFactory: 'R.c',
+		jsxFragment: 'R.f',
+		jsxInject: `import { R } from 'refui/reflow'` // Enable only when you're using Reflow mode. See detail in docs.
+	}
 })
 ```
 
@@ -151,6 +155,7 @@ See [Components](docs/Components.md)
 
 - [DOM](docs/DOMRenderer.md): `refui/dom`
 - [HTML](docs/HTMLRenderer.md): `refui/html`
+- [Reflow](docs/JSX.md): Composing logic without concerning about UI
 
 ## Prebuilt version
 
@@ -163,12 +168,12 @@ You can use rEFui directly in modern browsers without building. Define your impo
 ```html
 <script type="importmap">
 {
-  "imports": {
-    "refui": "https://esm.run/refui",
-    "refui/dom": "https://esm.run/refui/dom",
-    "refui/browser": "https://esm.run/refui/browser",
-    "htm": "https://esm.run/htm"
-  }
+	"imports": {
+		"refui": "https://esm.run/refui",
+		"refui/dom": "https://esm.run/refui/dom",
+		"refui/browser": "https://esm.run/refui/browser",
+		"htm": "https://esm.run/htm"
+	}
 }
 </script>
 <script type="module" src="main.js"></script>
