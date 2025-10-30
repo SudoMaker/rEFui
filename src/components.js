@@ -223,6 +223,14 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 	onDispose(_clear)
 
+	function clear() {
+		if (!currentData.length) return
+		_clear()
+		if (kv) kv = new Map()
+		currentData = []
+		if (entries.value.length) entries.value = []
+	}
+
 	if (expose) {
 		function getItem(itemKey) {
 			return (kv ? kv.get(itemKey) : itemKey)
@@ -231,13 +239,6 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 			const itemData = getItem(itemKey)
 			removeFromArr(peek(entries), itemData)
 			entries.trigger()
-		}
-		function clear() {
-			if (!currentData.length) return
-			_clear()
-			if (kv) kv = new Map()
-			currentData = []
-			if (entries.value.length) entries.value = []
 		}
 
 		expose({
