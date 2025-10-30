@@ -19,7 +19,7 @@
  */
 
 import { signal, untrack } from 'refui/signal'
-import { createComponent, For, expose, onDispose, render } from 'refui/components'
+import { createComponent, For, onDispose, render } from 'refui/components'
 
 function createCache(tpl) {
 	let dataArr = []
@@ -93,10 +93,10 @@ function createCache(tpl) {
 
 	onDispose(dispose)
 
-	function Cached() {
+	function Cached({ expose }) {
 		return function(R) {
 			const cache = new WeakMap()
-			expose({ cache })
+			expose?.({ cache })
 			return R.c(For, { entries: components }, function({ item }) {
 				let node = cache.get(item)
 				if (!node) {

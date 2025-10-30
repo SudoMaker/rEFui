@@ -18,7 +18,11 @@
  * under the License.
  */
 
-import type { ComponentTemplate } from '../components.js'
+import type { Component, ComponentTemplate } from '../components.js'
+
+export interface CacheExpose {
+	cache: WeakMap<Component<any>, unknown>
+}
 
 export interface CacheStore<T = any> {
 	getIndex(handler: (item: T) => boolean): number
@@ -30,7 +34,7 @@ export interface CacheStore<T = any> {
 	clear(): void
 	size(): number
 	dispose(): void
-	Cached: ComponentTemplate
+	Cached: ComponentTemplate<{ expose?: (api: CacheExpose) => void }>
 }
 
 export function createCache<T = any>(template: ComponentTemplate<T>): CacheStore<T>
