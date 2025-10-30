@@ -22,25 +22,24 @@ import { Fragment } from 'refui/renderer'
 import { hotEnabled } from 'refui/hmr'
 import { isThenable } from 'refui/utils'
 
+const dummyRenderFn = function(props, children, R) {
+	return R.c(this, props, ...children)
+}
+
 const createElement = (function() {
 	if (hotEnabled) {
-		const dummyRenderFn = function(props, children, R) {
-			return R.c(this, props, ...children)
-		}
 		return function(component, props, ...children) {
 			return dummyRenderFn.bind(component, props, children)
 		}
 	} else {
-		const emptyProp = {}
+		const emptyProp = Object.create(null)
 		return function(component, props, ...children) {
 			const { $ref, ..._props } = props || emptyProp
 			if (!$ref && typeof component === 'function') {
 				return component(_props, ...children)
 			}
 
-			return function(R) {
-				return R.c(component, props, ...children)
-			}
+			return dummyRenderFn.bind(component, props, children)
 		}
 	}
 })()
