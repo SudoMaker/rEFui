@@ -19,41 +19,41 @@
  */
 
 import { wrap as wrapDev } from 'refui/jsx-dev-runtime'
-import { nop } from 'refui/utils'
 import { isProduction } from 'refui/constants'
+import { R } from 'refui/reflow'
 
-let jsx = nop
-let jsxs = nop
-let Fragment = '<>'
+let renderer = R
+let Fragment = R.Fragment
 
-function wrap(R) {
-	jsx = function(tag, props, key) {
-		if (key !== undefined && key !== null) {
-			props.key = key
-		}
-		if (Object.hasOwn(props, 'children')) {
-			const children = props.children
-			if (Array.isArray(children) && !R.isNode(children)) {
-				return R.c(tag, props, ...props.children)
-			} else {
-				return R.c(tag, props, props.children)
-			}
+function jsx(tag, props, key) {
+	if (key !== undefined && key !== null) {
+		props.key = key
+	}
+	if (Object.hasOwn(props, 'children')) {
+		const children = props.children
+		if (Array.isArray(children) && !renderer.isNode(children)) {
+			return renderer.c(tag, props, ...props.children)
 		} else {
-			return R.c(tag, props)
+			return renderer.c(tag, props, props.children)
 		}
+	} else {
+		return renderer.c(tag, props)
 	}
+}
 
-	jsxs = function(tag, props, key) {
-		if (key !== undefined && key !== null) {
-			props.key = key
-		}
-		return R.c(tag, props, ...props.children)
+function jsxs(tag, props, key) {
+	if (key !== undefined && key !== null) {
+		props.key = key
 	}
+	return renderer.c(tag, props, ...props.children)
+}
 
-	Fragment = R.f
+function wrap(newRenderer) {
+	renderer = newRenderer
+	Fragment = newRenderer.f
 
 	if (!isProduction) {
-		wrapDev(R)
+		wrapDev(newRenderer)
 	}
 
 	return {

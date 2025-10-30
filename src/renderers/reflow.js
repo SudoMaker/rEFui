@@ -24,19 +24,18 @@ import { isThenable } from 'refui/utils'
 
 const createElement = (function() {
 	if (hotEnabled) {
-		const dummyRenderFn = function(props, classicChildren, R) {
-			return R.c(this, props, ...classicChildren)
+		const dummyRenderFn = function(props, children, R) {
+			return R.c(this, props, ...children)
 		}
-		return function(component, props, ...classicChildren) {
-			return dummyRenderFn.bind(component, props, classicChildren)
+		return function(component, props, ...children) {
+			return dummyRenderFn.bind(component, props, children)
 		}
 	} else {
 		const emptyProp = {}
-		return function(component, props, ...classicChildren) {
-			const { children = classicChildren, $ref, ..._props } = props || emptyProp
+		return function(component, props, ...children) {
+			const { $ref, ..._props } = props || emptyProp
 			if (!$ref && typeof component === 'function') {
-				const renderFn = component(_props, ...children)
-				return renderFn
+				return component(_props, ...children)
 			}
 
 			return function(R) {
