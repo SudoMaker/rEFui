@@ -18,8 +18,8 @@
  * under the License.
  */
 
-import type { ComponentTemplate, PossibleRender } from './components.js'
-import type { Fragment } from './renderer.js'
+import type { ComponentTemplate, PossibleRender } from '../components.js'
+import type { Fragment } from '../renderer.js'
 
 export interface ReflowRuntime {
 	readonly Fragment: typeof Fragment

@@ -57,11 +57,6 @@
       "import": "./src/components.js",
       "default": "./src/components.js"
     },
-    "./reflow": {
-      "types": "./src/reflow.d.ts",
-      "import": "./src/reflow.js",
-      "default": "./src/reflow.js"
-    },
     "./constants": {
       "types": "./src/constants.d.ts",
       "import": "./src/constants.js",
@@ -81,6 +76,11 @@
       "types": "./src/renderers/html.d.ts",
       "import": "./src/renderers/html.js",
       "default": "./src/renderers/html.js"
+    },
+    "./reflow": {
+      "types": "./src/renderers/reflow.d.ts",
+      "import": "./src/renderers/reflow.js",
+      "default": "./src/renderers/reflow.js"
     },
     "./jsx-runtime": {
       "types": "./src/renderers/jsx-runtime.d.ts",
