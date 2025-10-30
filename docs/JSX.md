@@ -65,19 +65,53 @@ If you don't want to configure your build tool, you can add pragma comments to t
 // Your component code here
 ```
 
-### Reflow Runtime Helper
+### Reflow Renderer
 
-The classic transform ships with a helper at `refui/reflow` (re-exported from `refui`) that provides a renderer-agnostic JSX runtime. Use it to author pure application logic without binding it to a specific renderer. Prefer exporting pure components from these modules; low-level host elements are available but reduce portability, so keep them inside narrow platform-specific branches.
+The classic transform ships with a special renderer at `refui/reflow` (re-exported from `refui`) that provides a renderer-agnostic JSX runtime. Use it to author pure application logic without binding it to a specific renderer. Prefer exporting pure components from these modules; low-level host elements are available but reduce portability, so keep them inside narrow platform-specific branches.
 
 Reflow is useful when you're sharing logic between multiple platforms that share same basic app logics, so you can focus on these logic without be distracted by nuanced platform specific UI logics, like animations, styling etc.
 
 Reflow mode only supports the classic JSX transform; if your project uses the automatic runtime, compile the modules that rely on reflow separately with the classic pragma configuration.
 
-The helper surfaces a module-level `R`, but the renderer still receives its own `R` argument at render time. The parameter shadows the outer reference, so they do not interfere; only toolchains that mishandle shadowing (notably some SWC-based runtimes) may run into trouble, in which case isolate those modules or swap to the automatic transform without using Reflow mode.
+Reflow renderer surfaces a module-level `R`, but the render function still receives its own `R` argument at render time. The parameter shadows the outer reference, so they do not interfere; only toolchains that mishandle shadowing (notably some SWC-based runtimes) may run into trouble, in which case isolate those modules or swap to the automatic transform without using Reflow mode.
+
+Configure your bundler to inject `R` like this:
+
+```js
+// vite.config.js
+import { defineConfig } from 'vite'
+import refurbish from 'refurbish/vite'
+
+export default defineConfig({
+  plugins: [refurbish()],
+  esbuild: {
+    jsxFactory: 'R.c',
+    jsxFragment: 'R.f',
+    jsxInject: `import { R } from 'refui/reflow'`
+  }
+})
+```
+
+```js
+// webpack.config.js
+import webpack from 'webpack'
+
+export default {
+	// ... other configurations
+	plugins: [
+		// ... other plugins
+		new webpack.ProvidePlugin({
+			R: ['refui/reflow', 'R']
+		})
+	]
+}
+```
 
 ```jsx
-import { signal, useAction, read, watch, onDispose, R } from 'refui'
-// Module-level R is also available via `refui/reflow` when you need JSX helpers outside render scope
+import { signal, useAction, read, watch, onDispose } from 'refui'
+// R is auto injected by your bundler, or you can do it manually
+// import { R } from 'refui/reflow'
+// Or import directly from 'refui'
 
 const platform = globalThis.RUNTIME_PLATFORM ?? 'browser'
 
@@ -144,7 +178,7 @@ export const App = () => {
 
 Reflow assumes components stay stateless at declaration time, so inline functions are evaluated immediately and recursively until a non-function value is produced. Treat them as utility helpers; they do not become reactive computations.
 
-Because the helper focuses on render-agnostic logic, `$ref` bindings resolve only for concrete DOM elements in browser output (and comparable host nodes elsewhere). Component references are not retained in reflow mode, so prefer explicit wiring through props and signals.
+Because the helper focuses on render-agnostic logic, `$ref` bindings only resolve reliably for concrete DOM elements in browser output (and comparable host nodes elsewhere). `$ref` still works for components but `expose` may register on the wrong components. Child components can expose properties on their parents, so use namespaced keys for exposing internal states/methods should be a better idea. As component references are not strictly retained in reflow mode, prefer explicit wiring through props and signals than using `expose`.
 
 Expect a small performance overhead when running in development with reflow enabled because the runtime tracks additional metadata, while production builds skip instance allocation and execute functional components as plain functions for better throughput.
 

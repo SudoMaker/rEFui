@@ -23,8 +23,8 @@ const createElement = (function() {
 		}
 
 		return function(component, props, ...classicChildren) {
-			const { children = classicChildren, ..._props } = props || emptyProp
-			if (typeof component === 'function') {
+			const { children = classicChildren, $ref, ..._props } = props || emptyProp
+			if (!$ref && typeof component === 'function') {
 				const renderFn = component(_props, ...children)
 				if (isThenable(renderFn)) {
 					return makeDummy(renderFn)
@@ -33,7 +33,7 @@ const createElement = (function() {
 			}
 
 			return function(R) {
-				return R.c(component, null, ...children)
+				return R.c(component, props, ...children)
 			}
 		}
 	}
