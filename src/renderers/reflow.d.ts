@@ -31,6 +31,7 @@ export interface ReflowRuntime {
 		...children: any[]
 	): PossibleRender
 	c: ReflowRuntime['createElement']
+	isNode(): boolean
 }
 
 export const R: ReflowRuntime
