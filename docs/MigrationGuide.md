@@ -35,7 +35,7 @@ Instead of `useRef`, pass a signal or callback to `$ref`. The renderer writes th
 Signals and computed helpers obviate most manual memoization. When you need a derived value without subscription, use `untrack`. If you must memoize non-reactive work, use plain closures; there is no hook-order constraint.
 
 **Q: What changes in JSX?**  
-Classic transform mode expects `/** @jsx R.c */` and component factories returning `(R) => <div/>`. Automatic runtime (`wrap`) hides the factory parameter but still skips React fragments and hooks. The renderer is retained-mode, so you never return raw children from components; you return a render function.
+Classic transform mode expects `/** @jsx R.c */` and component factories returning `(R) => <div/>`. The automatic runtime (via `refui/jsx-runtime`) hides that factory parameter and—since v0.8.0—defaults to the Reflow renderer, so you rarely need to call `wrap()` yourself. In that automatic/Reflow setup you can author components that look like they return raw JSX, but ensure the concrete renderer you mount (DOM, HTML, etc.) can actually create the tags you emit. The architecture remains retained-mode, so in classic transform you still return a render function rather than raw children.
 
 **Q: How does lifecycle differ?**  
 There are no mount/update/unmount phases. A component's render factory runs once, and effects tie onto signals. `onDispose` fires when the retained fragment is removed. Think of it like `useEffect` cleanup without dependency arrays.

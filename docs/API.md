@@ -155,7 +155,7 @@ const Input = () => (R) => <input type="text" m:autofocus />
 
 ### `capture(fn)`
 
-Captures the current rendering context and returns a new function. When this new function is called later (e.g., inside a promise `then`), it executes the original function `fn` within the captured context, ensuring it can interact with signals and other reactive APIs correctly.
+Captures the current rendering context and returns a new function. When this new function is called later (e.g., inside a promise `then`), it executes the original function `fn` within the captured context, ensuring it can interact with signals and other reactive APIs correctly. If the originating component has already been disposed, the captured function runs with an inert context, allowing guards that depend on `getCurrentSelf()` or similar APIs to detect teardown.
 
 **Parameters:**
 - `fn`: Function to wrap with the current context.
@@ -163,27 +163,32 @@ Captures the current rendering context and returns a new function. When this new
 **Returns:** A new function that will execute in the captured context.
 
 ```jsx
-import { capture, expose } from 'refui';
+import { capture, getCurrentSelf, signal } from 'refui';
 
-const AsyncComponent = async ({ data }) => {
-	// Capture the `expose` function with the current render context.
-	const exposeCaptured = capture(expose);
+const Inspector = () => {
+	const self = getCurrentSelf();
+	const status = signal('pending');
 
-	try {
-		const result = await processData(data);
+	// Capture getCurrentSelf for later calls.
+	const getSelf = capture(getCurrentSelf);
 
-		// This call to `expose` will now run in the correct context.
-		exposeCaptured({ result });
+	(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+		const current = getSelf();
+		if (!current) {
+			// Component was disposed before the timeout completed.
+			return;
+		}
+		status.value = 'resolved';
+	})();
 
-		// The promise resolves with the final render function.
-		return (R) => <div>{result}</div>;
-
-	} catch (error) {
-		exposeCaptured({ error });
-		return (R) => <div>{error.message}</div>;
-	}
+	return (R) => <div>Status: {status}</div>;
 };
 ```
+
+If the component gets disposed(usually unmounted) before the timeout resolves, `getSelf()` returns `null`, preventing the deferred callback from mutating state that no longer has a live context.
+
+Think of `capture` (and the lower-level `freeze`) as rEFui's equivalent of `AsyncContext`: they carry the current component context across promises, timers, or other deferred callbacks—until the owning instance disposes, at which point the captured function reports `null` so you can bail out safely.
 
 ### `snapshot()`
 
@@ -201,7 +206,7 @@ const MyComponent = () => {
 	setTimeout(() => {
 		// Run function in the original context
 		snap(() => {
-			console.log('Should be true:', self === getCurrentSelf());
+			console.log('Should be true while mounted:', self === getCurrentSelf());
 		});
 	}, 1000);
 
@@ -209,39 +214,40 @@ const MyComponent = () => {
 };
 ```
 
-### `expose(keyValueObject)`
+### `props.expose(values)` (v0.8.0+)
 
-Exposes properties from a child component to its parent context.
+Starting with v0.8.0, rEFui no longer provides a global `expose` helper. Components that need to share imperative handles now opt in by accepting an `expose` prop from their parent. When the parent supplies a callback, call `expose(values)` inside the child to publish any signals, methods, or metadata. Because the callback is a regular closure, you can invoke it later—even after awaits or timers—without extra helpers.
 
 **Parameters:**
-- `keyValueObject`: Object with properties to expose
+- `values`: Object containing the handles you want to make available to the parent component.
 
 ```jsx
-import { expose, signal } from 'refui';
+import { signal } from 'refui';
 
-const ChildComponent = () => {
+const ChildComponent = ({ expose }) => {
 	const count = signal(0);
 	const increment = () => count.value++;
 
-	// Expose these to parent
-	expose({ count, increment });
+	expose?.({ count, increment });
 
 	return (R) => <div>Count: {count}</div>;
 };
 
 const ParentComponent = () => {
-	const childRef = signal();
+	const childApi = signal(null);
 
 	return (R) => (
 		<div>
-			<ChildComponent $ref={childRef} />
-			<button on:click={() => childRef.increment()}>
+			<ChildComponent expose={(api) => { childApi.value = api; }} />
+			<button on:click={() => childApi.value?.increment()}>
 				Increment from parent
 			</button>
 		</div>
 	);
 };
 ```
+
+> **Note:** In v0.8.0+, the `expose` callback is already closed over the right context, so you can call it later without wrapping it in `capture`.
 
 ### `getCurrentSelf()`
 
@@ -302,19 +308,18 @@ const MyComponent = () => {
 };
 ```
 
-**Component References:**
-When used with custom components, `$ref` provides access to the component instance:
+**Component References (v0.8.0+):**
+When used with custom components, pass an `expose` prop to receive a stable handle from the child:
 
 ```jsx
-import { signal, expose } from 'refui';
+import { signal } from 'refui';
 
-const Counter = () => {
+const Counter = ({ expose }) => {
 	const count = signal(0);
 	const increment = () => count.value++;
 	const decrement = () => count.value--;
 
-	// Expose methods to parent via $ref
-	expose({ count, increment, decrement });
+	expose?.({ count, increment, decrement });
 
 	return (R) => (
 		<div>
@@ -326,21 +331,23 @@ const Counter = () => {
 };
 
 const App = () => {
-	const counterRef = signal();
+	const counterApi = signal(null);
 
 	const reset = () => {
-		counterRef.value.count.value = 0;
+		counterApi.value?.count.value = 0;
 	};
 
 	const addTen = () => {
+		const api = counterApi.value;
+		if (!api) return;
 		for (let i = 0; i < 10; i++) {
-			counterRef.value.increment();
+			api.increment();
 		}
 	};
 
 	return (R) => (
 		<div>
-			<Counter $ref={counterRef} />
+			<Counter expose={(api) => { counterApi.value = api; }} />
 			<button on:click={reset}>Reset</button>
 			<button on:click={addTen}>Add 10</button>
 		</div>
@@ -613,67 +620,61 @@ const TimerComponent = () => {
 
 ### Async Component with Context
 
-This example demonstrates how to create a reusable async component that fetches data and uses `capture` and `expose` to communicate its state.
+This example demonstrates how to create a reusable async component that fetches data and notifies the parent by calling the per-component expose callback.
 
 ```jsx
-import { capture, expose, signal, $, If, read, createComponent, dispose, Fn } from 'refui';
+import { Async, signal, $, read } from 'refui';
 
 // 1. The async component itself. It fetches data and resolves with a render function.
-const DataLoader = async ({ url }) => {
-	// Capture `expose` to use it after the `await` call.
-	const exposeCaptured = capture(expose);
-
+const DataLoader = async ({ url, expose }) => {
 	try {
 		const response = await fetch(read(url));
 		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
 		const data = await response.json();
-		exposeCaptured({ data }); // Expose final data
+		expose?.({ data });
 
 		// Resolve with the component to render on success
 		return (R) => <pre>{JSON.stringify(data, null, 2)}</pre>;
 
 	} catch (error) {
-		exposeCaptured({ error }); // Expose the error
+		expose?.({ error });
+		const message = error instanceof Error ? error.message : String(error);
 
 		// Resolve with the component to render on failure
-		return (R) => <div>Error: {error.message}</div>;
+		return (R) => <div>Error: {message}</div>;
 	}
 };
 
 // 2. The parent component that uses the async component.
 const App = () => {
 	const currentUrl = signal('https://jsonplaceholder.typicode.com/todos/1');
-	const loaderRef = signal(); // To get the exposed properties
+	const loaderState = signal({ data: null, error: null });
+
+	const handleExpose = (payload) => {
+		const prev = loaderState.value;
+		loaderState.value = { ...prev, ...payload };
+	};
 
 	return (R) => (
 		<div>
-			<Fn>
-				{() => {
-					const loaderProps = { url: currentUrl, $ref: loaderRef };
-					const fallback = () => <div>Loading...</div>;
-
-					return () => <Async future={DataLoader(loaderProps)} fallback={fallback} />;
-				}}
-			</Fn>
+			<Async
+				future={DataLoader({ url: currentUrl, expose: handleExpose })}
+				fallback={() => <div>Loading...</div>}
+			/>
 
 			<hr />
 			<button on:click={() => currentUrl.value = `https://jsonplaceholder.typicode.com/todos/${Math.ceil(Math.random() * 10)}`}>
 				Load Random Todo
 			</button>
 
-			<h4>Exposed State:</h4>
-			<If condition={loaderRef}>
-				{(inst) => {
-					const { data, error } = derivedExtract(inst);
-					return () => (
-						<div>
-							<p>Error: {error}</p>
-							<p>Data: {$(() => JSON.stringify(read(data)))}</p>
-						</div>
-					)
-				}}
-			</If>
+			<h4>Loader State:</h4>
+			<p>Error: {$(() => {
+				const error = loaderState.value.error;
+				if (!error) return 'None';
+				return error.message ?? String(error);
+			})}</p>
+			<p>Data: {$(() => loaderState.value.data ? JSON.stringify(loaderState.value.data, null, 2) : 'Pending')}</p>
 		</div>
 	);
 };
