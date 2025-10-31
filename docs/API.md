@@ -214,6 +214,10 @@ const MyComponent = () => {
 };
 ```
 
+### `contextValid`
+
+Boolean flag exported from `refui/signal` that indicates whether the current reactive scope is still active. Async helpers such as `<Async>` check this value to avoid rendering after their parent component has disposed. Inside deferred callbacks, guard on `contextValid` (or capture it through `freeze`/`capture`) before mutating signals or DOM.
+
 ### `props.expose(values)` (v0.8.0+)
 
 Starting with v0.8.0, rEFui no longer provides a global `expose` helper. Components that need to share imperative handles now opt in by accepting an `expose` prop from their parent. When the parent supplies a callback, call `expose(values)` inside the child to publish any signals, methods, or metadata. Because the callback is a regular closure, you can invoke it later—even after awaits or timers—without extra helpers.

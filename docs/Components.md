@@ -371,6 +371,8 @@ Any other props passed to `<Async>` will be passed through to the `then`, `fallb
 2.  **`fallback` (optional):** The second child is a component or function to render while the promise is pending. It can also be provided via the `fallback` prop.
 3.  **`catch` (optional):** The third child is a handler for when the promise rejects. It receives an `error` prop. It can also be provided via the `catch` prop.
 
+> **Note:** If the parent component unmounts before the awaited promise settles, the runtime sets `contextValid` to `false`. In that case the async boundary skips rendering the resolved value, preventing work from running against a disposed instance.
+
 #### Basic Usage with Functions
 
 ```jsx

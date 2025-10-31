@@ -896,5 +896,6 @@ export {
 	onDispose,
 	useEffect,
 	untrack,
-	freeze
+	freeze,
+	contextValid
 }
