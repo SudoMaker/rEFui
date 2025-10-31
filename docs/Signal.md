@@ -711,10 +711,16 @@ const result = untrack(() => {
 ```
 
 #### `freeze(fn)`
-Freezes the current effect context for a function.
+Locks in the current effect context for later use. The returned wrapper keeps referencing the original dependency graph—much like an `AsyncContext` scope—so any effects you create inside it attach to the cleanup bucket that existed at wrap time. If an effect was running when you called `freeze`, subsequent executions will tie freshly accessed signals back to that same effect. Once the owning scope is disposed, the wrapper still executes, but with its context cleared; new effects become inert and stop tracking changes within that scope.
 
 ```javascript
-const frozenFn = freeze(myFunction)
+const runLater = freeze((message) => {
+	console.log('Tracked with original context:', message.value)
+})
+
+setTimeout(() => {
+	runLater('hello from the future')
+}, 1000)
 ```
 
 ### Scheduling

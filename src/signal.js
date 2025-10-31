@@ -228,10 +228,12 @@ function freeze(
 	state = {
 		disposers: currentDisposers,
 		effect: currentEffect,
-		valid: true
+		valid: contextValid
 	}
 ) {
-	if (currentDisposers) _onDispose(_invalidateFrozenState.bind(state))
+	if (currentDisposers) {
+		_onDispose(_invalidateFrozenState.bind(state))
+	}
 	return _frozen.bind(fn, state)
 }
 

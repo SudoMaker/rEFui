@@ -54,7 +54,7 @@ Follow these guides for detailed instructions on specific topics, from rendering
 For experienced developers who need detailed information about specific functions, classes, and utilities.
 
 - **[API Reference](API.md)**
-	- A complete reference for all core APIs, including component lifecycle functions (`createComponent`, `dispose`), renderer creation (`createRenderer`), context management (`capture`, `expose`), and component references (`$ref`).
+	- A complete reference for all core APIs, including component lifecycle functions (`createComponent`, `dispose`), renderer creation (`createRenderer`), context management (`capture`, `snapshot`), and component references (`$ref`) plus per-component expose callbacks introduced in v0.8.0.
 
 
 <details>

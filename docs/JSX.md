@@ -178,7 +178,7 @@ export const App = () => {
 
 Reflow assumes components stay stateless at declaration time, so inline functions are evaluated immediately and recursively until a non-function value is produced. Treat them as utility helpers; they do not become reactive computations.
 
-Because the helper focuses on render-agnostic logic, `$ref` bindings only resolve reliably for concrete DOM elements in browser output (and comparable host nodes elsewhere). `$ref` still works for components but `expose` may register on the wrong components. Child components can expose properties on their parents, so use namespaced keys for exposing internal states/methods should be a better idea. As component references are not strictly retained in reflow mode, prefer explicit wiring through props and signals than using `expose`.
+Because the helper focuses on render-agnostic logic, `$ref` bindings only resolve reliably for concrete DOM elements in browser output (and comparable host nodes elsewhere). `$ref` still works for components, but in v0.8.0+ you should pass per-component `expose` callbacks to publish handles explicitly. Child components ought to namespace the values they expose to avoid collisions. As component references are not strictly retained in reflow mode, prefer explicit wiring through props and signals where possible.
 
 Expect a small performance overhead when running in development with reflow enabled because the runtime tracks additional metadata, while production builds skip instance allocation and execute functional components as plain functions for better throughput.
 
@@ -186,7 +186,7 @@ Expect a small performance overhead when running in development with reflow enab
 
 This approach uses a single, globally defined renderer. While slightly easier to set up, it is less flexible than the classic transform.
 
-JSX runtime is essential when using rEFui together with some third party generators like [MDX](https://mdxjs.com/) or compilers like [SWC](https://github.com/swc-project/swc/issues/10553), or runtimes like [Deno](https://github.com/denoland/deno/issues/29584), since they lack the ability to correctly transform JSXClassic that passes the JSX factory via parameters.
+Since v0.8.0, both `refui/jsx-runtime` and `refui/jsx-dev-runtime` automatically bind to the Reflow renderer, so you can start writing JSX as soon as your bundler is configured—no manual `wrap()` call required. Use this mode when targeting toolchains like [MDX](https://mdxjs.com/), [SWC](https://github.com/swc-project/swc/issues/10553), or runtimes such as [Deno](https://github.com/denoland/deno/issues/29584) that cannot inject the classic pragma.
 
 ### Setup
 
@@ -221,30 +221,26 @@ export default defineConfig({
 }
 ```
 
-### Initialization
+### Rendering
 
-Once your build tool is configured, you need to initialize the runtime with a renderer in your application's entry point. The `wrap` function from the runtime connects it to your chosen renderer (e.g., the `DOMRenderer`).
+With the runtime already pointing at Reflow, you just create whichever host renderer you want to mount with and call its `render` method. No additional setup is necessary for `.jsx` / `.tsx` modules.
+
+Because Reflow is renderer-agnostic, component bodies authored in automatic-mode JSX can inline host tags without explicitly returning render factories—the runtime wraps them for you. Just ensure the host renderer you eventually mount (e.g. the DOM renderer) provides implementations for the tags you're emitting.
 
 **Example (`main.js`):**
 
 ```javascript
 import { createDOMRenderer } from 'refui/dom'
 import { defaults } from 'refui/browser'
-import { wrap } from 'refui/jsx-runtime'
 import App from './App.jsx' // Your root component
 
-// 1. Create a renderer instance
 const R = createDOMRenderer(defaults)
-
-// 2. Initialize the JSX runtime with the renderer
-wrap(R)
-
-// 3. Render your application
 const root = document.getElementById('app')
+
 R.render(root, App)
 ```
 
-Now, any `.jsx` or `.tsx` file will be automatically transformed to use the initialized runtime, so you don't need any special imports to write JSX.
+Need to override the renderer globally (for example, to plug in a custom host)? Call `wrap(newRenderer)` explicitly and both the production and dev runtimes will switch away from Reflow.
 
 ## Hot Module Replacement
 

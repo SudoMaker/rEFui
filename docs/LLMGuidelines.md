@@ -10,7 +10,7 @@ These instructions target language models that generate source code or documenta
 - **Purely asynchronous signals**: `signal` updates queue work for the end of the current asynchronous tick. Effects (`watch`, `useEffect`) and computed signals flush later, reducing redundant DOM operations. If you need the latest derived value immediately, use `nextTick` or `tick`.
 - **Signals everywhere**: All reactive data—including props, children, and derived expressions—must be signals (or helpers built on signals). Direct values break reactivity.
 - **Directive split**: DOM behaviors rely on prefixes: `on:` for events, `class:` / `style:` from presets, and `m:` for custom macros registered on the renderer.
-- **Renderer-aware JSX**: Prefer the classic JSX transform for flexibility (`/** @jsx R.c */`). Automatic runtime is only for tooling that cannot pass `R`; remember to call `wrap(renderer)` in that setup.
+- **Renderer-aware JSX**: Prefer the classic JSX transform for flexibility (`/** @jsx R.c */`). Use the automatic runtime only when tooling cannot pass `R`; since v0.8.0 it binds to Reflow automatically, so call `wrap(renderer)` only if you need to swap in a different host renderer globally.
 - **Tooling agnostic**: rEFui works with any JSX-capable transpiler (Babel, esbuild, SWC, TypeScript, etc.), and even runtime transformers like HTM when JSX isn’t available. Unlike Solid/Vue/Svelte, there is no compiler lock-in; keep outputs infrastructure-neutral.
 	- **Design philosophy**: Prefer broadly available tools and minimal build requirements while still delivering optimized, high-performance DOM updates. Codegen should avoid assumptions about proprietary compilers or specialized pipelines.
 
@@ -52,7 +52,7 @@ export const Counter = ({ initial = 0 }) => {
 ## 4. JSX & Presets
 
 - **Classic transform**: Configure the build (`jsxFactory: 'R.c'`, `jsxFragment: 'R.f'`) and inject pragma comments when necessary.
-- **Automatic runtime**: Only when required (MDX, SWC, Deno). Import `wrap` from `'refui/jsx-runtime'`, create a renderer, and call `wrap(renderer)` once.
+- **Automatic runtime**: Only when required (MDX, SWC, Deno). Configuration alone is enough now—the runtime targets Reflow by default. You can author components that look like plain JSX returns; the runtime wraps them into render factories. Import and call `wrap(renderer)` only when you must override Reflow, and ensure the renderer you choose supports the tags your JSX emits.
 - Use renderer directives over manual DOM operations:
 	- `on:event` or `on-modifier:event` for listeners (`on-once:click`, `on-passive:scroll`).
 	- `class:token`, `style:property` from `refui/browser` preset.
