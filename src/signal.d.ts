@@ -125,6 +125,8 @@ export function useEffect<TArgs extends unknown[]>(effect: (...args: TArgs) => v
 export function untrack<T, U extends unknown[]>(fn: (...args: U) => T, ...args: U): T
 export function freeze<T extends (...args: any[]) => any>(fn: T): T
 
+export const contextValid: boolean
+
 export function onCondition<T>(signal: MaybeSignal<T>, compute?: (value: boolean) => boolean): (match: MaybeSignal<T>) => Signal<boolean>
 
 export type Disposer = BatchDisposer
