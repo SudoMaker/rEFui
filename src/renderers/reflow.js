@@ -18,23 +18,42 @@
  * under the License.
  */
 
-import type { Component, ComponentTemplate } from '../components.js'
+import { Fragment } from 'refui/renderer'
+import { hotEnabled } from 'refui/hmr'
+import { isThenable } from 'refui/utils'
 
-export interface CacheExpose {
-	cache: WeakMap<Component<any>, unknown>
+const dummyRenderFn = function(props, children, R) {
+	return R.c(this, props, ...children)
 }
 
-export interface CacheStore<T = any> {
-	getIndex(handler: (item: T) => boolean): number
-	add(...items: T[]): void
-	replace(items: T[]): void
-	get(index: number): T | undefined
-	set(index: number, item: T): void
-	del(index: number): void
-	clear(): void
-	size(): number
-	dispose(): void
-	Cached: ComponentTemplate<{ expose?: (api: CacheExpose) => void }>
+const createElement = (function() {
+	if (hotEnabled) {
+		return function(component, props, ...children) {
+			return dummyRenderFn.bind(component, props, children)
+		}
+	} else {
+		const emptyProp = Object.create(null)
+		return function(component, props, ...children) {
+			const { $ref, ..._props } = props || emptyProp
+			if (!$ref && typeof component === 'function') {
+				return component(_props, ...children)
+			}
+
+			return dummyRenderFn.bind(component, props, children)
+		}
+	}
+})()
+
+const isNode = function() {
+	return false
 }
 
-export function createCache<T = any>(template: ComponentTemplate<T>): CacheStore<T>
+const R = {
+	createElement,
+	Fragment,
+	c: createElement,
+	f: Fragment,
+	isNode
+}
+
+export { R }

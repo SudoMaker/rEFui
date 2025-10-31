@@ -35,7 +35,6 @@ export type ComponentTemplate<P = any, R extends Renderer = Renderer, Result = u
 
 export function capture<T extends (...args: any[]) => any>(fn: T): T
 export function snapshot(): <T extends (...args: any[]) => any>(fn: T, ...args: Parameters<T>) => ReturnType<T>
-export function expose(values: Record<string, unknown>): void
 
 export function render(instance: Component<any>, renderer: Renderer): unknown
 export function dispose(instance: Component<any>): void
@@ -58,12 +57,19 @@ export function Fn(
 	catchHandler?: (error: unknown, name: string, context: unknown) => PossibleRender
 ): RenderFunction
 
+export interface ForExpose<T = unknown> {
+	getItem(key: unknown): T | undefined
+	remove(key: unknown): void
+	clear(): void
+}
+
 export interface ForProps<T = unknown> {
 	entries: MaybeSignal<Iterable<T>>
 	track?: keyof T | ((item: T) => unknown)
 	indexed?: boolean
 	fallback?: PossibleRender
 	name?: string
+	expose?: (api: ForExpose<T>) => void
 }
 
 export type ForTemplate<T = unknown> =
@@ -80,9 +86,14 @@ export interface IfProps {
 
 export function If(props: IfProps, whenTrue?: PossibleRender, whenFalse?: PossibleRender): PossibleRender
 
+export interface DynamicExpose {
+	current: Signal<unknown>
+}
+
 export interface DynamicProps {
 	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
 	ctx?: unknown
+	expose?: (api: DynamicExpose) => void
 	[key: string]: any
 }
 

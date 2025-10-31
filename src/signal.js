@@ -28,6 +28,8 @@ let currentDisposers = null
 let currentResolve = null
 let currentTick = null
 
+let contextValid = true
+
 let signalQueue = []
 let effectQueue = []
 
@@ -196,39 +198,48 @@ function useEffect(effect, ...args) {
 	return cancelEffect
 }
 
-function _frozen(capturedDisposers, capturedEffects, ...args) {
+const _invalidatedState = {
+	disposers: null,
+	effect: null,
+	valid: false
+}
+function _invalidateFrozenState() {
+	Object.assign(this, _invalidatedState)
+}
+function _frozen({ disposers, effect, valid }, ...args) {
 	const prevDisposers = currentDisposers
 	const prevEffect = currentEffect
+	const prevContextValid = contextValid
 
-	currentDisposers = capturedDisposers
-	currentEffect = capturedEffects
+	currentDisposers = disposers
+	currentEffect = effect
+	contextValid = valid
 
 	try {
 		return this(...args)
 	} finally {
 		currentDisposers = prevDisposers
 		currentEffect = prevEffect
+		contextValid = prevContextValid
 	}
 }
-
-function freeze(fn) {
- return _frozen.bind(fn, currentDisposers, currentEffect)
-}
-
-function untrack(fn, ...args) {
-	const prevDisposers = currentDisposers
-	const prevEffect = currentEffect
-
-	currentDisposers = null
-	currentEffect = null
-
-	try {
-		return fn(...args)
-	} finally {
-		currentDisposers = prevDisposers
-		currentEffect = prevEffect
+function freeze(
+	fn,
+	state = {
+		disposers: currentDisposers,
+		effect: currentEffect,
+		valid: contextValid
 	}
+) {
+	if (currentDisposers) {
+		_onDispose(_invalidateFrozenState.bind(state))
+	}
+	return _frozen.bind(fn, state)
 }
+
+const untrack = freeze(function(fn, ...args) {
+	return fn(...args)
+}, _invalidatedState)
 
 const Signal = class {
 	constructor(value, compute) {
@@ -346,7 +357,7 @@ const Signal = class {
 		}
 		const { userEffects, signalEffects, disposeCtx } = this._
 		const effects = isPure(effect) ? signalEffects : userEffects
-		if (!effects.includes(effect)) {
+		if (contextValid && !effects.includes(effect)) {
 			effects.push(effect)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
@@ -684,7 +695,7 @@ function useAction(val, compute) {
 		val.value = newVal
 		val.trigger()
 	}
-	return [onAction, trigger]
+	return [onAction, trigger, val.touch.bind(val)]
 }
 
 function derive(sig, key, compute) {

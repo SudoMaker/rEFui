@@ -18,8 +18,8 @@
  * under the License.
  */
 
-import type { ComponentTemplate, PossibleRender } from './components.js'
-import type { Fragment } from './renderer.js'
+import type { ComponentTemplate, PossibleRender } from '../components.js'
+import type { Fragment } from '../renderer.js'
 
 export interface ReflowRuntime {
 	readonly Fragment: typeof Fragment
@@ -31,6 +31,7 @@ export interface ReflowRuntime {
 		...children: any[]
 	): PossibleRender
 	c: ReflowRuntime['createElement']
+	isNode(): boolean
 }
 
 export const R: ReflowRuntime

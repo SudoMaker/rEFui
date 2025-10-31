@@ -2,6 +2,12 @@
 
 <h1 align="center">rEFui</h1>
 
+<span align="center">
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/SudoMaker/rEFui)
+
+</span>
+
 Pronounced as /ɹiːˈfjuːəl/ — “refuel”
 
 The [Retained Mode](https://en.wikipedia.org/wiki/Retained_mode) JavaScript framework that refuels your UI projects, across web, native, and embedded, with built-in [HMR support](#hot-module-replacement).
@@ -157,10 +163,6 @@ See [Components](docs/Components.md)
 - [HTML](docs/HTMLRenderer.md): `refui/html`
 - [Reflow](docs/JSX.md): Composing logic without concerning about UI
 
-## Prebuilt version
-
-You're building your app with a toolchain/compiler/transpiler anyways, so there's no need to provide a prebuilt version.
-
 ## CDN
 
 You can use rEFui directly in modern browsers without building. Define your import map like this:
@@ -200,6 +202,23 @@ render(document.body, App)
 [Live Example](https://stackblitz.com/edit/refui-htm-demo)
 
 **Note**: please **DON'T** add and use `refui/signal` to import maps separately when importing from `esm.run`, as ESM module resolution will treat the signal imported from `refui/signal` differently from imported internally by `refui`/`refui/dom` or other modules, since `esm.run` will transform the imports to their internal CDN path, that will break signal handling within rEFui. When using `unpkg.com`, it doesn't transform the imports so you'll need to add every exports from `refui` manually to the import map.
+
+## Prebuilt version
+
+You're building your app with a toolchain/compiler/transpiler anyways, so there's no need to provide a prebuilt version.
+
+## MCP
+
+AI agents may not have full understaings of how rEFui works and how to use it correctly. Luckily, [MCP](https://modelcontextprotocol.io/docs/getting-started/intro)s that provide the latest docs can greatly help on this problem.
+
+rEFui docs MCP are currently available on [DeepWiki](https://deepwiki.com/SudoMaker/rEFui) and [Context7](https://context7.com/sudomaker/refui).
+
+Configure your AI agent CLI/editors with:
+
+- DeepWiki RMCP: `https://mcp.deepwiki.com/mcp`
+- Context7 RMCP: `https://mcp.context7.com/mcp`
+
+or any other ways you prefer, and you're good to go.
 
 ## Hall of Shame
 

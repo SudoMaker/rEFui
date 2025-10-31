@@ -27,9 +27,9 @@ const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
 
 let currentCtx = null
 
-function _captured(capturedCtx, ...args) {
+function _captured({ ctx }, ...args) {
 	const prevCtx = currentCtx
-	currentCtx = capturedCtx
+	currentCtx = ctx
 
 	try {
 		return this(...args)
@@ -38,8 +38,13 @@ function _captured(capturedCtx, ...args) {
 	}
 }
 
+const _invalidateCapture = function() {
+	this.ctx = null
+}
 function capture(fn) {
-	return _captured.bind(freeze(fn), currentCtx)
+	const state = { ctx: currentCtx }
+	onDispose(_invalidateCapture.bind(state))
+	return freeze(_captured.bind(fn, state))
 }
 
 function _runInSnapshot(fn, ...args) {
@@ -47,43 +52,6 @@ function _runInSnapshot(fn, ...args) {
 }
 function snapshot() {
 	return capture(_runInSnapshot)
-}
-
-function exposeReducer(descriptors, [key, value]) {
-	if (isSignal(value)) {
-		descriptors[key] = {
-			get: value.get.bind(value),
-			set: value.set.bind(value),
-			enumerable: true,
-			configurable: true
-		}
-	} else {
-		descriptors[key] = {
-			value,
-			enumerable: true,
-			configurable: true
-		}
-	}
-
-	return descriptors
-}
-function expose(kvObj) {
-	if (!currentCtx || isPrimitive(kvObj)) {
-		return
-	}
-
-	const entries = Object.entries(kvObj)
-	if (entries.length) {
-		currentCtx.hasExpose = true
-
-		const descriptors = entries.reduce(exposeReducer, {})
-
-		Object.defineProperties(currentCtx.self, descriptors)
-
-		if (currentCtx.wrapper) {
-			Object.defineProperties(currentCtx.wrapper, descriptors)
-		}
-	}
 }
 
 function render(instance, renderer) {
@@ -229,7 +197,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	}
 }
 
-function For({ name = 'For', entries, track, indexed }, itemTemplate) {
+function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 	let currentData = []
 
 	let kv = track && new Map()
@@ -253,14 +221,8 @@ function For({ name = 'For', entries, track, indexed }, itemTemplate) {
 		}
 	}
 
-	function getItem(itemKey) {
-		return (kv ? kv.get(itemKey) : itemKey)
-	}
-	function remove(itemKey) {
-		const itemData = getItem(itemKey)
-		removeFromArr(peek(entries), itemData)
-		entries.trigger()
-	}
+	onDispose(_clear)
+
 	function clear() {
 		if (!currentData.length) return
 		_clear()
@@ -269,13 +231,22 @@ function For({ name = 'For', entries, track, indexed }, itemTemplate) {
 		if (entries.value.length) entries.value = []
 	}
 
-	onDispose(_clear)
+	if (expose) {
+		function getItem(itemKey) {
+			return (kv ? kv.get(itemKey) : itemKey)
+		}
+		function remove(itemKey) {
+			const itemData = getItem(itemKey)
+			removeFromArr(peek(entries), itemData)
+			entries.trigger()
+		}
 
-	expose({
-		getItem,
-		remove,
-		clear
-	})
+		expose({
+			getItem,
+			remove,
+			clear
+		})
+	}
 
 	return function(R) {
 		const fragment = R.createFragment(name)
@@ -507,12 +478,6 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 
 		const newCtx = newInstance?.[KEY_CTX]
 		if (newCtx) {
-			if (newCtx.hasExpose) {
-				const extraKeys = Object.getOwnPropertyDescriptors(newInstance)
-				delete extraKeys[KEY_CTX]
-				Object.defineProperties(self, extraKeys)
-			}
-
 			newCtx.wrapper = self
 			oldCtx = newCtx
 		}
@@ -541,11 +506,13 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 		return renderFn
 	}, catchErr)
 }
-function Dynamic({ is, ctx, ...props }, ...children) {
-	props.$ref = signal()
-	expose({
-		current: props.$ref
-	})
+function Dynamic({ is, ctx, expose, ...props }, ...children) {
+	if (expose) {
+		props.$ref = signal()
+		expose?.({
+			current: props.$ref
+		})
+	}
 	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
 
@@ -631,7 +598,6 @@ class Component {
 			render: null,
 			dispose: null,
 			wrapper: null,
-			hasExpose: false,
 			self: this
 		}
 
@@ -718,7 +684,6 @@ const createComponent = (function() {
 export {
 	capture,
 	snapshot,
-	expose,
 	render,
 	dispose,
 	getCurrentSelf,

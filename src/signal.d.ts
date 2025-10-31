@@ -90,7 +90,14 @@ export function not(value: MaybeSignal<unknown>): Signal<boolean>
 
 export function connect(signals: Iterable<Signal<unknown>>, effect: EffectCallback, runImmediate?: boolean): void
 export function bind(handler: (value: unknown) => void, value: MaybeSignal<unknown> | (() => unknown)): void
-export function useAction<T>(initial?: T, compute?: (value: T) => T): [(listener: (value: T) => void) => void, (value?: T) => void]
+export function useAction<T>(
+	initial?: T,
+	compute?: (value: T) => T
+): [
+	(listener: (value: T) => void) => void,
+	(value?: T) => void,
+	() => void
+]
 
 export function derive<T extends Record<string, any>, K extends keyof T, R = T[K]>(source: MaybeSignal<T>, key: K, compute?: (value: T[K]) => R): Signal<R>
 export function extract<T extends Record<string, any>>(source: MaybeSignal<T>): { [K in keyof T]: Signal<T[K]> }

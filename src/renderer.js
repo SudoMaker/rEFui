@@ -19,11 +19,19 @@
  */
 
 import { isSignal } from 'refui/signal'
-import { render, createComponent, Fn } from 'refui/components'
-import { removeFromArr } from 'refui/utils'
+import { render, createComponent, Async } from 'refui/components'
+import { removeFromArr, isThenable } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const Fragment = '<>'
+
+const dummyFutureHandler = function(props) {
+	return props.result
+}
+
+const createAsync = function(future) {
+	return createComponent(Async, {future}, dummyFutureHandler)
+}
 
 function createRenderer(nodeOps, rendererID) {
 	const {
@@ -155,6 +163,9 @@ function createRenderer(nodeOps, rendererID) {
 
 	function ensureElement(el) {
 		if (el === null || el === undefined || isNode(el)) return el
+		if (isThenable(el)) {
+			return render(createAsync(el), renderer)
+		}
 		return createTextNode(el)
 	}
 
@@ -185,6 +196,9 @@ function createRenderer(nodeOps, rendererID) {
 						processChild(result)
 					} else if (Array.isArray(child)) {
 						flatChildren(child)
+					} else if (isThenable(child)) {
+						flushTextBuffer()
+						normalizedChildren.push(render(createAsync(child), renderer))
 					} else {
 						mergedTextBuffer += child
 					}
@@ -228,6 +242,8 @@ function createRenderer(nodeOps, rendererID) {
 			}
 
 			return node
+		} else if (isThenable(tag)) {
+			return render(createAsync(tag), renderer)
 		}
 
 		const instance = createComponent(tag, props, ...children)

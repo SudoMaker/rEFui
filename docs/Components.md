@@ -144,7 +144,7 @@ const SimpleTodoList = () => {
 
 #### Exposed Methods
 
-The `<For>` component exposes several methods on its instance that allow you to interact with the list imperatively. You can get a reference to the component instance using the `$ref` prop.
+The `<For>` component exposes several methods via its optional `expose` prop (v0.8.0+), allowing you to interact with the list imperatively.
 
 -   `getItem(key)`: Retrieves the original data item associated with a given key. (Only available when `track` is used).
 -   `remove(key)`: Removes an item from the list by its key. (Only available when `track` is used).
@@ -156,31 +156,35 @@ Here's an example of how to use them:
 import { signal, For, $ } from 'refui';
 
 const InteractiveList = () => {
-    const listRef = signal();
-    const items = signal([
-        { id: 1, text: 'First' },
-        { id: 2, text: 'Second' },
-        { id: 3, text: 'Third' },
-    ]);
+	const listApi = signal(null);
+	const items = signal([
+		{ id: 1, text: 'First' },
+		{ id: 2, text: 'Second' },
+		{ id: 3, text: 'Third' },
+	]);
 
-    const removeItem = () => {
-        // Remove item with id 2
-        listRef.peek()?.remove(2);
-    };
+	const removeItem = () => {
+		// Remove item with id 2
+		listApi.value?.remove(2);
+	};
 
-    const clearList = () => {
-        listRef.peek()?.clear();
-    };
+	const clearList = () => {
+		listApi.value?.clear();
+	};
 
-    return (R) => (
-        <div>
-            <For entries={items} track="id" $ref={listRef}>
-                {({ item }) => <div>{item.text}</div>}
-            </For>
-            <button on:click={removeItem}>Remove Second</button>
-            <button on:click={clearList}>Clear All</button>
-        </div>
-    );
+	return (R) => (
+		<div>
+			<For
+				entries={items}
+				track="id"
+				expose={(api) => { listApi.value = api; }}
+			>
+				{({ item }) => <div>{item.text}</div>}
+			</For>
+			<button on:click={removeItem}>Remove Second</button>
+			<button on:click={clearList}>Clear All</button>
+		</div>
+	);
 };
 ```
 
@@ -549,6 +553,7 @@ Provides component-scoped memoization for functions that should only run once du
 - Because the value never re-computes automatically, avoid reading reactive data inside `fn` if you expect it to change. Use signals or derived values outside of `memo` when you need updates.
 - Call `memo` inline inside the component factory or inside the returned render function. Hoisting `memo` outside the component will capture the wrong context and break caching. If you prefer to prepare helpers up front, use the provided `useMemo` wrapper and invoke it inside the component.
 - When the memoized value creates components or side effects, the cached instance stays reactive even if you temporarily detach it from the renderer. Cleanup registered inside `fn` is recorded on the captured context, so release references or trigger disposal when the instance is no longer needed.
+- Once the owning component disposes, the memoized wrapper no longer has a live context; calling it after teardown behaves like an untracked function call.
 
 Unlike React or Solid, `memo` here captures the current reactive context and defers execution until the returned function is actually run (for example when a conditional branch is selected). This allows inline usage inside JSX-style control flow without introducing dedicated hooks.
 
