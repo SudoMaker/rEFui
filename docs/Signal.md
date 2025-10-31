@@ -723,6 +723,9 @@ setTimeout(() => {
 }, 1000)
 ```
 
+#### `contextValid`
+Boolean flag that reflects whether the current reactive context (component, effect, or memoized scope) is still alive. It flips to `false` once the owner disposes, so deferred callbacks can bail out gracefully. Runtime features like async component boundaries check `contextValid` to avoid rendering after unmount.
+
 ### Scheduling
 
 #### `tick()`

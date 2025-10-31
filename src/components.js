@@ -18,7 +18,7 @@
  * under the License.
  */
 
-import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal } from 'refui/signal'
+import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
 import { nop, removeFromArr, isThenable, isPrimitive } from 'refui/utils'
 import { isProduction } from 'refui/constants'
@@ -574,9 +574,18 @@ function _asyncContainer(name, fallback, catchErr, props, ...children) {
 
 function Async({ future, fallback, catch: catchErr, ...props }, then, now, handleErr) {
 	future = Promise.resolve(future).then(capture(function(result) {
-		return Fn({ name: 'Then' }, () => {
+		let lastResult = null
+		let lastHandler = null
+		return Fn({ name: 'Then' }, function() {
+			if (!contextValid) {
+				return
+			}
 			const handler = read(then)
-			return then?.({ ...props, result })
+			if (handler === lastHandler) {
+				return lastResult
+			}
+			lastHandler = handler
+			return (lastResult = handler?.({ ...props, result }))
 		})
 	}))
 	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, props)
