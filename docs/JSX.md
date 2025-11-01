@@ -71,7 +71,7 @@ The classic transform ships with a special renderer at `refui/reflow` (re-export
 
 Reflow is useful when you're sharing logic between multiple platforms that share same basic app logics, so you can focus on these logic without be distracted by nuanced platform specific UI logics, like animations, styling etc.
 
-Reflow mode only supports the classic JSX transform; if your project uses the automatic runtime, compile the modules that rely on reflow separately with the classic pragma configuration.
+Historically Reflow required the classic JSX transform, but as of v0.8.0 the automatic runtime also targets it by default. Stick with the classic pragma when you want per-file renderer swapping, or let the automatic runtime wrap your JSX and feed the result to Reflow with zero additional wiring.
 
 Reflow renderer surfaces a module-level `R`, but the render function still receives its own `R` argument at render time. The parameter shadows the outer reference, so they do not interfere; only toolchains that mishandle shadowing (notably some SWC-based runtimes) may run into trouble, in which case isolate those modules or swap to the automatic transform without using Reflow mode.
 
