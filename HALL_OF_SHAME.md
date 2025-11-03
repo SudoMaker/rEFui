@@ -42,12 +42,19 @@ They showed totally no respect to what I have created with my painstaking effort
 
 * **2025-07-29**: The conversation escalates as ClassicOldSong directly challenges benemma to answer straightforward technical questions, pointing out benemma’s consistent avoidance of technical clarity. benemma admits limited coding abilities but maintains respect and admiration for ClassicOldSong’s work. ClassicOldSong ultimately rejects further collaboration and sponsorship, citing significant doubts about benemma’s honesty and capability.
 
-## Added incidents:
+## Added incident:
 
 After this file gets posted on [HackerNews](https://news.ycombinator.com/item?id=45477661), I got attacked by a famous frontend advocater who is also the author of [ast-grep](https://github.com/ast-grep/ast-grep), saying that my intelligence and logic are "barely so so", and they followed up saying that they're showing empathy for someone that acts like a "disabled people". They didn't even bother to read the description of this whole Hall of Shame and started to draw conclusions.
 
 ![](https://github.com/user-attachments/assets/9ae7c263-dc93-4c8d-baec-7d2a8854feba)
 ![](https://github.com/user-attachments/assets/b22c945f-90d1-47c6-8e69-5ca47bfcf819)
+
+## Yet one more incident:
+
+At 2025-11-03 , they started to accuse me for my newly hand written features are "copied from their repo":
+
+![](https://github.com/user-attachments/assets/c6abc6d9-3ec6-42a5-be9e-cb7b5888a6a7)
+![](https://github.com/user-attachments/assets/10411a3c-8521-41cf-8911-8e6741735526)
 
 
 ## Appendix
