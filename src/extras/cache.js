@@ -18,8 +18,8 @@
  * under the License.
  */
 
-import { signal, untrack } from 'refui/signal'
-import { createComponent, For, onDispose, render } from 'refui/components'
+import { signal, untrack, onDispose } from 'refui/signal'
+import { createComponent, For, render } from 'refui/components'
 
 function createCache(tpl) {
 	let dataArr = []
