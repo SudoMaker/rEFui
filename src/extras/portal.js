@@ -18,8 +18,8 @@
  * under the License.
  */
 
-import { signal } from 'refui/signal'
-import { onDispose, dispose, getCurrentSelf, For, Fn } from 'refui/components'
+import { signal, onDispose } from 'refui/signal'
+import { dispose, getCurrentSelf, For, Fn } from 'refui/components'
 import { removeFromArr } from 'refui/utils'
 
 function dumbFn(_) {
