@@ -132,12 +132,30 @@ For detailed instructions on configuring JSX for your project, please see the [J
 
 rEFui has built-in HMR hooks. Use the refurbish plugin for your bundler to inject the minimal dev boilerplate.
 
+Bun quick setup:
+
+In your `tsconfig.json`, configure `compilerOptions`:
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "refui"
+  }
+}
+```
+
+then in `bunfig.toml`:
+```toml
+[serve.static]
+plugins = ["refurbish/bun"]
+```
+
 Vite quick setup:
 
 ```js
 // vite.config.js
 import { defineConfig } from 'vite'
-import refurbish from 'refurbish/vite'
+import { refurbish } from 'refurbish/vite'
 
 export default defineConfig({
 	plugins: [refurbish()],
@@ -145,6 +163,15 @@ export default defineConfig({
 		jsxFactory: 'R.c',
 		jsxFragment: 'R.f',
 		jsxInject: `import { R } from 'refui/reflow'` // Enable only when you're using Reflow mode. See detail in docs.
+	}
+})
+
+// Or with JSX auto runtime
+export default defineConfig({
+	plugins: [refurbish()],
+	esbuild: {
+		jsx: 'automatic'
+		jsxImportSource: `refui`
 	}
 })
 ```

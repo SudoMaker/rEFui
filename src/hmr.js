@@ -62,7 +62,7 @@ function handleError(err, _, { name, hot }) {
 }
 
 export function enableHMR({ builtins, makeDyn, Component, createComponentRaw }) {
-	console.info('[rEFui HMR] Hot Module Replacement enabled. Check https://github.com/SudoMaker/refurbish for details.')
+	console.info('[rEFui HMR] Hot Module Replacement is available. Check https://github.com/SudoMaker/refurbish for details.')
 	return function(tpl, props, ...children) {
 		let hotLevel = 0
 
@@ -138,9 +138,9 @@ export function setup({data, current, accept, dispose, invalidate}) {
 	accept()
 }
 
-/* // Rollup/Vite boilerplate
+/* // Rollup/Vite/Bun boilerplate
 if (import.meta.hot) {
-	import("refui/hmr").then(({setup}) => setup({
+	import("refui/hmr").then(m => m.setup({
 		data: import.meta.hot.data,
 		current: import(import.meta.url),
 		accept() {

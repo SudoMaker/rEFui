@@ -12,15 +12,29 @@ Like Solid.js, rEFui is a [Retained Mode](https://en.wikipedia.org/wiki/Retained
 - [Automatic Runtime](#automatic-runtime)
 - [Hot Module Replacement](#hot-module-replacement)
 
-## Classic Transform (Preferred)
+## Classic Transform
 
 This is the recommended approach as it provides the most flexibility, allowing you to use different renderers on a per-component basis. To use it, you need to configure your transpiler (like Babel or esbuild) to use the classic JSX runtime and specify the pragma.
 
 With this setup, your components should be functions that accept a renderer `R` and return the element tree.
 
-**Please note**, rEFui does not require JSX inject for the classic transform. The render factory is passed through `R` in runtime.
+**Please note**, rEFui does not require JSX injection for the classic transform. The render factory is passed through `R` in runtime.
 
 ### Configuration
+
+#### Bun
+
+In your `tsconfig.json`, configure `compilerOptions` based on `[tsconfig/jsx](https://www.typescriptlang.org/tsconfig/#jsx)`
+```json
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "jsxFactory": "R.c",
+    "jsxFragmentFactory": "R.f",
+    ... other options
+  }
+}
+```
 
 #### Babel
 
@@ -109,7 +123,7 @@ export default {
 
 ```jsx
 import { signal, useAction, read, watch, onDispose } from 'refui'
-// R is auto injected by your bundler, or you can do it manually
+// R for Reflow is auto injected by your bundler, or you can do it manually
 // import { R } from 'refui/reflow'
 // Or import directly from 'refui'
 
@@ -190,7 +204,20 @@ Since v0.8.0, both `refui/jsx-runtime` and `refui/jsx-dev-runtime` automatically
 
 ### Setup
 
-To use it, you first need to configure your build tool (like Vite, Rollup with Babel, or webpack) to use rEFui's runtime.
+To use it, you first need to configure your build tool (like Bun, Vite, Rollup with Babel, or Webpack) to use rEFui's runtime.
+
+#### Bun
+
+In your `tsconfig.json`, configure `compilerOptions` based on `[tsconfig/jsx](https://www.typescriptlang.org/tsconfig/#jsx)`
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "refui",
+    ... other options
+  }
+}
+```
 
 #### Vite (`vite.config.js`)
 
@@ -246,9 +273,7 @@ Need to override the renderer globally (for example, to plug in a custom host)? 
 
 For development, use **refurbish** HMR plugin to provide fast, reliable hot module replacement for your components.
 
-### Why refurbish?
-
-refurbish is specifically designed for rEFui's component model and handles the complexity of HMR automatically. You don't need to add `import.meta.hot` checks or other HMR boilerplate to your components.
+`Refurbish` is specifically designed for rEFui's component model and handles the complexity of HMR automatically. You don't need to add `import.meta.hot` checks or other HMR boilerplate to your components.
 
 ### Quick Setup
 
@@ -258,18 +283,20 @@ Install refurbish:
 npm install -D refurbish
 ```
 
-Add to your `vite.config.js`:
+For Bun, add to your `bunfig.toml`:
+```toml
+[serve.static]
+plugins = ["refurbish/bun"]
+```
+
+For vite, add to your `vite.config.js`:
 
 ```javascript
 import { defineConfig } from 'vite';
-import refurbish from 'refurbish/vite';
+import { refurbish } from 'refurbish/vite';
 
 export default defineConfig({
-	plugins: [refurbish()],
-	esbuild: {
-		jsxFactory: 'R.c',
-		jsxFragment: 'R.f',
-	},
+	plugins: [refurbish()]
 });
 ```
 

@@ -68,7 +68,20 @@ To get started, you'll need a project with a modern build tool like Vite, Rollup
 
 ### Configuring JSX
 
-rEFui supports two JSX transformation methods, but the **Classic Transform** is recommended for its flexibility.
+rEFui supports both JSX automatic and classic transformation methods. Prefer **Classic Transform** for the best flexibility and **Automatic** runtime for the ease of use.
+
+#### Bun
+
+In your `tsconfig.json`, configure `compilerOptions`:
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "refui"
+  }
+}
+```
+
 
 #### Vite (`vite.config.js`)
 
@@ -78,8 +91,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	esbuild: {
-		jsxFactory: 'R.c',
-		jsxFragment: 'R.f',
+		jsx: 'automatic',
+		jsxImportSource: 'refui'
 	},
 });
 ```
@@ -92,9 +105,8 @@ export default defineConfig({
 		[
 			"@babel/preset-react",
 			{
-				"runtime": "classic",
-				"pragma": "R.c",
-				"pragmaFrag": "R.f"
+				"runtime": "automatic",
+				"importSource": "refui"
 			}
 		]
 	]
