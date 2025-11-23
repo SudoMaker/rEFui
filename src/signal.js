@@ -42,35 +42,47 @@ function scheduleEffect(effects) {
 	return effectQueue.push(effects)
 }
 
-let flushID = 0
 function flushRunQueue(queue) {
-	flushID += 1;
-	for (let collection of queue) {
-		if (collection.__refui_flush_id != flushID) {
-			collection.__refui_flush_id = flushID
-			for (let effect of collection) {
-				if (effect.__refui_flush_id != flushID) {
-					effect.__refui_flush_id = flushID
+	const queueLength = queue.length
+	for (let i = 0; i < queueLength; i++) {
+		for (let effect of queue[i]) {
+			if (effect.__refui_flush_priority >= 0) {
+			 effect.__refui_flush_priority += 1
+			}
+		}
+	}
+
+	for (let i = 0; i < queueLength; i++) {
+		for (let effect of queue[i]) {
+			if (effect.__refui_flush_priority > 0) {
+				if (!(--effect.__refui_flush_priority)) {
 					effect()
 				}
+			} else {
+				effect.__refui_flush_priority = 0
 			}
 		}
 	}
 }
-
 function sortQueue(a, b) {
 	return a._id - b._id
 }
-function flushQueue(queue, sorted) {
-	while (queue.length) {
-		const queueArr = queue.slice()
-		queue.length = 0
-
-		if (sorted && queueArr.length > 1) {
-			queueArr.sort(sortQueue)
+function flushQueues() {
+	if (signalQueue.length || effectQueue.length) {
+		while (signalQueue.length) {
+			const _ = signalQueue
+			signalQueue = []
+			if (_.length > 1) {
+				_.sort(sortQueue)
+			}
+			flushRunQueue(_)
 		}
-
-		flushRunQueue(queueArr)
+		while (effectQueue.length) {
+			const _ = effectQueue
+			effectQueue = []
+			flushRunQueue(_)
+		}
+		return Promise.resolve().then(flushQueues)
 	}
 }
 
@@ -81,20 +93,11 @@ function tick() {
 	}
 	return currentTick
 }
-
 function nextTick(cb, ...args) {
 	if (args.length) {
 		cb = cb.bind(null, ...args)
 	}
 	return tick().finally(cb)
-}
-
-function flushQueues() {
-	if (signalQueue.length || effectQueue.length) {
-		flushQueue(signalQueue, true)
-		flushQueue(effectQueue)
-		return Promise.resolve().then(flushQueues)
-	}
 }
 function tickHandler(resolve) {
 	currentResolve = resolve
@@ -362,14 +365,14 @@ const Signal = class {
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
 					removeFromArr(effects, effect)
-					effect.__refui_flush_id = flushID
+					effect.__refui_flush_priority = -1
 				})
 			}
 		}
 
-		if (!Object.hasOwn(effect, '__refui_flush_id')) {
-			Object.defineProperty(effect, '__refui_flush_id', {
-				value: flushID,
+		if (!Object.hasOwn(effect, '__refui_flush_priority')) {
+			Object.defineProperty(effect, '__refui_flush_priority', {
+				value: 0,
 				writable: true
 			})
 		}
