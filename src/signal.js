@@ -47,19 +47,17 @@ function flushRunQueue(queue) {
 	for (let i = 0; i < queueLength; i++) {
 		for (let effect of queue[i]) {
 			if (effect.__refui_flush_priority >= 0) {
-			 effect.__refui_flush_priority += 1
+				effect.__refui_flush_priority += 1
+			} else {
+				effect.__refui_flush_priority = 1
 			}
 		}
 	}
 
 	for (let i = 0; i < queueLength; i++) {
 		for (let effect of queue[i]) {
-			if (effect.__refui_flush_priority > 0) {
-				if (!(--effect.__refui_flush_priority)) {
-					effect()
-				}
-			} else {
-				effect.__refui_flush_priority = 0
+			if (!(--effect.__refui_flush_priority)) {
+				effect()
 			}
 		}
 	}
@@ -360,25 +358,23 @@ const Signal = class {
 		}
 		const { userEffects, signalEffects, disposeCtx } = this._
 		const effects = isPure(effect) ? signalEffects : userEffects
-		if (contextValid && !effects.includes(effect)) {
+		if (contextValid) {
 			effects.push(effect)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
 					removeFromArr(effects, effect)
-					effect.__refui_flush_priority = -1
+					effect.__refui_flush_priority -= 1
 				})
 			}
-		}
-
-		if (!Object.hasOwn(effect, '__refui_flush_priority')) {
-			Object.defineProperty(effect, '__refui_flush_priority', {
-				value: 0,
-				writable: true
-			})
-		}
-
-		if (runImmediate && currentEffect !== effect) {
-			effect()
+			if (!Object.hasOwn(effect, '__refui_flush_priority')) {
+				Object.defineProperty(effect, '__refui_flush_priority', {
+					value: 0,
+					writable: true
+				})
+			}
+			if (runImmediate && currentEffect !== effect) {
+				effect()
+			}
 		}
 	}
 
