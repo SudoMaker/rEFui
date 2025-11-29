@@ -254,7 +254,7 @@ const untrack = freeze(function(fn, ...args) {
 	return fn(...args)
 }, _invalidatedState)
 
-function vacuum() {
+function vacuumEffectStore() {
 	let delCount = this[1]
 	if (!delCount) {
 		return
@@ -294,7 +294,7 @@ function vacuum() {
 
 function scheduleVacuum(effects) {
 	if (effects[1] === 2) {
-		nextTick(vacuum.bind(effects))
+		nextTick(vacuumEffectStore.bind(effects))
 	}
 	effects[1] += 1
 }
