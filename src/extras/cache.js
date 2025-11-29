@@ -88,7 +88,9 @@ function createCache(tpl) {
 
 	function dispose() {
 		clear()
-		for (let i of componentsArr) dispose(i)
+		const arrCopy = componentsArr.slice()
+		const count = arrCopy.length
+		for (let i = 0; i < count; i++) dispose(arrCopy[i])
 	}
 
 	onDispose(dispose)

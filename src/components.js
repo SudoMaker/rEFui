@@ -214,7 +214,8 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 	function flushKS() {
 		if (ks) {
-			for (let i = 0; i < currentData.length; i++) {
+			const currentDataLength = currentData.length
+			for (let i = 0; i < currentDataLength; i++) {
 				const sig = ks.get(currentData[i])
 				sig.value = i
 			}
@@ -301,16 +302,18 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 			let newData = null
 
 			if (oldData.length) {
-				const obsoleteDataKeys = [...new Set([...currentData, ...oldData])].slice(currentData.length)
+				const currentDataLength = currentData.length
+				const obsoleteDataKeys = [...new Set([...currentData, ...oldData])].slice(currentDataLength)
 
 				if (obsoleteDataKeys.length === oldData.length) {
 					_clear()
 					newData = currentData
 				} else {
-					if (obsoleteDataKeys.length) {
-						for (let oldItemKey of obsoleteDataKeys) {
-							disposers.get(oldItemKey)()
-							removeFromArr(oldData, oldItemKey)
+					const obsoleteDataKeysLength = obsoleteDataKeys.length
+					if (obsoleteDataKeysLength) {
+						for (let i = 0; i < obsoleteDataKeysLength; i++) {
+							disposers.get(obsoleteDataKeys[i])()
+							removeFromArr(oldData, obsoleteDataKeys[i])
 						}
 					}
 
@@ -319,7 +322,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 					let newDataCursor = 0
 
-					while (newDataCursor < currentData.length) {
+					while (newDataCursor < currentDataLength) {
 
 						if (!oldData.length) {
 							if (newDataCursor) newData = currentData.slice(newDataCursor)
@@ -339,7 +342,8 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 						let newItemKey = currentData[newDataCursor]
 
-						while (oldDataCursor < oldData.length) {
+						const oldDataLength = oldData.length
+						while (oldDataCursor < oldDataLength) {
 							const isNewKey = hasNewKeys && newDataKeys.includes(newItemKey)
 							if (isNewKey || oldItemKey === newItemKey) {
 								if (prevChunk !== frontChunk) {
@@ -377,7 +381,8 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 						backSet.push(backChunk)
 						frontSet.shift()
 
-						for (let i = 0; i < frontSet.length; i++) {
+						const frontSetLength = frontSet.length
+						for (let i = 0; i < frontSetLength; i++) {
 							const fChunk = frontSet[i]
 							const bChunk = backSet[i]
 
@@ -386,13 +391,16 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 								backSet[i + 1] = bChunk.concat(backSet[i + 1])
 								bChunk.length = 0
 
-								for (let itemKey of fChunk) {
-									R.insertBefore(getItemNode(itemKey), beforeAnchor)
+								const fChunkLength = fChunk.length
+								for (let j = 0; j < fChunkLength; j++) {
+									R.insertBefore(getItemNode(fChunk[j]), beforeAnchor)
 								}
 							} else if (backSet[i + 1].length) {
 								const beforeAnchor = getItemNode(backSet[i + 1][0])
-								for (let itemKey of bChunk) {
-									R.insertBefore(getItemNode(itemKey), beforeAnchor)
+
+								const bChunkLength = bChunk.length
+								for (let j = 0; j < bChunkLength; j++) {
+									R.insertBefore(getItemNode(bChunk[j]), beforeAnchor)
 								}
 							} else {
 								R.appendNode(fragment, ...bChunk.map(getItemNode))
@@ -407,8 +415,9 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 			}
 
 			if (newData) {
-				for (let newItemKey of newData) {
-					const node = getItemNode(newItemKey)
+				const newDataLength = newData.length
+				for (let i = 0; i < newDataLength; i++) {
+					const node = getItemNode(newData[i])
 					if (node) R.appendNode(fragment, node)
 				}
 			}

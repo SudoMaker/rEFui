@@ -153,8 +153,9 @@ function createDOMRenderer({
 		node.parentNode.removeChild(node)
 	}
 	function appendNode(parent, ...nodes) {
-		for (let node of nodes) {
-			parent.insertBefore(node, null)
+		const nodeCount = nodes.length
+		for (let i = 0; i < nodeCount; i++) {
+			parent.insertBefore(nodes[i], null)
 		}
 	}
 	function insertBefore(node, ref) {
@@ -180,7 +181,10 @@ function createDOMRenderer({
 			const optionsArr = prefix.split('-')
 			optionsArr.shift()
 			const options = {}
-			for (let option of optionsArr) if (option) options[option] = true
+			const optionCount = optionsArr.length
+			for (let i = 0; i < optionCount; i++) {
+				if (optionsArr[i]) options[optionsArr[i]] = true
+			}
 			return function(node, cb) {
 				if (!cb) return
 				if (isSignal(cb)) {
