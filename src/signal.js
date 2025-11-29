@@ -42,10 +42,17 @@ function scheduleEffect(effects) {
 	return effectQueue.push(effects)
 }
 
+// effectStore: [id, delCount, ...effects]
 function flushRunQueue(queue) {
 	const queueLength = queue.length
 	for (let i = 0; i < queueLength; i++) {
-		for (let effect of queue[i]) {
+		const effects = queue[i]
+		const effectEnd = effects.length
+		for (let j = 2; j < effectEnd; j++) {
+			const effect = effects[j][0]
+			if (!effect) {
+				continue
+			}
 			if (effect.__refui_flush_priority >= 0) {
 				effect.__refui_flush_priority += 1
 			} else {
@@ -55,15 +62,18 @@ function flushRunQueue(queue) {
 	}
 
 	for (let i = 0; i < queueLength; i++) {
-		for (let effect of queue[i]) {
-			if (!(--effect.__refui_flush_priority)) {
+		const effects = queue[i]
+		const effectEnd = effects.length
+		for (let j = 2; j < effectEnd; j++) {
+			const effect = effects[j][0]
+			if (effect && !(--effect.__refui_flush_priority)) {
 				effect()
 			}
 		}
 	}
 }
 function sortQueue(a, b) {
-	return a._id - b._id
+	return a[0] - b[0]
 }
 function flushQueues() {
 	if (signalQueue.length || effectQueue.length) {
@@ -80,6 +90,7 @@ function flushQueues() {
 			effectQueue = []
 			flushRunQueue(_)
 		}
+
 		return Promise.resolve().then(flushQueues)
 	}
 }
@@ -118,7 +129,8 @@ function isPure(cb) {
 }
 
 function _dispose_raw() {
-	for (let i of this) i(true)
+	const count = this.length
+	for (let i = 0; i < count; i++) this[i](true)
 	this.length = 0
 }
 function _dispose_with_callback(dispose_raw, batch) {
@@ -242,22 +254,66 @@ const untrack = freeze(function(fn, ...args) {
 	return fn(...args)
 }, _invalidatedState)
 
+function vacuumEffectStore() {
+	let delCount = this[1]
+	if (!delCount) {
+		return
+	}
+	const effectEnd = this.length
+
+	if (delCount === effectEnd - 2) {
+		this.length = 2
+		this[1] = 0
+		return
+	}
+
+	let i = 2
+
+	for (; i < effectEnd; i++) {
+		if (!this[i][0]) {
+			delCount -= 1
+			break
+		}
+	}
+
+	let cursor = i
+	i += 1
+
+	for (; i < effectEnd && delCount > 0; i++) {
+		if (this[i][0]) {
+			this[cursor] = this[i]
+			cursor += 1
+		} else {
+			delCount -= 1
+		}
+	}
+
+	this.splice(cursor, i - cursor)
+	this[1] = 0
+}
+
+function scheduleVacuum(effects) {
+	if (effects[1] === 2) {
+		nextTick(vacuumEffectStore.bind(effects))
+	}
+	effects[1] += 1
+}
+
 const Signal = class {
 	constructor(value, compute) {
 		if (!isProduction && new.target !== Signal) {
 			throw new Error('Signal must not be extended!')
 		}
 
+
+		// effectStore: [id, delCount, ...effects]
 		// eslint-disable-next-line no-plusplus
 		const id = sigID++
-		const userEffects = []
-		const signalEffects = []
+		const userEffects = [id, 0]
+		const signalEffects = [id, 0]
 		const disposeCtx = currentDisposers
 
-		userEffects._id = id
-		signalEffects._id = id
-
-		const internal = {
+		const internals = {
 			id,
 			value,
 			compute,
@@ -267,7 +323,7 @@ const Signal = class {
 		}
 
 		Object.defineProperty(this, '_', {
-			value: internal,
+			value: internals,
 			writable: false,
 			enumerable: false,
 			configurable: false
@@ -359,11 +415,13 @@ const Signal = class {
 		const { userEffects, signalEffects, disposeCtx } = this._
 		const effects = isPure(effect) ? signalEffects : userEffects
 		if (contextValid) {
-			effects.push(effect)
+			const container = [effect]
+			effects.push(container)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
-					removeFromArr(effects, effect)
+					container[0] = null
 					effect.__refui_flush_priority -= 1
+					scheduleVacuum(effects)
 				})
 			}
 			if (!Object.hasOwn(effect, '__refui_flush_priority')) {
@@ -372,9 +430,9 @@ const Signal = class {
 					writable: true
 				})
 			}
-			if (runImmediate && currentEffect !== effect) {
-				effect()
-			}
+		}
+		if (runImmediate && currentEffect !== effect) {
+			effect()
 		}
 	}
 
@@ -587,9 +645,10 @@ function poke(val, newVal) {
 }
 
 function touch(...vals) {
-	for (let i of vals) {
-		if (isSignal(i)) {
-			i.touch()
+	const valCount = vals.length
+	for (let i = 0; i < valCount; i++) {
+		if (isSignal(vals[i])) {
+			vals[i].touch()
 		}
 	}
 }
@@ -624,9 +683,10 @@ function write(val, newVal) {
 }
 
 function listen(vals, cb) {
-	for (let val of vals) {
-		if (isSignal(val)) {
-			val.connect(cb)
+	const valCount = vals.length
+	for (let i = 0; i < valCount; i++) {
+		if (isSignal(vals[i])) {
+			vals[i].connect(cb)
 		}
 	}
 }
@@ -654,8 +714,9 @@ function not(val) {
 }
 
 function connect(sigs, effect, runImmediate = true) {
-	for (let sig of sigs) {
-		sig.connect(effect, false)
+	const sigCount = sigs.length
+	for (let i = 0; i < sigCount; i++) {
+		sigs[i].connect(effect, false)
 	}
 	if (runImmediate) {
 		const prevEffect = currentEffect
@@ -785,10 +846,12 @@ function onCondition(sig, compute) {
 				currentVal = newVal
 
 				if (prevMatchSet) {
-					for (let i of prevMatchSet) i.value = false
+					const size = prevMatchSet.length
+					for (let i = 0; i < size; i++) prevMatchSet[i].value = false
 				}
 				if (newMatchSet) {
-					for (let i of newMatchSet) i.value = true
+					const size = newMatchSet.length
+					for (let i = 0; i < size; i++) newMatchSet[i].value = true
 				}
 			}
 		})

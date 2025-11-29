@@ -115,16 +115,17 @@ function createRenderer(nodeOps, rendererID) {
 	}
 
 	function appendNode(parent, ...nodes) {
+		const nodeCount = nodes.length
 		if (isFragment(parent)) {
 			const [, , anchorEnd] = fragmentMap.get(parent)
-			for (let node of nodes) {
-				insertBefore(node, anchorEnd)
+			for (let i = 0; i < nodeCount; i++) {
+				insertBefore(nodes[i], anchorEnd)
 			}
 			return
 		} else {
-			for (let node of nodes) {
-				removeNode(node)
-				parentMap.set(node, parent)
+			for (let i = 0; i < nodeCount; i++) {
+				removeNode(nodes[i])
+				parentMap.set(nodes[i], parent)
 			}
 			const flattened = flattenChildren(nodes)
 			flattened.unshift(parent)
@@ -154,7 +155,11 @@ function createRenderer(nodeOps, rendererID) {
 		}
 
 		if (isFragment(node)) {
-			for (let child of expandFragment(node)) insertBeforeRaw(child, ref)
+			const expanded = expandFragment(node)
+			const expandedLength = expanded.length
+			for (let i = 0; i < expandedLength; i++) {
+				insertBeforeRaw(expanded[i], ref)
+			}
 			return
 		}
 
@@ -205,8 +210,9 @@ function createRenderer(nodeOps, rendererID) {
 				}
 			}
 			function flatChildren(childArr) {
-				for (let child of childArr) {
-					processChild(child)
+				const childArrLength = childArr.length
+				for (let i = 0; i < childArrLength; i++) {
+					processChild(childArr[i])
 				}
 			}
 			flatChildren(children)

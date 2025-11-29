@@ -39,8 +39,9 @@ function createPortal() {
 			nodes.trigger()
 			onDispose(function() {
 				const arr = nodes.peek()
-				for (let i of normalizedChildren) {
-					removeFromArr(arr, i)
+				const childCount = normalizedChildren.length
+				for (let i = 0; i < childCount; i++) {
+					removeFromArr(arr, normalizedChildren[i])
 				}
 				nodes.value = [...nodes.peek()]
 			})

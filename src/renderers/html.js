@@ -127,10 +127,13 @@ function createHTMLRenderer ({
 			revokeSelfClosing(parent)
 			_parent = parent[3]
 		}
-		for (let node of nodes) {
+		const nodeCount = nodes.length
+		for (let i = 0; i < nodeCount; i++) {
+			const node = nodes[i]
 			if (node[FLAG_FRAG]) {
-				for (let _node of node) {
-					_node.parent = _parent
+				const fragChildCount = node.length
+				for (let j = 0; j < fragChildCount; j++) {
+					node[j].parent = _parent
 				}
 				_parent.push(...node)
 				node.length = 0
@@ -149,8 +152,9 @@ function createHTMLRenderer ({
 		const index = parent.indexOf(ref)
 		if (index > -1) {
 			if (node[FLAG_FRAG]) {
-				for (let _node of node) {
-					_node.parent = parent
+				const fragChildCount = node.length
+				for (let i = 0; i < fragChildCount; i++) {
+					node[i].parent = parent
 				}
 				parent.splice(index, 0, ...node)
 				node.length = 0

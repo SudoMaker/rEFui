@@ -28,13 +28,14 @@ export function UnKeyed({ entries, ...args }, itemTemplate) {
 	watch(function() {
 		const rawEntries = read(entries)
 		const oldLength = rawSigEntries.length
-		rawSigEntries.length = rawEntries.length
-		for (let i in rawEntries) {
+		const newLength = rawEntries.length
+		rawSigEntries.length = newLength
+		for (let i = 0; i < newLength; i++) {
 			if (rawSigEntries[i]) rawSigEntries[i].value = rawEntries[i]
 			else rawSigEntries[i] = signal(rawEntries[i])
 		}
 
-		if (oldLength !== rawEntries.length) sigEntries.trigger()
+		if (oldLength !== newLength) sigEntries.trigger()
 	})
 
 	return function(R) {

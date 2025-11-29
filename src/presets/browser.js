@@ -23,8 +23,9 @@ import { nextTick, bind } from 'refui/signal'
 function reverseMap(keyValsMap) {
 	const reversed = {}
 	for (let [key, vals] of Object.entries(keyValsMap)) {
-		for (let val of vals) {
-			reversed[val] = key
+		const valCount = vals.length
+		for (let i = 0; i < vals.length; i++) {
+			reversed[vals[i]] = key
 		}
 	}
 	return reversed
