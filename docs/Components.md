@@ -221,6 +221,13 @@ const App = ({ condition }) => {
 
 Inline helper functions that you place directly in JSX are evaluated immediately—rEFui keeps calling the returned value with renderer object as the only parameter until it resolves to a concrete node. Because this evaluation happens synchronously during render, no reactive tracking is established. Use them only for constant branches or to invoke pure helpers. When you need the branching to respond to signals, keep the logic inside `<Fn>` or derive a computed signal instead.
 
+**Caveat (signals inside `Fn`):** Avoid creating a new signal and immediately reading it inside the `Fn` handler body itself (the function you pass as `<Fn>{handler}</Fn>`). That handler runs in a tracked reactive scope; if it allocates a signal and then updates it elsewhere, it can schedule itself again, creating a new signal without the update and making the updated value useless. Instead, create signals either:
+
+- Outside the `Fn` (e.g. in the parent component), or
+- Inside the render function that the handler returns (`(R) => ...`),
+
+so that updates happen from stable reactive owners rather than from the `Fn` control body.
+
 **Note**: Although `Fn` is much more efficient when updating than re-rendering the whole tree in other immediate mode frameworks like React, it's still more expensive than signals for rendering texts only. If you want simple conditional text like adding `s`/`es` to plural nouns, just use a computed signal.
 
 #### Advanced Usage: `ctx` and `catch`
@@ -617,12 +624,19 @@ const ToggleMessage = () => {
 
 Creates a lazy-loaded component that can be dynamically imported and rendered. This is useful for code splitting and performance optimization, allowing components to be loaded only when needed while preserving the current rendering context.
 
-The `lazy` function takes a loader function (typically a dynamic import) and an optional symbol to extract from the loaded module. It returns a function that can be called with additional arguments to render the lazy component.
+The `lazy` function takes a loader function (typically a dynamic import) and an optional identifier to extract from the loaded value. The loader may resolve either to a component function or to a module-like object:
+
+- If the resolved value is a function and no identifier is provided, that function is used directly as the component.
+- Otherwise, `lazy` looks up `resolved[identifier ?? 'default']` on the loaded module and uses that export.
+
+If the loader cannot produce a component (for example, the requested export is missing or resolves to `null`/`undefined`), the lazy wrapper rejects with a `SyntaxError`. You can handle this via the lazy component's `fallback`/`catch` props in the same way as other async components.
+
+It returns a function that can be called with additional arguments to render the lazy component.
 
 **Parameters:**
 
 - `loader`: A function that returns a Promise resolving to the module/component
-- `symbol` (optional): The symbol to extract from the loaded module (defaults to 'default' for ES modules)
+- `ident` (optional): The export key to extract from the loaded module (defaults to `'default'` when the loader returns a module object)
 
 **Returns:** A function that can be called with additional arguments to render the lazy component
 
@@ -846,6 +860,10 @@ const App = () => {
 
 Creates a portal using an `Inlet`/`Outlet` pattern, allowing you to render components in a different part of the DOM tree.
 
+`createPortal(options?)` accepts an optional configuration object:
+
+- `itemRenderer` (optional): A function `({ item }) => node` used to wrap each value sent through the portal. By default it returns `item` unchanged. This is useful when you want every inlet contribution to be wrapped (for example, in a `<li>` or `<span>` element).
+
 ```jsx
 import { createPortal } from 'refui/extras'
 
@@ -907,48 +925,57 @@ const App = () => {
 
 ### Parse
 
-Efficiently parses and renders text content using a custom parser function. The `Parse` component is optimized with built-in memoization, only re-parsing when the text or parser function changes.
+Efficiently parses and renders text content (or any structured source) using a custom parser function. The `Parse` component wires a parser into your component tree and memoizes the render boundary so that it only swaps when the parser function identity changes.
 
 **Props:**
 
--   `text`: A string or signal containing the text to parse.
--   `parser`: A function that takes `(text, R)` as arguments and returns a renderable node or an array of nodes. The renderer `R` is passed to enable the parser to create DOM elements.
+-   `source`: A value passed verbatim to your parser. It can be a string, a signal, or any other type your parser understands. When you pass a signal, call `read(source)` inside the returned render function to access its current value and opt into reactivity.
+-   `parser`: Either a parser function, or a signal that resolves to a parser function. The parser is called as `parser({ source, onAppend }, ...children)` and should return a render function (or any other renderable shape). When `parser` is a signal, `Parse` memoizes the underlying render function and only recreates it when the signal's value changes.
+-   `expose` (optional): A callback that receives an object with an `append` function. The parser can call `onAppend(append)` to register an `append` handler; `Parse` will then expose that handler to the parent via `expose({ append })`. This is useful for incremental or streaming parsing, where the parent pushes new chunks into the parser over time.
 
-The component automatically handles reactive updates when either the text content or parser function changes, making it ideal for dynamic content parsing scenarios.
+Because the render function returned by your parser runs in a tracked scope, any signals you read inside it (for example the `source` signal itself) will cause the output to update when they change, making `Parse` ideal for dynamic content parsing scenarios.
 
 ```jsx
 import { Parse } from 'refui/extras'
-import { signal } from 'refui'
+import { signal, read } from 'refui'
 
 // Simple markdown-like parser example
-const simpleMarkdownParser = (text, R) => {
-	// Convert **bold** to <strong> tags
-	const boldRegex = /\*\*(.*?)\*\*/g
-	const parts = text.split(boldRegex)
+const simpleMarkdownParser = ({ source }) => {
+	return (R) => {
+		const text = read(source)
 
-	const elements = parts.map((part, index) => {
-		if (index % 2 === 1) {
-			// Odd indices are the bold content
-			return R.c('strong', null, part)
-		}
-		return part
-	})
+		// Convert **bold** to <strong> tags
+		const boldRegex = /\*\*(.*?)\*\*/g
+		const parts = text.split(boldRegex)
 
-	return elements
+		const elements = parts.map((part, index) => {
+			if (index % 2 === 1) {
+				// Odd indices are the bold content
+				return R.c('strong', null, part)
+			}
+			return part
+		})
+
+		return elements
+	}
 }
 
 // Code syntax highlighter parser
-const codeParser = (code, R) => {
-	// Simple syntax highlighting for keywords
-	const keywords = ['function', 'const', 'let', 'var', 'if', 'else', 'return']
-	let highlightedCode = code
+const codeParser = ({ source }) => {
+	return (R) => {
+		const code = read(source)
 
-	keywords.forEach(keyword => {
-		const regex = new RegExp(`\\b${keyword}\\b`, 'g')
-		highlightedCode = highlightedCode.replace(regex, `<span class="keyword">${keyword}</span>`)
-	})
+		// Simple syntax highlighting for keywords
+		const keywords = ['function', 'const', 'let', 'var', 'if', 'else', 'return']
+		let highlightedCode = code
 
-	return R.c('pre', { innerHTML: highlightedCode })
+		keywords.forEach(keyword => {
+			const regex = new RegExp(`\\b${keyword}\\b`, 'g')
+			highlightedCode = highlightedCode.replace(regex, `<span class="keyword">${keyword}</span>`)
+		})
+
+		return R.c('pre', { innerHTML: highlightedCode })
+	}
 }
 
 const App = () => {
@@ -971,7 +998,7 @@ const App = () => {
 			<h2>Parse Component Demo</h2>
 
 			<div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
-				<Parse text={markdownText} parser={currentParser} />
+				<Parse source={markdownText} parser={currentParser} />
 			</div>
 
 			<button on:click={switchParser}>
@@ -996,27 +1023,31 @@ const App = () => {
 
 ```jsx
 import { Parse } from 'refui/extras'
-import { signal } from 'refui'
+import { signal, read } from 'refui'
 
 // HTML-like parser that converts custom tags to components
-const customHtmlParser = (text, R) => {
-	// Convert [button:text] to actual button elements
-	const buttonRegex = /\[button:(.*?)\]/g
-	const linkRegex = /\[link:(.*?)\|(.*?)\]/g
+const customHtmlParser = ({ source }) => {
+	return (R) => {
+		const text = read(source)
 
-	let result = text
+		// Convert [button:text] to actual button elements
+		const buttonRegex = /\[button:(.*?)\]/g
+		const linkRegex = /\[link:(.*?)\|(.*?)\]/g
 
-	// Replace button syntax
-	result = result.replace(buttonRegex, (match, buttonText) => {
-		return `<button onclick="alert('${buttonText} clicked!')">${buttonText}</button>`
-	})
+		let result = text
 
-	// Replace link syntax
-	result = result.replace(linkRegex, (match, url, linkText) => {
-		return `<a href="${url}" target="_blank">${linkText}</a>`
-	})
+		// Replace button syntax
+		result = result.replace(buttonRegex, (match, buttonText) => {
+			return `<button onclick="alert('${buttonText} clicked!')">${buttonText}</button>`
+		})
 
-	return R.c('div', { innerHTML: result })
+		// Replace link syntax
+		result = result.replace(linkRegex, (match, url, linkText) => {
+			return `<a href="${url}" target="_blank">${linkText}</a>`
+		})
+
+		return R.c('div', { innerHTML: result })
+	}
 }
 
 const CustomHtmlDemo = () => {
@@ -1033,7 +1064,7 @@ const CustomHtmlDemo = () => {
 	return (R) => (
 		<div>
 			<h3>Custom HTML Parser</h3>
-			<Parse text={content} parser={customHtmlParser} />
+			<Parse source={content} parser={customHtmlParser} />
 
 			<textarea
 				rows="6"
@@ -1053,32 +1084,36 @@ The `Parse` component includes automatic memoization that prevents unnecessary r
 
 ```jsx
 import { Parse } from 'refui/extras'
-import { signal } from 'refui'
+import { signal, read } from 'refui'
 
-const expensiveParser = (text, R) => {
-	console.log('Parser called!') // This will only log when text or parser changes
+const expensiveParser = ({ source }) => {
+	return (R) => {
+		const text = read(source)
 
-	// Simulate expensive parsing operation
-	const words = text.split(' ')
-	return words.map((word, index) =>
-		R.c('span', {
-			key: index,
-			style: `color: hsl(${index * 30}, 70%, 50%);`
-		}, word + ' ')
-	)
+		console.log('Parser called!') // This will only log when `text` changes
+
+		// Simulate expensive parsing operation
+		const words = text.split(' ')
+		return words.map((word, index) =>
+			R.c('span', {
+				key: index,
+				style: `color: hsl(${index * 30}, 70%, 50%);`
+			}, word + ' ')
+		)
+	}
 }
 
 const PerformanceDemo = () => {
 	const text = signal('Hello world this is a test')
 	const counter = signal(0)
 
-	// This counter update won't trigger re-parsing
+	// This counter update won't trigger re-parsing because the parser only reads `text`
 	setInterval(() => counter.value++, 1000)
 
 	return (R) => (
 		<div>
 			<p>Counter (doesn't affect parsing): {counter}</p>
-			<Parse text={text} parser={expensiveParser} />
+			<Parse source={text} parser={expensiveParser} />
 			<input
 				value={text}
 				on:input={(e) => text.value = e.target.value}
@@ -1089,7 +1124,66 @@ const PerformanceDemo = () => {
 }
 ```
 
+**Caveat (signals inside parser body):** When you pass `parser` as a signal to `<Parse>`, the parser function itself runs in a tracked scope similar to `<Fn>`. Do not create a new signal and immediately read it in the parser body, or updates to that signal can retrigger the parser to run again, creating a new signal, making the updated value useless. Prefer to:
+
+- Create long-lived signals outside the parser, or
+- Allocate signals inside the returned render function (`(R) => ...`) and mutate them from event handlers or other effects,
+
+so that reactive updates are driven from stable owners instead of from the parser control body.
+
 **Note:** The parser function should return renderable content that can be handled by the renderer. This can be DOM elements created with `R.c()`, text nodes, or arrays of such elements.
+
+#### Streaming / incremental parsing with `expose` and `onAppend`
+
+For streaming or incremental parsing scenarios (for example, log viewers or progressively loaded content), `Parse` lets the parser register an `append` handler, which is then exposed to the parent:
+
+- Inside the parser, call `onAppend(append)` with a function that knows how to incorporate new chunks into your internal state.
+- In the parent, pass an `expose` prop to receive that `append` function and call it whenever new data arrives.
+
+```jsx
+import { Parse } from 'refui/extras'
+import { signal, read } from 'refui'
+
+// Parser that accumulates text chunks and renders them as a log
+const streamingParser = ({ source, onAppend }) => {
+	const content = signal(read(source) ?? '')
+
+	// Register an append handler that the parent can call
+	onAppend((chunk) => {
+		content.value += chunk
+	})
+
+	return (R) => (
+		<pre style="background: #111; color: #0f0; padding: 8px;">
+			{content}
+		</pre>
+	)
+}
+
+const StreamingLogDemo = () => {
+	const initial = signal('Booting...\n')
+	const api = signal(null)
+
+	return (R) => (
+		<div>
+			<Parse
+				source={initial}
+				parser={streamingParser}
+				expose={({ append }) => {
+					// Save the append function so we can call it later
+					api.value = { append }
+				}}
+			/>
+
+			<button on:click={() => api.value?.append('New line\n')}>
+				Append line
+			</button>
+		</div>
+	)
+}
+```
+
+In this pattern, the parser owns the state (`content`), and the parent drives updates by calling the exposed `append` function. Because `content` is a signal, the rendered output updates automatically as new chunks arrive.
 ## Hot Module Replacement
 
 rEFui supports HMR via the refurbish plugin. This preserves component state during edits and avoids manual boilerplate.

@@ -94,12 +94,12 @@ function createHTMLRenderer ({
 			text.connect(function() {
 				const newData = peek(text)
 				if (newData === undefined || newData === null) node[0] = ''
-				else node[0] = escapeHtml(newData)
+				else node[0] = escapeHtml(String(newData))
 			})
 			return node
 		}
 
-		return makeNode([escapeHtml(text)])
+		return makeNode([escapeHtml(String(text))])
 	}
 	function createFragment() {
 		const frag = makeNode([])

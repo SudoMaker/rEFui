@@ -38,7 +38,5 @@ export function UnKeyed({ entries, ...args }, itemTemplate) {
 		if (oldLength !== newLength) sigEntries.trigger()
 	})
 
-	return function(R) {
-		return R.c(For, { name: 'UnKeyed', entries: sigEntries, ...args }, itemTemplate)
-	}
+	return For({ name: 'UnKeyed', entries: sigEntries, ...args }, itemTemplate)
 }

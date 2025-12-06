@@ -34,7 +34,7 @@ export function cached(handler) {
 }
 
 export function cachedStrKeyNoFalsy(handler) {
-	const store = {__proto__: null}
+	const store = Object.create(null)
 	return function(key) {
 		return (store[key] || (store[key] = handler(key)))
 	}

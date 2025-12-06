@@ -20,7 +20,7 @@
 
 import { isSignal } from 'refui/signal'
 import { render, createComponent, Async } from 'refui/components'
-import { removeFromArr, isThenable } from 'refui/utils'
+import { removeFromArr, isThenable, isPrimitive } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const Fragment = '<>'
@@ -167,9 +167,17 @@ function createRenderer(nodeOps, rendererID) {
 	}
 
 	function ensureElement(el) {
+		while (typeof el === 'function') {
+			el = el(renderer)
+		}
 		if (el === null || el === undefined || isNode(el)) return el
 		if (isThenable(el)) {
 			return render(createAsync(el), renderer)
+		}
+		if (Array.isArray(el)) {
+			const fragment = createFragment('Array')
+			appendNode(fragment, ...el)
+			return fragment
 		}
 		return createTextNode(el)
 	}
@@ -190,6 +198,8 @@ function createRenderer(nodeOps, rendererID) {
 					if (isNode(child)) {
 						flushTextBuffer()
 						normalizedChildren.push(child)
+					} else if (isPrimitive(child)) {
+						mergedTextBuffer += String(child)
 					} else if (isSignal(child)) {
 						flushTextBuffer()
 						normalizedChildren.push(createTextNode(child))
@@ -205,7 +215,12 @@ function createRenderer(nodeOps, rendererID) {
 						flushTextBuffer()
 						normalizedChildren.push(render(createAsync(child), renderer))
 					} else {
-						mergedTextBuffer += child
+						try {
+							mergedTextBuffer += JSON.stringify(child)
+						} catch(_) {
+							// error is ignored
+							mergedTextBuffer += String(child)
+						}
 					}
 				}
 			}

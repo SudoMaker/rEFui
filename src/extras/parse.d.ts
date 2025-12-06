@@ -19,12 +19,21 @@
  */
 
 import type { MaybeSignal } from '../signal.js'
-import type { RenderFunction } from '../components.js'
-import type { Renderer } from '../renderer.js'
+import type { PossibleRender, RenderFunction } from '../components.js'
 
-export interface ParseProps {
-	text: MaybeSignal<string>
-	parser: MaybeSignal<(text: string, renderer: Renderer) => RenderFunction | RenderFunction[]>
+export interface ParseContext<S = unknown> {
+	source: MaybeSignal<S> | S
+	onAppend(append: (...args: any[]) => void): void
 }
 
-export function Parse(props: ParseProps): RenderFunction
+export interface ParseExpose<S = unknown> {
+	append: (...args: any[]) => void
+}
+
+export interface ParseProps<S = unknown> {
+	source: MaybeSignal<S> | S
+	parser: MaybeSignal<(context: ParseContext<S>, ...children: any[]) => PossibleRender>
+	expose?: (api: ParseExpose<S>) => void
+}
+
+export function Parse<S = unknown>(props: ParseProps<S>, ...children: any[]): RenderFunction
