@@ -18,27 +18,34 @@
  * under the License.
  */
 
-import { read } from 'refui/signal'
+import { read, isSignal } from 'refui/signal'
 import { Fn } from 'refui/components'
 
+const parseProps = {
+	name: 'Parse'
+}
+
 export function Parse({ text, parser }) {
-	let currentText = ''
+	if (!isSignal(parser)) {
+		return function(R) {
+			return parser(text, R)
+		}
+	}
+
 	let currentParser = null
 	let currentRender = null
 
-	return Fn({ name: 'Parse' }, function() {
-		const newText = read(text)
+	return Fn(parseProps, function() {
 		const newParser = read(parser)
 
-		if (newText === currentText && currentParser === newParser) {
+		if (currentParser === newParser) {
 			return currentRender
 		}
 
-		currentText = newText
 		currentParser = newParser
 
 		return (currentRender = function(R) {
-			return R.c(R.f, null, newParser(newText, R))
+			return newParser(text, R)
 		})
 	})
 }

@@ -137,12 +137,12 @@ function createDOMRenderer({
 			text.connect(function() {
 				const newData = peek(text)
 				if (newData === undefined) node.data = ''
-				else node.data = newData
+				else node.data = String(newData)
 			})
 			return node
 		}
 
-		return doc.createTextNode(text)
+		return doc.createTextNode(String(text))
 	}
 	function createFragment() {
 		return doc.createDocumentFragment()

@@ -79,30 +79,38 @@ function getCurrentSelf() {
 	return currentCtx?.self
 }
 
-async function _lazyLoad(loader, symbol, ...args) {
+async function _lazyLoad(loader, ident, ...args) {
 	const run = snapshot()
 	if (!this.cache) {
-		const result = await loader()
-		if ((symbol === undefined || symbol === null) && typeof result === 'function') {
-			this.cache = result
-		} else {
-			this.cache = result[symbol ?? 'default']
-		}
+		this.cache = new Promise(async function(resolve, reject) {
+			let result = await loader()
 
-		if (hotEnabled) {
-			const component = this.cache
-			this.cache = function(...args) {
-				return function(R) {
-					return R.c(component, ...args)
+			if (result && !((ident === undefined || ident === null) && typeof result === 'function')) {
+				result = result[ident ?? 'default']
+			}
+
+			if (!result) {
+				reject(new TypeError('Lazy loader failed to resolve component'))
+				return
+			}
+
+			if (hotEnabled) {
+				const component = result
+				result = function(...args) {
+					return function(R) {
+						return R.c(component, ...args)
+					}
 				}
 			}
-		}
+
+			resolve(result)
+		})
 	}
 
-	return run(this.cache, ...args)
+	return run(await this.cache, ...args)
 }
-function lazy(loader, symbol) {
-	return _lazyLoad.bind({ cache: null }, loader, symbol)
+function lazy(loader, ident) {
+	return _lazyLoad.bind({ cache: null }, loader, ident)
 }
 
 function memo(fn) {
@@ -157,13 +165,10 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 			if (newRender !== undefined && newRender !== null) {
 				const prevDispose = currentDispose
 				currentDispose = run(function() {
-					let newResult = newRender
+					let newResult = null
 					let errored = false
 					try {
-						while (typeof newResult === 'function') {
-							newResult = newResult(R)
-						}
-						newResult = R.ensureElement(newResult)
+						newResult = R.ensureElement(newRender)
 					} catch (err) {
 						errored = true
 						const errorHandler = peek(catchErr)
@@ -601,12 +606,10 @@ function Async({ future, fallback, catch: catchErr, ...props }, then, now, handl
 }
 
 function Render({ from }) {
-	return function(R) {
-		return R.c(Fn, { name: 'Render' }, function() {
-			const instance = read(from)
-			if (instance !== null && instance !== undefined) return render(instance, R)
-		})
-	}
+	return Fn({ name: 'Render' }, function() {
+		const instance = read(from)
+		if (instance !== null && instance !== undefined) return render(instance, R)
+	})
 }
 
 class Component {
@@ -625,11 +628,9 @@ class Component {
 		const disposers = []
 
 		ctx.run = capture(function(fn, ...args) {
-			let result = fn
+			let result = null
 			const cleanup = collectDisposers([], function() {
-				do {
-					result = result(...args)
-				} while (typeof result === 'function')
+				result = fn(...args)
 			}, function(batch) {
 				if (!batch) {
 					removeFromArr(disposers, cleanup)

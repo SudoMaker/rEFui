@@ -96,10 +96,10 @@ function createCache(tpl) {
 	onDispose(dispose)
 
 	function Cached({ expose }) {
-		return function(R) {
+		return function() {
 			const cache = new WeakMap()
 			expose?.({ cache })
-			return R.c(For, { entries: components }, function({ item }) {
+			return For({ name: 'Cached', entries: components }, function({ item }) {
 				let node = cache.get(item)
 				if (!node) {
 					node = untrack(function() {

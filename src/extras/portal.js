@@ -22,40 +22,40 @@ import { signal, onDispose } from 'refui/signal'
 import { dispose, getCurrentSelf, For, Fn } from 'refui/components'
 import { removeFromArr } from 'refui/utils'
 
-function dumbFn(_) {
-	return _
+function dummyRenderer({ item }) {
+	return item
 }
 
-function createPortal() {
+const outletProps = {
+	name: 'Outlet'
+}
+
+function createPortal({ itemRenderer = dummyRenderer } = {}) {
 	let currentOutlet = null
-	const nodes = signal([])
-	function outletView(R) {
-		return R.c(For, { entries: nodes }, dumbFn)
-	}
+	const nodeArr = []
+	const nodes = signal(nodeArr)
+	const outletView = For({ name: null, entries: nodes }, itemRenderer)
 	function Inlet(_, ...children) {
 		return function({ normalizeChildren }) {
-			const normalizedChildren = normalizeChildren(children)
-			nodes.peek().push(...normalizedChildren)
+			let normalizedChildren = normalizeChildren(children)
+			if (normalizedChildren.length === 1) {
+				normalizedChildren = normalizedChildren[0]
+			}
+			nodeArr.push(normalizedChildren)
 			nodes.trigger()
 			onDispose(function() {
-				const arr = nodes.peek()
-				const childCount = normalizedChildren.length
-				for (let i = 0; i < childCount; i++) {
-					removeFromArr(arr, normalizedChildren[i])
-				}
-				nodes.value = [...nodes.peek()]
+				removeFromArr(nodeArr, normalizedChildren)
+				nodes.trigger()
 			})
 		}
 	}
 	function Outlet(_, fallback) {
 		if (currentOutlet) dispose(currentOutlet)
 		currentOutlet = getCurrentSelf()
-		return function({ c }) {
-			return c(Fn, null, function() {
-				if (nodes.value.length) return outletView
-				return fallback
-			})
-		}
+		return Fn(outletProps, function() {
+			if (nodes.value.length) return outletView
+			return fallback
+		})
 	}
 
 	return [Inlet, Outlet]
