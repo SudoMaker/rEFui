@@ -468,35 +468,51 @@ renderer.appendNode(fragment, element1, element2);
 
 #### `renderer.ensureElement(value)`
 
-Ensures a value is a valid element, converting primitives to text nodes.
+Ensures a value is a valid element, converting supported inputs into nodes and resolving lazy constructs.
+
+**Behavior:**
+- Functions are called repeatedly with the renderer until they return a non-function value.
+- Promises/thenables are wrapped in an internal `<Async>` boundary and rendered.
+- Arrays are wrapped in a fragment and each entry is normalized.
+- `null`, `undefined`, or existing nodes are returned as-is.
+- All other values are turned into text nodes via `renderer.text`.
 
 **Parameters:**
-- `value`: Value to convert
+- `value`: Value to convert (node, function, promise, array, primitive, etc.)
 
-**Returns:** Element or text node
+**Returns:** Element, fragment, or text node
 
 ```jsx
 const textNode = renderer.ensureElement('Hello World');
+const fromFn = renderer.ensureElement(() => 'Deferred');
 const unchanged = renderer.ensureElement(existingElement);
 ```
 
 #### `renderer.text(content)`
 
-Creates a text node with the given content.
+Creates a text node from a value or signal. Non-string values are coerced with `String(...)`; `undefined`/`null` become an empty string.
 
 **Parameters:**
-- `content`: Text content (can be a signal)
+- `content`: Text content; can be a primitive value or a signal of such
 
 ```jsx
 import { signal } from 'refui';
 
 const message = signal('Hello');
 const textNode = renderer.text(message); // Reactive text node
+const staticNumber = renderer.text(42);  // Renders `42` as text
 ```
 
 #### `renderer.normalizeChildren(children)`
 
-Normalizes an array of children, flattening arrays and converting values to elements.
+Normalizes an array of children, flattening arrays and converting values to elements using the same rules as `renderer.ensureElement`.
+
+**Behavior:**
+- Flattens nested arrays and fragments.
+- Coalesces adjacent primitive values into a single text node.
+- Converts signals into reactive text nodes.
+- Resolves function and promise children into elements.
+- Stringifies plain objects using `JSON.stringify` (falling back to `String` when needed).
 
 **Parameters:**
 - `children`: Array of child elements
@@ -506,8 +522,10 @@ Normalizes an array of children, flattening arrays and converting values to elem
 ```jsx
 const normalized = renderer.normalizeChildren([
 	'text',
+	123,
 	signal('reactive text'),
 	['nested', 'array'],
+	() => 'from function',
 	element
 ]);
 ```
