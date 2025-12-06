@@ -90,7 +90,7 @@ async function _lazyLoad(loader, ident, ...args) {
 			}
 
 			if (!result) {
-				reject(new TypeError('Lazy loader failed to resolve component'))
+				reject(new SyntaxError('Lazy loader failed to resolve component'))
 				return
 			}
 

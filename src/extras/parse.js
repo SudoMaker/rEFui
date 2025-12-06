@@ -25,17 +25,25 @@ const parseProps = {
 	name: 'Parse'
 }
 
-export function Parse({ text, parser }) {
+const nullNamedProps = {
+	name: null
+}
+
+export function Parse({ source, parser, expose }, ...children) {
+	function onAppend(append) {
+		expose?.({ append })
+	}
+
 	if (!isSignal(parser)) {
-		return function(R) {
-			return parser(text, R)
-		}
+		return Fn(nullNamedProps, function() {
+			return parser({ source, onAppend }, ...children)
+		})
 	}
 
 	let currentParser = null
 	let currentRender = null
 
-	return Fn(parseProps, function() {
+	return Fn(parseProps, function () {
 		const newParser = read(parser)
 
 		if (currentParser === newParser) {
@@ -44,8 +52,8 @@ export function Parse({ text, parser }) {
 
 		currentParser = newParser
 
-		return (currentRender = function(R) {
-			return newParser(text, R)
-		})
+		return (currentRender = Fn(nullNamedProps, function() {
+			return newParser({ source, onAppend }, ...children)
+		}))
 	})
 }
