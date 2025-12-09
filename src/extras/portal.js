@@ -18,9 +18,9 @@
  * under the License.
  */
 
-import { signal, onDispose } from 'refui/signal'
+import { signal, onDispose, read } from 'refui/signal'
 import { dispose, getCurrentSelf, For, Fn } from 'refui/components'
-import { removeFromArr } from 'refui/utils'
+import { removeFromArr, markStatic } from 'refui/utils'
 
 function dummyRenderer({ item }) {
 	return item
@@ -30,35 +30,36 @@ const outletProps = {
 	name: 'Outlet'
 }
 
-function createPortal({ itemRenderer = dummyRenderer } = {}) {
-	let currentOutlet = null
+function createPortal() {
 	const nodeArr = []
 	const nodes = signal(nodeArr)
-	const outletView = For({ name: null, entries: nodes }, itemRenderer)
 	function Inlet(_, ...children) {
-		return function({ normalizeChildren }) {
-			let normalizedChildren = normalizeChildren(children)
-			if (normalizedChildren.length === 1) {
-				normalizedChildren = normalizedChildren[0]
-			}
-			nodeArr.push(normalizedChildren)
+		nodeArr.push(children)
+		nodes.trigger()
+		onDispose(function() {
+			removeFromArr(nodeArr, children)
 			nodes.trigger()
-			onDispose(function() {
-				removeFromArr(nodeArr, normalizedChildren)
-				nodes.trigger()
-			})
-		}
+		})
 	}
-	function Outlet(_, fallback) {
-		if (currentOutlet) dispose(currentOutlet)
-		currentOutlet = getCurrentSelf()
+	function Outlet({ itemRenderer } = {}, fallback) {
+		let currentRenderer = null
+		let currentViewRenderer = null
 		return Fn(outletProps, function() {
-			if (nodes.value.length) return outletView
+			const newRenderer = read(itemRenderer) || dummyRenderer
+			if (nodes.value.length) {
+				if (newRenderer !== currentRenderer) {
+					currentRenderer = newRenderer
+					currentViewRenderer = function() {
+						return For({ name: null, entries: nodes }, newRenderer)
+					}
+				}
+				return currentViewRenderer
+			}
 			return fallback
 		})
 	}
 
-	return [Inlet, Outlet]
+	return [markStatic(Inlet), markStatic(Outlet)]
 }
 
 export { createPortal }

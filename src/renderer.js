@@ -20,7 +20,7 @@
 
 import { isSignal } from 'refui/signal'
 import { render, createComponent, Async } from 'refui/components'
-import { removeFromArr, isThenable, isPrimitive } from 'refui/utils'
+import { removeFromArr, isThenable, isPrimitive, isStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const Fragment = '<>'
@@ -175,9 +175,15 @@ function createRenderer(nodeOps, rendererID) {
 			return render(createAsync(el), renderer)
 		}
 		if (Array.isArray(el)) {
-			const fragment = createFragment('Array')
-			appendNode(fragment, ...el)
-			return fragment
+			if (el.length > 1) {
+				const fragment = createFragment('Array')
+				appendNode(fragment, ...normalizeChildren(el))
+				return fragment
+			} else if (el.length === 1) {
+				return ensureElement(el[0])
+			} else {
+				return null
+			}
 		}
 		return createTextNode(el)
 	}
@@ -267,9 +273,14 @@ function createRenderer(nodeOps, rendererID) {
 			return render(createAsync(tag), renderer)
 		}
 
-		const instance = createComponent(tag, props, ...children)
+		if (isStatic(tag)) {
+			const { $ref, ..._props } = props ?? nullRefObject
+			if ($ref) {
+				return ensureElement(tag(_props, ...children))
+			}
+		}
 
-		return ensureElement(render(instance, renderer))
+		return ensureElement(render(createComponent(tag, props, ...children), renderer))
 	}
 
 	function renderComponent(target, ...args) {

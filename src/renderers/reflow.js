@@ -20,7 +20,7 @@
 
 import { Fragment } from 'refui/renderer'
 import { hotEnabled } from 'refui/hmr'
-import { isThenable } from 'refui/utils'
+import { isThenable, isStatic, nullRefObject } from 'refui/utils'
 
 const dummyRenderFn = function(props, component, R) {
 	return R.c(component, props, ...this)
@@ -29,12 +29,17 @@ const dummyRenderFn = function(props, component, R) {
 const createElement = (function() {
 	if (hotEnabled) {
 		return function(component, props, ...children) {
+			if (typeof component === 'function' && isStatic(component)) {
+				const { $ref, ..._props } = props ?? nullRefObject
+				if (!$ref) {
+					return component(_props, ...children)
+				}
+			}
 			return dummyRenderFn.bind(children, props, component)
 		}
 	} else {
-		const emptyProp = Object.create(null)
 		return function(component, props, ...children) {
-			const { $ref, ..._props } = props || emptyProp
+			const { $ref, ..._props } = props ?? nullRefObject
 			if (!$ref && typeof component === 'function') {
 				return component(_props, ...children)
 			}

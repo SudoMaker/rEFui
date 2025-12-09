@@ -20,6 +20,7 @@
 
 import { signal, untrack, onDispose } from 'refui/signal'
 import { createComponent, For, render } from 'refui/components'
+import { markStatic } from 'refui/utils'
 
 function createCache(tpl) {
 	let dataArr = []
@@ -111,6 +112,8 @@ function createCache(tpl) {
 			})
 		}
 	}
+
+	markStatic(Cached)
 
 	return {
 		getIndex,
