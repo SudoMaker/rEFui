@@ -4,7 +4,13 @@ rEFui provides a set of built-in components to handle common UI patterns like co
 
 > **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
 
-A core concept in rEFui is that a component is a function that accepts `props` and `children`, and returns a render function. This render function receives the renderer `R` and returns a node to be displayed.
+A core concept in rEFui is that a component ultimately behaves like a function that accepts `props` and `children`, and produces a render function. With the JSX **automatic runtime** together with the **Reflow** renderer (the default for most apps), you usually author components as plain JSX factories:
+
+```jsx
+const MyComponent = (props, ...children) => <div>Hello rEFui!</div>
+```
+
+Under the classic JSX transform or when you need direct access to the renderer object, you can spell out the render function explicitly:
 
 ```jsx
 const MyComponent = (props, ...children) => (R) => <div>Hello rEFui!</div>
@@ -12,7 +18,7 @@ const MyComponent = (props, ...children) => (R) => <div>Hello rEFui!</div>
 
 > **Note on JSX Runtimes**
 >
-> While rEFui supports different JSX transforms, the preferred approach for maximum flexibility is the **Classic Transform**. This pattern allows you to swap or wrap renderers on a per-component basis. For a detailed guide on setting up both Classic and Automatic runtimes, see the [JSX Setup documentation](JSX.md).
+> While rEFui supports different JSX transforms, the preferred approach for maximum flexibility is the **Classic Transform**. This pattern allows you to swap or wrap renderers on a per-component basis. But for generic usage, automatic transform can cover most scenarios. For a detailed guide on setting up both Classic and Automatic runtimes, see the [JSX Setup documentation](JSX.md). In this guide, we'll default to Automatic runtime for the ease of usage and alignment to most other JSX based frameworks like `React` and `Solid.js`.
 
 ## Basic Components
 
@@ -32,7 +38,7 @@ const App = () => {
 	const isLoggedIn = signal(false);
 	const userName = signal('John');
 
-	return (R) => (
+	return (
 		<div>
 			<If condition={isLoggedIn}>
 				{() => <span>Welcome back, {userName}!</span>}
@@ -48,7 +54,7 @@ const App = () => {
 
 // Using the 'else' prop for cleaner syntax
 const AppAlternative = ({ value }) => {
-	return (R) => (
+	return (
 		<If
 			condition={value}
 			else={() => <span>Condition is false.</span>}
@@ -81,7 +87,7 @@ const TodoItem = ({ item, index }) => {
 		item.completed.value = !item.completed.value;
 	};
 
-	return (R) => (
+	return (
 		<li>
 			<span
 				style:textDecoration={item.completed.choose('line-through', 'unset')}
@@ -112,7 +118,7 @@ export const TodoList = () => {
 		newTodoText.value = ''
 	};
 
-	return (R) => (
+	return (
 		<div>
 			<input value={newTodoText} on:input={(e) => { newTodoText.value = e.target.value }} />
 			<button on:click={addTodo}>Add Todo</button>
@@ -132,7 +138,7 @@ const SimpleTodoList = () => {
 		{ id: 2, text: 'Build an app' },
 	]);
 
-	return (R) => (
+	return (
 		<ul>
 			<For entries={todos}>
 				{({ item }) => <li>{item.text}</li>}
@@ -172,7 +178,7 @@ const InteractiveList = () => {
 		listApi.value?.clear();
 	};
 
-	return (R) => (
+	return (
 		<div>
 			<For
 				entries={items}
@@ -190,7 +196,7 @@ const InteractiveList = () => {
 
 ### Fn
 
-Executes a function that returns a render function (`(R) => Node`). This is useful for complex conditional logic that doesn't neatly fit into an [`If`](#if) component. `Fn` is also the building block for all other built-in components except for [`For`](#for).
+Executes a function that returns a render function (`(R) => Node`). This is useful for complex conditional logic that doesn't neatly fit into an [`If`](#if) component. `Fn` is also the building block for all other built-in components except for [`For`](#for). The `R` parameter can be omitted when using Reflow renderer.
 
 **Performance Tip**: Define the returned render functions outside the `Fn` scope to prevent them from being recreated on every render cycle.
 
@@ -202,7 +208,7 @@ const renderB = (R) => <div>Condition: 456</div>
 const renderDefault = (R) => <div>Nothing matched!</div>
 
 const App = ({ condition }) => {
-	return (R) => (
+	return (
 		<Fn>
 			{() => {
 				switch (read(condition)) {
@@ -243,38 +249,38 @@ Here's how you can use them together:
 import { Fn, read, signal } from 'refui'
 
 // This component might throw an error
-const UserProfile = ({ user }) => (R) => {
-  if (!user || !user.name) {
-    throw new Error("User name is missing!");
-  }
-  return <div>Welcome, {user.name}</div>;
+const UserProfile = ({ user }) => {
+	if (!user || !user.name) {
+	throw new Error("User name is missing!");
+	}
+	return <div>Welcome, {user.name}</div>;
 };
 
 const App = () => {
-  const userSignal = signal({ name: 'John Doe' });
+	const userSignal = signal({ name: 'John Doe' });
 
-  // A handler to render error states
-  const renderError = (R) => (error, name, ctx) => (
-    <div style="color: red;">
-      <p>Oops! Something went wrong in "{name}":</p>
-      <p><b>{error.message}</b></p>
-      <p>Context when error occurred:</p>
-      <pre>{JSON.stringify(read(ctx), null, 2)}</pre>
-    </div>
-  );
+	// A handler to render error states
+	const renderError = (error, name, ctx) => (
+	<div style="color: red;">
+		<p>Oops! Something went wrong in "{name}":</p>
+		<p><b>{error.message}</b></p>
+		<p>Context when error occurred:</p>
+		<pre>{JSON.stringify(read(ctx), null, 2)}</pre>
+	</div>
+	);
 
-  // The handler function passed to <Fn>. It receives the context.
-  const userProfileHandler = (user) => UserProfile({ user });
+	// The handler function passed to <Fn>. It receives the context.
+	const userProfileHandler = (user) => UserProfile({ user });
 
-  setTimeout(() => userSignal.value = { name: null }, 2000); // Simulate an error condition
+	setTimeout(() => userSignal.value = { name: null }, 2000); // Simulate an error condition
 
-  return (R) => (
-    <Fn ctx={userSignal} catch={renderError(R)} name="UserProfileBoundary">
-      {userProfileHandler}
-			{/* Alternatively, handleError can be written as the second child of Fn */}
-			{renderError(R)}
-    </Fn>
-  );
+	return (
+	<Fn ctx={userSignal} catch={renderError} name="UserProfileBoundary">
+		{userProfileHandler}
+		{renderError}
+		{/* Alternatively, handleError can be written as the second child of Fn */}
+	</Fn>
+	);
 };
 ```
 
@@ -287,13 +293,13 @@ Renders a component that can change over time. The component can be specified as
 ```jsx
 import { signal, derivedExtract, Dynamic } from 'refui';
 
-const Card = ({ title, color = 'white' }) => (R) => (
+const Card = ({ title, color = 'white' }) => (
 	<div style={`background: ${color}; padding: 20px; border-radius: 8px;`}>
 		<h3>{title}</h3>
 	</div>
 );
 
-const Alert = ({ message, type = 'info' }) => (R) => (
+const Alert = ({ message, type = 'info' }) => (
 	<div style={`border: 2px solid ${type === 'error' ? 'red' : 'blue'}; padding: 10px;`}>
 		{message}
 	</div>
@@ -317,7 +323,7 @@ const DynamicDemo = () => {
 	// Create individual reactive signals for each prop
 	const { title, color, message, type } = derivedExtract(props);
 
-	return (R) => (
+	return (
 		<div>
 			<Dynamic
 				is={currentComponent}
@@ -339,7 +345,7 @@ const ComponentSwitcher = () => {
 	const currentTag = signal('button');
 	const message = signal('Click to change tag!');
 
-	return (R) => (
+	return (
 		<div>
 			<Dynamic
 				is={currentTag}
@@ -387,14 +393,14 @@ import { Async } from 'refui';
 
 const fetchMessage = () => new Promise(resolve => setTimeout(() => resolve('Data loaded!'), 1000));
 
-const App = () => (R) => (
-    <Async
-        future={fetchMessage()}
-        fallback={() => <p>Loading...</p>}
-        catch={({ error }) => <p>Error: {error.message}</p>}
-    >
-        {({ result }) => <p>Success: {result}</p>}
-    </Async>
+const App = () => (
+	<Async
+		future={fetchMessage()}
+		fallback={() => <p>Loading...</p>}
+		catch={({ error }) => <p>Error: {error.message}</p>}
+	>
+		{({ result }) => <p>Success: {result}</p>}
+	</Async>
 );
 ```
 
@@ -405,29 +411,23 @@ You can pass components directly as children. Any extra props on `<Async>` will 
 ```jsx
 import { Async } from 'refui';
 
-const SuccessComponent = ({ result, message }) => (R) => (
-    <p>{message}: {result}</p>
-);
+const SuccessComponent = ({ result, message }) => <p>{message}: {result}</p>;
 
-const LoadingComponent = ({ message }) => (R) => (
-    <p>{message}</p>
-);
+const LoadingComponent = ({ message }) => <p>{message}</p>;
 
-const ErrorComponent = ({ error }) => (R) => (
-    <p>Failed to load: {error.message}</p>
-);
+const ErrorComponent = ({ error }) => <p>Failed to load: {error.message}</p>;
 
 const fetchUser = () => Promise.resolve('John Doe');
 
-const App = () => (R) => (
-    <Async
-        future={fetchUser()}
-        message="User loaded" // This prop is passed down
-    >
-        {SuccessComponent}
-        {LoadingComponent}
-        {ErrorComponent}
-    </Async>
+const App = () => (
+	<Async
+		future={fetchUser()}
+		message="User loaded" // This prop is passed down
+	>
+		{SuccessComponent}
+		{LoadingComponent}
+		{ErrorComponent}
+	</Async>
 );
 ```
 
@@ -444,27 +444,27 @@ const UserProfile = async ({ userId }) => {
 	if (!response.ok) throw new Error('User not found');
 	const user = await response.json();
 
-	return (R) => <div>Hello, {user.name}</div>;
+	return <div>Hello, {user.name}</div>;
 };
 
 // Use <Fn> to re-create the component when the ID changes
 const App = () => {
-    const userId = signal(1);
+	const userId = signal(1);
 
-    return (R) => (
-        <div>
-            <Fn>
-                {() => (
-                    <UserProfile
-                        userId={userId.value}
-                        fallback={() => <div>Loading...</div>}
-                        catch={({ error }) => <div>Error: {error.message}</div>}
-                    />
-                )}
-            </Fn>
-            <button on:click={() => userId.value++}>Load next</button>
-        </div>
-    );
+	return (
+		<div>
+			<Fn>
+				{() => (
+					<UserProfile
+						userId={userId.value}
+						fallback={() => <div>Loading...</div>}
+						catch={({ error }) => <div>Error: {error.message}</div>}
+					/>
+				)}
+			</Fn>
+			<button on:click={() => userId.value++}>Load next</button>
+		</div>
+	);
 };
 ```
 
@@ -477,7 +477,7 @@ When a component function is `async`, rEFui automatically creates an async bound
 const StoryItem = async ({ id }) => {
 	const story = await fetchStory(id); // This might throw
 
-	return (R) => (
+	return (
 		<article>
 			<h2>{story.title}</h2>
 			<p>By {story.author}</p>
@@ -489,7 +489,7 @@ const StoryItem = async ({ id }) => {
 const StoryList = () => {
 	const storyIds = signal([1, 2, 3, 4, 5]);
 
-	return (R) => (
+	return (
 		<div>
 			<For entries={storyIds}>
 				{({ item: id }) => (
@@ -521,15 +521,13 @@ Renders a component instance that was created separately using `createComponent`
 ```jsx
 import { Render, createComponent, signal } from 'refui'
 
-const MyComponent = ({ message }) => {
-	return (R) => <div>Message: {message}</div>
-}
+const MyComponent = ({ message }) => <div>Message: {message}</div>;
 
 const App = () => {
 	const componentInstance = createComponent(MyComponent, { message: 'Hello World!' })
 	const currentInstance = signal(componentInstance)
 
-	return (R) => (
+	return (
 		<div>
 			<h1>Rendered Component:</h1>
 			<Render from={currentInstance} />
@@ -542,7 +540,7 @@ const App = () => {
 			</button>
 		</div>
 	)
-}
+};
 ```
 
 ### memo
@@ -574,7 +572,7 @@ import { memo, signal, If, $ } from 'refui'
 const ToggleMessage = () => {
 	const isOpen = signal(false)
 
-	return (R) => (
+	return (
 		<div>
 			<button on:click={() => isOpen.value = !isOpen.value}>
 				{isOpen.choose('Hide', 'Show')} details
@@ -605,7 +603,7 @@ const renderSummary = useMemo((R) => <p class="summary">Summary created once</p>
 const ToggleMessage = () => {
 	const isOpen = signal(false)
 
-	return (R) => (
+	return (
 		<div>
 			<button on:click={() => isOpen.value = !isOpen.value}>
 				{isOpen.choose('Hide', 'Show')} details
@@ -649,7 +647,7 @@ import { lazy, Fn } from 'refui'
 const LazyComponent = lazy(() => import('./MyComponent.js'))
 
 // Use it in your application
-const App = () => (R) => (
+const App = () => (
 	<div>
 		<h1>My App</h1>
 		<Fn>
@@ -668,7 +666,7 @@ import { lazy } from 'refui'
 const LazyButton = lazy(() => import('./components.js'), 'Button')
 const LazyModal = lazy(() => import('./components.js'), 'Modal')
 
-const App = () => (R) => (
+const App = () => (
 	<div>
 		<LazyButton text="Click me" />
 		<LazyModal isOpen={true} />
@@ -700,7 +698,7 @@ const App = () => {
 		currentComponent.value = pages[page]
 	}
 
-	return (R) => (
+	return (
 		<div>
 			<nav>
 				<button on:click={() => switchPage('dashboard')}>Dashboard</button>
@@ -725,7 +723,7 @@ import { lazy } from 'refui'
 
 const LazyFeature = lazy(() => import('./FeatureComponent.js'))
 
-const App = () => (R) => (
+const App = () => (
 	<div>
 		<LazyFeature
 			title="My Feature"
@@ -769,7 +767,7 @@ const App = () => {
 		isLoading.value = false
 	}, 1000)
 
-	return (R) => (
+	return (
 		<div>
 			<If condition={isLoading}>
 				{() => <div>Checking permissions...</div>}
@@ -798,7 +796,7 @@ import { UnKeyed } from 'refui/extras'
 import { derivedExtract } from 'refui'
 
 const App = ({ reactiveList }) => {
-	return (R) => (
+	return (
 		<UnKeyed entries={reactiveList}>
 			{({ item }) => {
 				// derivedExtract ensures that we react to changes in the 'name' signal
@@ -818,9 +816,7 @@ Provides a cache system for efficiently managing and rendering lists of componen
 import { createCache } from 'refui/extras'
 
 // 1. Define a template component for items in the cache
-const ItemTemplate = ({ name, id }) => {
-	return (R) => <div>Item: {name} (ID: {id})</div>
-}
+const ItemTemplate = ({ name, id }) => <div>Item: {name} (ID: {id})</div>;
 
 const App = () => {
 	// 2. Create a cache instance with the template
@@ -832,7 +828,7 @@ const App = () => {
 		{ name: 'Item 2', id: 2 }
 	)
 
-	return (R) => (
+	return (
 		<div>
 			<button on:click={() => cache.add({ name: 'New Item', id: Date.now() })}>
 				Add Item
@@ -860,9 +856,10 @@ const App = () => {
 
 Creates a portal using an `Inlet`/`Outlet` pattern, allowing you to render components in a different part of the DOM tree.
 
-`createPortal(options?)` accepts an optional configuration object:
+`createPortal()` returns a pair `[Inlet, Outlet]`:
 
-- `itemRenderer` (optional): A function `({ item }) => node` used to wrap each value sent through the portal. By default it returns `item` unchanged. This is useful when you want every inlet contribution to be wrapped (for example, in a `<li>` or `<span>` element).
+- `Inlet`: transports its children to the outlet. Children can be plain nodes, functions that return render functions, or other abstract components.
+- `Outlet`: renders everything accumulated from `Inlet`s, and accepts an optional `itemRenderer` prop (or signal of such). When provided, `itemRenderer` receives `{ item }` and should return a renderable value (commonly a render function). By default, `itemRenderer` behaves like `({ item }) => item`, which is useful when you want to portal arbitrary components or fragments as-is.
 
 ```jsx
 import { createPortal } from 'refui/extras'
@@ -870,7 +867,7 @@ import { createPortal } from 'refui/extras'
 const App = () => {
 	const [Inlet, Outlet] = createPortal()
 
-	return (R) => (
+	return (
 		<div>
 			<header>
 				{/* The Outlet will render content sent from the Inlet */}
@@ -889,6 +886,38 @@ const App = () => {
 }
 ```
 
+You can customize how each inlet contribution renders by providing an `itemRenderer` to the outlet:
+
+```jsx
+import { createHTMLRenderer } from 'refui/html'
+
+const htmlRenderer = createHTMLRenderer()
+
+const [Inlet, Outlet] = createPortal()
+
+const App = () => (
+	<div>
+		<header>
+			<Outlet
+				itemRenderer={({ item }) => (
+					<li class="header-item">
+						{htmlRenderer.serialize(htmlRenderer.createElement(item))}
+					</li>
+				)}
+				fallback={() => <div>Default Header</div>}
+			/>
+		</header>
+
+		<Inlet>
+			<span>First</span>
+		</Inlet>
+		<Inlet>
+			<span>Second</span>
+		</Inlet>
+	</div>
+)
+```
+
 **Note:** Inlets and Outlets can be passed around as props or hoisted out of component scope for more versatile usage patterns:
 
 ```jsx
@@ -897,7 +926,7 @@ const [GlobalInlet, GlobalOutlet] = createPortal()
 
 // Pass portal components as props
 const Layout = ({ Inlet, Outlet }) => {
-	return (R) => (
+	return (
 		<div class="layout">
 			<header>
 				<Outlet fallback={() => <div>Default Header</div>} />
@@ -910,7 +939,7 @@ const Layout = ({ Inlet, Outlet }) => {
 const App = () => {
 	const [HeaderInlet, HeaderOutlet] = createPortal()
 
-	return (R) => (
+	return (
 		<div>
 			<Layout Inlet={HeaderInlet} Outlet={HeaderOutlet} />
 
@@ -993,7 +1022,7 @@ const App = () => {
 			: 'This is **bold text** and this is normal.'
 	}
 
-	return (R) => (
+	return (
 		<div>
 			<h2>Parse Component Demo</h2>
 
@@ -1061,7 +1090,7 @@ const CustomHtmlDemo = () => {
 		[button:Another Button]
 	`)
 
-	return (R) => (
+	return (
 		<div>
 			<h3>Custom HTML Parser</h3>
 			<Parse source={content} parser={customHtmlParser} />
@@ -1110,7 +1139,7 @@ const PerformanceDemo = () => {
 	// This counter update won't trigger re-parsing because the parser only reads `text`
 	setInterval(() => counter.value++, 1000)
 
-	return (R) => (
+	return (
 		<div>
 			<p>Counter (doesn't affect parsing): {counter}</p>
 			<Parse source={text} parser={expensiveParser} />
@@ -1153,7 +1182,7 @@ const streamingParser = ({ source, onAppend }) => {
 		content.value += chunk
 	})
 
-	return (R) => (
+	return (
 		<pre style="background: #111; color: #0f0; padding: 8px;">
 			{content}
 		</pre>
@@ -1164,7 +1193,7 @@ const StreamingLogDemo = () => {
 	const initial = signal('Booting...\n')
 	const api = signal(null)
 
-	return (R) => (
+	return (
 		<div>
 			<Parse
 				source={initial}
@@ -1184,6 +1213,7 @@ const StreamingLogDemo = () => {
 ```
 
 In this pattern, the parser owns the state (`content`), and the parent drives updates by calling the exposed `append` function. Because `content` is a signal, the rendered output updates automatically as new chunks arrive.
+
 ## Hot Module Replacement
 
 rEFui supports HMR via the refurbish plugin. This preserves component state during edits and avoids manual boilerplate.

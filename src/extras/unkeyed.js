@@ -20,6 +20,7 @@
 
 import { signal, watch, read } from 'refui/signal'
 import { For } from 'refui/components'
+import { markStatic } from 'refui/utils'
 
 export function UnKeyed({ entries, ...args }, itemTemplate) {
 	const rawSigEntries = []
@@ -40,3 +41,5 @@ export function UnKeyed({ entries, ...args }, itemTemplate) {
 
 	return For({ name: 'UnKeyed', entries: sigEntries, ...args }, itemTemplate)
 }
+
+markStatic(UnKeyed)

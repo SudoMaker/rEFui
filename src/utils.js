@@ -18,6 +18,8 @@
  * under the License.
  */
 
+export const nullRefObject = { $ref: null }
+
 // eslint-disable-next-line no-empty-function
 export function nop() {}
 
@@ -60,4 +62,13 @@ export function splitFirst(val, splitter) {
 	const front = val.slice(0, idx)
 	const back = val.slice(idx + splitter.length, val.length)
 	return [front, back]
+}
+
+const staticSet = new WeakSet()
+export function markStatic(component) {
+	staticSet.add(component)
+	return component
+}
+export function isStatic(component) {
+	return staticSet.has(component)
 }

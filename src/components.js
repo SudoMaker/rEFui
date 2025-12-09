@@ -20,7 +20,7 @@
 
 import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
-import { nop, removeFromArr, isThenable, isPrimitive } from 'refui/utils'
+import { nop, removeFromArr, isThenable, isPrimitive, markStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
@@ -127,6 +127,13 @@ function useMemo(fn) {
 	}
 }
 
+function dummyRun(fn) {
+	let result = null
+	const cleanup = collectDisposers([], function() {
+		result = fn()
+	})
+	return [result, cleanup]
+}
 function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	if (!handler) {
 		return nop
@@ -136,11 +143,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 		catchErr = handleErr
 	}
 
-	const run = currentCtx?.run
-
-	if (!run) {
-		return nop
-	}
+	const run = currentCtx?.run ?? dummyRun
 
 	return function(R) {
 		const fragment = R.createFragment(name)
@@ -201,6 +204,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 		return fragment
 	}
 }
+markStatic(Fn)
 
 function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 	let currentData = []
@@ -433,6 +437,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		return fragment
 	}
 }
+markStatic(For)
 
 function If({ condition, true: trueCondition, else: otherwise }, trueBranch, falseBranch) {
 	if (otherwise) {
@@ -465,6 +470,7 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 	if (condition) return trueBranch
 	return falseBranch
 }
+markStatic(If)
 
 function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 	const self = currentCtx.self
@@ -529,6 +535,7 @@ function Dynamic({ is, ctx, expose, ...props }, ...children) {
 	}
 	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
 }
+markStatic(Dynamic)
 
 function _asyncContainer(name, fallback, catchErr, props, ...children) {
 	const self = getCurrentSelf()
@@ -604,6 +611,7 @@ function Async({ future, fallback, catch: catchErr, ...props }, then, now, handl
 	}))
 	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, props)
 }
+markStatic(Async)
 
 function Render({ from }) {
 	return Fn({ name: 'Render' }, function() {
@@ -611,6 +619,7 @@ function Render({ from }) {
 		if (instance !== null && instance !== undefined) return render(instance, R)
 	})
 }
+markStatic(Render)
 
 class Component {
 	constructor(tpl, props, ...children) {
@@ -668,14 +677,14 @@ class Component {
 		})
 	}
 }
+markStatic(Component)
 
-const emptyProp = { $ref: null }
 const createComponent = (function() {
 	function createComponentRaw(tpl, props, ...children) {
 		if (isSignal(tpl)) {
 			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props ?? {}, ...children)
 		}
-		const { $ref, ..._props } = (props ?? emptyProp)
+		const { $ref, ..._props } = (props ?? nullRefObject)
 		const component = new Component(tpl, _props, ...children)
 		if ($ref) {
 			if (isSignal($ref)) {
@@ -690,11 +699,10 @@ const createComponent = (function() {
 	}
 
 	if (hotEnabled) {
-		const builtins = new WeakSet([Fn, For, If, Dynamic, Async, Render, Component])
 		function makeDyn(tpl, handleErr) {
 			return _dynContainer.bind(tpl, null, handleErr, tpl)
 		}
-		return enableHMR({ builtins, makeDyn, Component, createComponentRaw })
+		return enableHMR({ makeDyn, Component, createComponentRaw })
 	}
 
 	return createComponentRaw

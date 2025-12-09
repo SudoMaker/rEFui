@@ -10,7 +10,7 @@ Use the sections below as a migration checklist or as an FAQ during onboarding.
 
 ## Core Differences At A Glance
 
-- **Retained mode renderer**: Components return factory functions `(R) => ...` so the renderer can reuse DOM nodes. There is no virtual DOM diffing or template patching stage.
+- **Retained mode renderer**: Components return factory functions `(R) => ...` or JSX elements directly when using `Reflow` renderer, so the renderer can reuse DOM nodes. There is no virtual DOM diffing or template patching stage.
 - **Signals everywhere**: Props, children, and derived values must remain signals to stay reactive. Plain expressions need wrapping with `$(() => ... )`, `tpl`, or a derived helper.
 - **Pure asynchronous scheduling**: Signals flush on the async tick queue to minimize redundant DOM work. This "real workload" optimization can underperform in synthetic benchmarks that expect synchronous updates, but keeps production UIs fast.
 - **Toolchain agnostic**: Any JSX-capable transpiler—Babel, esbuild, SWC, TypeScript—or even runtime JSX alternatives like HTM can drive rEFui. There’s no framework-specific compiler step, aligning with rEFui’s philosophy of using readily available tools to reach optimal performance.
@@ -54,7 +54,7 @@ Use `.touch()` to depend on a signal without reading it, or chain helpers like `
 `onDispose` corresponds to Solid's `onCleanup`, tied to the current computation scope. Because rEFui components return retained render factories, make sure cleanup lives inside that returned closure or inside effects created within it.
 
 **Q: JSX differences?**  
-Solid components return JSX nodes directly. rEFui classic components return `(R) => <...>` functions so the renderer can control node creation. If you migrate, wrap former Solid component bodies inside the returned function and convert expressions to signals if needed.
+Solid components return JSX nodes directly. rEFui classic components return `(R) => <...>` functions so the renderer can control node creation. If you migrate, wrap former Solid component bodies inside the returned function and convert expressions to signals if needed. Using the Reflow renderer or the JSX automatic runtime does not need this modification.
 
 **Q: Render mode and hydration?**  
 Both frameworks are fine-grained, but Solid compiles templates into DOM operations ahead of time. rEFui stays runtime-retained, so macros (`m:`) and directives (`class:`) execute per node instead of the compile stage. When porting Solid custom directives, register macros on the DOM renderer.
@@ -101,8 +101,7 @@ Svelte precomputes DOM operations; rEFui opts for runtime retention with asynchr
 
 ## JSX & Renderer Checklist
 
-- **Choose a JSX strategy**: Prefer the classic transform if you want per-component renderers (`(R) => ...`). Use the automatic runtime only when tooling cannot inject `R` (MDX, SWC, Deno). Configure `jsxFactory`/`jsxFragment` or `jsxImportSource` accordingly.
-- **Map components to retained factories**: Every component should export a function returning `(R) => ...`. Convert existing React/Solid/Vue bodies by wrapping the prior JSX in that returned closure.
+- **Choose a JSX strategy**: Prefer the classic transform if you want per-component renderers (`(R) => ...`). Use the automatic runtime when tooling cannot inject `R` (MDX, SWC, Deno). Configure `jsxFactory`/`jsxFragment` or `jsxImportSource` accordingly.
 - **Audit expressions**: Any inline computed value (string interpolation, ternaries, etc.) must be a signal. Wrap complex expressions with `$(() => ...)`, `tpl\`...\`` or established derived helpers.
 - **Register macros**: Port custom DOM directives (e.g., Vue directives, Solid custom directives) using `renderer.useMacro({ name, handler })` and reference them via `m:name` in JSX.
 - **Lifecycle**: Replace hook lifecycle code with `watch`, `useEffect`, and `onDispose`. Ensure cleanups live inside the component render factory scope.

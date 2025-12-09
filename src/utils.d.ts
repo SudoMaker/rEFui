@@ -18,6 +18,8 @@
  * under the License.
  */
 
+export const nullRefObject: { $ref: null }
+
 export function nop(): void
 
 export function cached<T, R>(handler: (arg: T) => R): (arg: T) => R
@@ -29,3 +31,6 @@ export function isPrimitive(value: unknown): value is string | number | boolean 
 export function isThenable<T = unknown>(value: unknown): value is PromiseLike<T>
 
 export function splitFirst(value: string, splitter: string): [string] | [string, string]
+
+export function markStatic<T extends Function>(component: T): T
+export function isStatic(component: unknown): boolean

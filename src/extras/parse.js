@@ -20,6 +20,7 @@
 
 import { read, isSignal } from 'refui/signal'
 import { Fn } from 'refui/components'
+import { markStatic } from 'refui/utils'
 
 const parseProps = {
 	name: 'Parse'
@@ -57,3 +58,5 @@ export function Parse({ source, parser, expose }, ...children) {
 		}))
 	})
 }
+
+markStatic(Parse)

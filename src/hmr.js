@@ -19,7 +19,7 @@
  */
 
 import { signal } from 'refui/signal'
-import { isPrimitive } from 'refui/utils'
+import { isPrimitive, isStatic } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 export const hotEnabled = !isProduction && !!/* @refui webpack */import.meta.hot
@@ -61,12 +61,12 @@ function handleError(err, _, { name, hot }) {
 	}
 }
 
-export function enableHMR({ builtins, makeDyn, Component, createComponentRaw }) {
+export function enableHMR({ makeDyn, Component, createComponentRaw }) {
 	console.info('[rEFui HMR] Hot Module Replacement is available. Check https://github.com/SudoMaker/refurbish for details.')
 	return function(tpl, props, ...children) {
 		let hotLevel = 0
 
-		if (typeof tpl === 'function' && !builtins.has(tpl)) {
+		if (typeof tpl === 'function' && !isStatic(tpl)) {
 			if (tpl[KEY_HMRWRAP]) {
 				tpl = tpl[KEY_HMRWRAP]
 				hotLevel = 2
