@@ -41,10 +41,17 @@ Signals are the fundamental building blocks of reactivity in rEFui. They are rea
 
 ### Components
 
-In rEFui, a component is a function that returns another function (the "render function"). This unique structure allows for maximum flexibility, especially with different renderers.
+In rEFui, a component is a function that returns another function (the "render function"). This unique structure allows for maximum flexibility, especially with different renderers. When you use the JSX **automatic runtime** together with the **Reflow** renderer, the runtime wraps plain JSX returns into these factories for you, so you can usually omit the explicit `(R) =>` layer.
 
 ```jsx
-// A simple component that accepts props
+// Automatic runtime / Reflow style (factory is inferred)
+const Greeting = ({ name }) => <h1>Hello, {name}!</h1>;
+```
+
+For classic JSX transform or when you need direct access to the renderer object (for example to call `R.createFragment` or other renderer utilities), keep the explicit factory:
+
+```jsx
+// Classic transform / explicit render factory
 const Greeting = ({ name }) => {
 	// The returned function receives the renderer `R`
 	return (R) => <h1>Hello, {name}!</h1>;
@@ -139,7 +146,7 @@ const MyComponent = () => {
 	// Don't do this - creates unnecessary renderer instances
 	const renderer = createDOMRenderer(defaults);
 
-	return (R) => <div>Hello</div>;
+	return <div>Hello</div>;
 };
 ```
 
@@ -149,10 +156,10 @@ Keep your components focused and reusable. When components grow large, consider 
 
 ```jsx
 // ✅ Good: Small, focused components
-const UserName = ({ user }) => (R) => <span>{user.name}</span>;
-const UserEmail = ({ user }) => (R) => <span>{user.email}</span>;
+const UserName = ({ user }) => <span>{user.name}</span>;
+const UserEmail = ({ user }) => <span>{user.email}</span>;
 
-const UserCard = ({ user }) => (R) => (
+const UserCard = ({ user }) => (
 	<div>
 		<UserName user={user} />
 		<UserEmail user={user} />
@@ -168,10 +175,10 @@ Because of this, you cannot place dynamic expressions directly in your JSX and e
 
 ```jsx
 // ❌ This will NOT update when `count` changes
-const IncorrentCounter = () => {
+const IncorrectCounter = () => {
 	const count = signal(0);
 
-	return (R) => (
+	return (
 		<div>
 			{/* This expression is evaluated only once! */}
 			<p>Count is: {count.value}</p>
@@ -194,7 +201,7 @@ const CorrectCounter = () => {
 	// Create a computed signal for the text
 	const message = $(() => `Count is: ${count.value}`);
 
-	return (R) => (
+	return (
 		<div>
 			{/* Use the computed signal here */}
 			<p>{message}</p>
@@ -236,7 +243,7 @@ const renderer = createDOMRenderer(defaults);
 
 // 2. Define your component
 const App = () => {
-	return (R) => <h1>Hello, World!</h1>;
+	return <h1>Hello, World!</h1>;
 };
 
 // 3. Render the component to a DOM element
@@ -265,7 +272,7 @@ const Counter = () => {
 	const count = signal(0);
 
 	// The component's UI will automatically update when `count` changes
-	return (R) => (
+	return (
 		<div>
 			<h1>Count: {count}</h1>
 			<button on:click={() => count.value++}>
@@ -299,7 +306,7 @@ import { signal, If, $ } from 'refui';
 const LoginStatus = () => {
 	const isLoggedIn = signal(false);
 
-	return (R) => (
+	return (
 		<div>
 			<If condition={isLoggedIn}>
 				{() => <p>Welcome back!</p>}
@@ -330,7 +337,7 @@ const TodoList = () => {
 		{ text: 'Profit' },
 	]);
 
-	return (R) => (
+	return (
 		<ul>
 			<For entries={todos}>
 				{({ item }) => <li>{item.text}</li>}
@@ -355,7 +362,7 @@ const fetchUser = () => new Promise((resolve) => {
 const UserProfile = () => {
 	const userPromise = fetchUser();
 
-	return (R) => (
+	return (
 		<Async
 			future={userPromise}
 			fallback={() => <p>Loading user...</p>}
