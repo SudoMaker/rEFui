@@ -46,7 +46,7 @@ const App = () => {
 		count.value += 1
 	}
 
-	return (R) => (
+	return (
 		<>
 			<h1>Hello, rEFui</h1>
 			<button on:click={increment}>Click me! Count is {count}</button>
@@ -77,7 +77,7 @@ const App = () => {
 	const increment = () => {
 		count.value += 1
 	}
-	return (R) => (
+	return (
 		<>
 			<actionbar title="Hello, rEFui!"></actionbar>
 			<stacklayout>
@@ -111,7 +111,7 @@ const App = () => {
 	const increment = () => {
 		count.value += 1
 	}
-	return (R) => (
+	return (
 		<>
 			<label attr:centered y={-20}>rEFui + Resonance</label>
 			<button attr:centered y={20} on:clicked={increment}>

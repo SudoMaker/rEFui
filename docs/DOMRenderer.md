@@ -44,7 +44,7 @@ import { defaults } from 'refui/browser';
 const renderer = createDOMRenderer(defaults);
 
 // 2. Define a component that accepts a renderer (R)
-const App = () => (R) => <h1>Hello, World!</h1>;
+const App = () => <h1>Hello, World!</h1>;
 
 // 3. Render the component to a DOM element
 renderer.render(document.getElementById('app'), App);
@@ -73,7 +73,7 @@ const Counter = () => {
 	// Create a reactive signal
 	const count = signal(0);
 
-	return (R) => (
+	return (
 		<div>
 			<h1>Count: {count}</h1>
 			<button on:click={() => count.value++}>
@@ -97,7 +97,7 @@ Components can receive props that can be signals or regular values:
 import { signal, read } from 'refui';
 
 const Greeting = ({ name, count }) => {
-	return (R) => (
+	return (
 		<div>
 			<h1>Hello, {name}!</h1>
 			<p>You have {count} messages</p>
@@ -109,7 +109,7 @@ const App = () => {
 	const userName = signal('John');
 	const messageCount = signal(5);
 
-	return (R) => (
+	return (
 		<div>
 			<Greeting name={userName} count={messageCount} />
 			<button on:click={() => userName.value = 'Jane'}>
@@ -145,7 +145,7 @@ const MyComponent = () => {
 	const tooltipText = signal('Hello');
 	const customValue = signal('test');
 
-	return (R) => (
+	return (
 		<>
 			{/* Reactive attribute */}
 			<input type="checkbox" attr:checked={isChecked}/>
@@ -174,7 +174,7 @@ const NavigationItem = ({ href, children, currentPath }) => {
 	const isActive = currentPath.eq(href);
 	const isHovered = signal(false);
 
-	return (R) => (
+	return (
 		<a
 			href={href}
 			class:active={isActive}           // Apply 'active' class conditionally
@@ -192,7 +192,7 @@ const StatusCard = ({ status, isLoading }) => {
 	const isError = status.eq('error');
 	const isSuccess = status.eq('success');
 
-	return (R) => (
+	return (
 		<div
 			class="card"                      // Static class
 			class:loading={isLoading}         // Conditional: loading state
@@ -249,7 +249,7 @@ renderer.useMacro({
 After the renderer knows about a macro, you can opt-in from JSX with the `m:` directive. JSX boolean syntax (`m:autofocus`) passes `true`; you can also pass signals or other values that your handler understands.
 
 ```jsx
-const Field = ({ helperText }) => (R) => (
+const Field = ({ helperText }) => (
 	<div class="field" m:tooltip={helperText}>
 		<input type="text" m:autofocus />
 	</div>
@@ -274,7 +274,7 @@ import { signal } from 'refui';
 
 const Counter = () => {
 	const count = signal(0);
-	return (R) => (
+	return (
 		<button on:click={() => count.value++}>
 			Clicked {count} times
 		</button>
@@ -303,7 +303,7 @@ const SearchInput = () => {
 	const query = signal('');
 	const results = signal([]);
 
-	return (R) => (
+	return (
 		<input
 			type="text"
 			value={query}

@@ -22,7 +22,7 @@ The browser preset includes `style:` and `class:` directives for convenience.
 Allows setting individual CSS properties directly as props.
 
 ```jsx
-const MyComponent = () => (R) => (
+const MyComponent = () => (
 	<div style:color="red" style:fontSize="16px">
 		This text will be red.
 	</div>
@@ -38,7 +38,7 @@ import { signal } from 'refui';
 const MyComponent = () => {
 	const isActive = signal(false);
 
-	return (R) => (
+	return (
 		<>
 			<button on:click={() => (isActive.value = !isActive.value)}>
 				Toggle Active

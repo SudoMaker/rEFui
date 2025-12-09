@@ -33,7 +33,7 @@ const renderer = createHTMLRenderer();
 // 2. Define a component that accepts a renderer (R)
 const App = () => {
 	const name = signal('World');
-	return (R) => (
+	return (
 		<>
 			<h1>Hello, {name}!</h1>
 			<p>This is rendered on the server.</p>
@@ -73,7 +73,7 @@ const UserProfile = ({ userId }) => {
 		user.value.name || 'Anonymous User'
 	);
 
-	return (R) => (
+	return (
 		<div class="user-profile">
 			<h1>{displayName}</h1>
 			<p>Email: {user.value.email}</p>
@@ -95,7 +95,7 @@ console.log(html);
 ```jsx
 import { For, If } from 'refui';
 
-const BlogPost = ({ title, content, published }) => (R) => (
+const BlogPost = ({ title, content, published }) => (
 	<article>
 		<h2>{title}</h2>
 		<If condition={published}>
@@ -111,7 +111,7 @@ const BlogIndex = () => {
 		{ id: 2, title: 'Draft Post', content: 'Work in progress...', published: false }
 	]);
 
-	return (R) => (
+	return (
 		<div>
 			<h1>My Blog</h1>
 			<For entries={posts} track="id">
@@ -148,7 +148,7 @@ const ServerComponent = () => {
 	const doubled = computed(() => count.value * 2);
 
 	// These values are evaluated once during rendering
-	return (R) => (
+	return (
 		<div>
 			<p>Count: {count}</p>        {/* Renders as: Count: 42 */}
 			<p>Doubled: {doubled}</p>    {/* Renders as: Doubled: 84 */}

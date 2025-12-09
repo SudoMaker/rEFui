@@ -15,12 +15,26 @@ This document covers the core APIs available in rEFui. All APIs are exported dir
 
 ## Component APIs
 
+Examples in this section favor the **JSX automatic runtime + Reflow** style, where components simply return JSX:
+
+```jsx
+const Comp = (props) => <div />
+```
+
+Under the hood, the runtime wraps these into render factories for you. When you are using the classic JSX transform or need direct access to the renderer object, you can always write the equivalent explicit factory:
+
+```jsx
+const Comp = (props) => (R) => <div />
+```
+
+The APIs below behave the same in both cases; only the authoring style differs.
+
 ### `createComponent(template, props?, ...children)`
 
-Creates a component instance from a template function.
+Creates a component instance from a template.
 
 **Parameters:**
-- `template`: Component function that returns a render function
+- `template`: Component function. With the automatic runtime it usually returns JSX; with the classic transform it returns a render function `(R) => node`.
 - `props`: Optional props object to pass to the component
 - `...children`: Child elements or components
 
@@ -29,13 +43,13 @@ Creates a component instance from a template function.
 ```jsx
 import { createComponent } from 'refui';
 
-const MyComponent = ({ name }) => (R) => <div>Hello, {name}!</div>;
+const MyComponent = ({ name }) => <div>Hello, {name}!</div>;
 
 // Create component instance
 const instance = createComponent(MyComponent, { name: 'World' });
 
 // Can be used with Render component
-const App = () => (R) => <Render from={instance} />;
+const App = () => <Render from={instance} />;
 ```
 
 ### `render(instance, renderer)`
@@ -147,8 +161,8 @@ renderer.useMacro({
 	}
 })
 
-// Later in JSX
-const Input = () => (R) => <input type="text" m:autofocus />
+// Later in JSX (automatic runtime style)
+const Input = () => <input type="text" m:autofocus />
 ```
 
 ## Context & Lifecycle APIs
@@ -182,7 +196,7 @@ const Inspector = () => {
 		status.value = 'resolved';
 	})();
 
-	return (R) => <div>Status: {status}</div>;
+	return <div>Status: {status}</div>;
 };
 ```
 
@@ -205,12 +219,12 @@ const MyComponent = () => {
 
 	setTimeout(() => {
 		// Run function in the original context
-		snap(() => {
-			console.log('Should be true while mounted:', self === getCurrentSelf());
-		});
-	}, 1000);
+			snap(() => {
+				console.log('Should be true while mounted:', self === getCurrentSelf());
+			});
+		}, 1000);
 
-	return (R) => <div>Component</div>;
+	return <div>Component</div>;
 };
 ```
 
@@ -234,13 +248,13 @@ const ChildComponent = ({ expose }) => {
 
 	expose?.({ count, increment });
 
-	return (R) => <div>Count: {count}</div>;
+	return <div>Count: {count}</div>;
 };
 
 const ParentComponent = () => {
 	const childApi = signal(null);
 
-	return (R) => (
+	return (
 		<div>
 			<ChildComponent expose={(api) => { childApi.value = api; }} />
 			<button on:click={() => childApi.value?.increment()}>
@@ -269,7 +283,7 @@ const MyComponent = () => {
 		console.log('Component disposed:', self);
 	});
 
-	return (R) => <div>Component</div>;
+	return <div>Component</div>;
 };
 ```
 
@@ -301,7 +315,7 @@ const MyComponent = () => {
 		buttonRef.value?.focus();
 	};
 
-	return (R) => (
+	return (
 		<div $ref={divRef}>
 			<input $ref={handleInputRef} type="text" />
 			<button $ref={buttonRef} on:click={focusButton}>
@@ -325,7 +339,7 @@ const Counter = ({ expose }) => {
 
 	expose?.({ count, increment, decrement });
 
-	return (R) => (
+	return (
 		<div>
 			<p>Count: {count}</p>
 			<button on:click={increment}>+</button>
@@ -349,7 +363,7 @@ const App = () => {
 		}
 	};
 
-	return (R) => (
+	return (
 		<div>
 			<Counter expose={(api) => { counterApi.value = api; }} />
 			<button on:click={reset}>Reset</button>
@@ -369,7 +383,7 @@ const setupCanvas = (canvas) => {
 	ctx.fillRect(0, 0, 100, 100);
 };
 
-const CanvasComponent = () => (R) => (
+const CanvasComponent = () => (
 	<canvas
 		$ref={setupCanvas}
 		width="200"
@@ -405,7 +419,7 @@ In development mode, `$ref` will throw an error if you pass an invalid type (not
 > ```jsx
 > import { signal, createComponent } from 'refui';
 >
-> const MyComponent = () => (R) => <div>Hello</div>;
+> const MyComponent = () => <div>Hello</div>;
 >
 > // ❌ Don't rely on this in dev mode with HMR
 > const instance = createComponent(MyComponent);
@@ -413,7 +427,7 @@ In development mode, `$ref` will throw an error if you pass an invalid type (not
 > // ✅ Always use $ref for component access
 > const componentRef = signal();
 >
-> const App = () => (R) => (
+> const App = () => (
 >   <div>
 >     <MyComponent $ref={componentRef} />
 >     <button on:click={() => {
@@ -473,7 +487,10 @@ Ensures a value is a valid element, converting supported inputs into nodes and r
 **Behavior:**
 - Functions are called repeatedly with the renderer until they return a non-function value.
 - Promises/thenables are wrapped in an internal `<Async>` boundary and rendered.
-- Arrays are wrapped in a fragment and each entry is normalized.
+- Arrays are handled as follows:
+	- `[]` → `null` (nothing to render).
+	- `[single]` → normalized as if you passed `single` directly.
+	- `[a, b, ...]` → wrapped in a fragment with each entry normalized.
 - `null`, `undefined`, or existing nodes are returned as-is.
 - All other values are turned into text nodes via `renderer.text`.
 
@@ -529,6 +546,31 @@ const normalized = renderer.normalizeChildren([
 	element
 ]);
 ```
+
+### Static Components and HMR Helpers
+
+rEFui uses a lightweight notion of “static” components for framework-level primitives and HMR integration.
+
+#### `markStatic(component)`
+
+Marks a function component as static/abstract. Static components may be called directly by the renderer (bypassing `createComponent` in some cases) and are treated as leaf nodes by the HMR system.
+
+```js
+import { markStatic } from 'refui/utils'
+
+function MyPrimitive(props, ...children) {
+	// low-level wrapper logic
+	return (R) => /* render something via renderer R */
+}
+
+markStatic(MyPrimitive)
+```
+
+You generally don’t need this in application code; it’s intended for building primitives like `Fn`, `For`, `If`, `Dynamic`, `Async`, `Render`, and extras such as `Parse`, `UnKeyed`, or `createPortal`’s components.
+
+#### `isStatic(component)`
+
+Returns `true` if a component was previously marked with `markStatic`. This is used internally by the renderer and HMR to detect abstract components.
 
 #### `renderer.render(target, component, props?, ...children)`
 
@@ -636,7 +678,7 @@ const TimerComponent = () => {
 		console.log('Timer cleanup');
 	});
 
-	return (R) => <div>Timer running...</div>;
+	return <div>Timer running...</div>;
 };
 ```
 
@@ -657,14 +699,14 @@ const DataLoader = async ({ url, expose }) => {
 		expose?.({ data });
 
 		// Resolve with the component to render on success
-		return (R) => <pre>{JSON.stringify(data, null, 2)}</pre>;
+		return <pre>{JSON.stringify(data, null, 2)}</pre>;
 
 	} catch (error) {
 		expose?.({ error });
 		const message = error instanceof Error ? error.message : String(error);
 
 		// Resolve with the component to render on failure
-		return (R) => <div>Error: {message}</div>;
+		return <div>Error: {message}</div>;
 	}
 };
 
@@ -678,7 +720,7 @@ const App = () => {
 		loaderState.value = { ...prev, ...payload };
 	};
 
-	return (R) => (
+	return  (
 		<div>
 			<Async
 				future={DataLoader({ url: currentUrl, expose: handleExpose })}

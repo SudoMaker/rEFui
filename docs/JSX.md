@@ -126,13 +126,14 @@ import { signal, useAction, read, watch, onDispose } from 'refui'
 // R for Reflow is auto injected by your bundler, or you can do it manually
 // import { R } from 'refui/reflow'
 // Or import directly from 'refui'
+// Or configure JSX automatic runtime for your bundler
 
 const platform = globalThis.RUNTIME_PLATFORM ?? 'browser'
 
 export const CounterDisplay = ({ count }) => {
-	if (platform === 'browser') return (R) => <span>{count}</span>
-	if (platform === 'nativescript') return (R) => <text>{count}</text>
-	if (platform === 'cheesedom') return (R) => <text>{count}</text>
+	if (platform === 'browser') return () => <span>{count}</span>
+	if (platform === 'nativescript') return () => <text>{count}</text>
+	if (platform === 'cheesedom') return () => <text>{count}</text>
 
 	if (platform === 'breadboard') {
 		const display = new LED('max7219')
@@ -157,9 +158,9 @@ export const CounterBtn = ({ onIncrement }) => {
 		onIncrement()
 	}
 
-	if (platform === 'browser') return (R) => <button on:click={debounced}>+</button>
-	if (platform === 'nativescript') return (R) => <button on:tap={debounced}><text>+</text></button>
-	if (platform === 'cheesedom') return (R) => <object on:clicked={debounced}><text>+</text></object>
+	if (platform === 'browser') return () => <button on:click={debounced}>+</button>
+	if (platform === 'nativescript') return () => <button on:tap={debounced}><text>+</text></button>
+	if (platform === 'cheesedom') return () => <object on:clicked={debounced}><text>+</text></object>
 
 	if (platform === 'breadboard') {
 		const gpio = GPIO.open('A1', 'input')
