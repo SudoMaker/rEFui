@@ -18,9 +18,17 @@
  * under the License.
  */
 
-import type { ComponentTemplate } from '../components.js'
+import type { ComponentTemplate, PossibleRender } from '../components.js'
+import type { MaybeSignal } from '../signal.js'
 
 export type PortalInlet = ComponentTemplate
-export type PortalOutlet = ComponentTemplate
+
+export interface PortalOutletProps {
+	itemRenderer?: MaybeSignal<ComponentTemplate<any> | ((input: { item: any }) => PossibleRender)>
+	fallback?: PossibleRender
+	[key: string]: any
+}
+
+export type PortalOutlet = ComponentTemplate<PortalOutletProps>
 
 export function createPortal(): [PortalInlet, PortalOutlet]

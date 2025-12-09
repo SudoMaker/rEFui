@@ -26,7 +26,6 @@ export const KEY_HMRWRAP: unique symbol
 export const KEY_HMRWRAPPED: unique symbol
 
 export interface EnableHMROptions {
-	builtins: WeakSet<Function>
 	makeDyn: (component: any, handleError: (error: unknown, name: string, context: unknown) => any) => ComponentTemplate<any>
 	Component: new (...args: any[]) => Component<any>
 	createComponentRaw: (template: ComponentTemplate<any>, props?: any, ...children: any[]) => Component<any>
