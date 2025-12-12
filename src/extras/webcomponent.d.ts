@@ -18,8 +18,24 @@
  * under the License.
  */
 
-export * from './portal.js'
-export * from './cache.js'
-export * from './unkeyed.js'
-export * from './parse.js'
-export * from './webcomponent.js'
+import type { Renderer } from '../renderer.js'
+import type { ComponentTemplate } from '../components.js'
+import type { Signal } from '../signal.js'
+
+export interface DefineCustomElementOptions {
+	mode?: ShadowRootMode
+	attrs?: readonly string[]
+	slots?: readonly string[]
+	defaultSlot?: boolean
+	base?: typeof HTMLElement
+	extends?: string
+	cssText?: string
+	styleSheets?: readonly CSSStyleSheet[]
+}
+
+export function defineCustomElement(
+	this: Renderer,
+	name: string,
+	component: ComponentTemplate<any>,
+	options?: DefineCustomElementOptions
+): CustomElementConstructor

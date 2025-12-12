@@ -952,6 +952,33 @@ const App = () => {
 }
 ```
 
+### defineCustomElement(name, component, options?)
+
+Wrap a rEFui component as a Web Component. Call with a renderer context (`defineCustomElement.call(renderer, ...)`) or bind once (`const wc = defineCustomElement.bind(renderer)`).
+
+- `name`: Custom element tag name.
+- `component`: rEFui component template to render.
+- `options`:
+	- `mode`: Shadow DOM mode (`'open' | 'closed'`, default `'open'`).
+	- `attrs`: Attribute names mapped to signal-backed props on the element instance.
+	- `slots`: Named slots exposed as props (each becomes an R slot placeholder).
+	- `defaultSlot`: Whether to inject the default `<slot>` (default `true`).
+	- `base`: Base class (default `HTMLElement`).
+	- `extends`: Built-in extension name for customized built-ins.
+	- `cssText`: CSS text adopted into the shadow root.
+	- `styleSheets`: Additional `CSSStyleSheet`s to adopt.
+
+```javascript
+import { createDOMRenderer } from 'refui/dom'
+import { defineCustomElement } from 'refui/extras'
+
+const R = createDOMRenderer()
+const Hello = ({ name }) => () => <p>Hello, {name}</p>
+
+const wc = defineCustomElement.bind(R)
+wc('hello-card', Hello, { attrs: ['name'] })
+```
+
 ### Parse
 
 Efficiently parses and renders text content (or any structured source) using a custom parser function. The `Parse` component wires a parser into your component tree and memoizes the render boundary so that it only swaps when the parser function identity changes.

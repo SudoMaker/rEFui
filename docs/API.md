@@ -12,6 +12,8 @@ This document covers the core APIs available in rEFui. All APIs are exported dir
 - [Renderer APIs](#renderer-apis)
 - [Context & Lifecycle APIs](#context--lifecycle-apis)
 - [Utility Functions](#utility-functions)
+- [Scheduling Helpers](#scheduling-helpers)
+- [Extras](#extras)
 
 ## Component APIs
 
@@ -231,6 +233,97 @@ const MyComponent = () => {
 ### `contextValid`
 
 Boolean flag exported from `refui/signal` that indicates whether the current reactive scope is still active. Async helpers such as `<Async>` check this value to avoid rendering after their parent component has disposed. Inside deferred callbacks, guard on `contextValid` (or capture it through `freeze`/`capture`) before mutating signals or DOM.
+
+## Scheduling Helpers
+
+### `createDefer(deferrer?)`
+
+Creates a deferral wrapper around a reactive computation. Returns a function that accepts `(handler, onAbort?)` and produces a signal. The handler runs only after the deferrer fires; call `commit(finalValue)` inside the handler to publish the result. The handler may return a cleanup disposer for subsequent runs. The `deferrer` defaults to a cancellable wrapper around `nextTick`, but you can pass `requestIdleCallback`, `queueMicrotask`, or any function that invokes the provided callback later **as long as it returns a disposer (function)**—wrap timer/idle APIs that return handles:
+
+```javascript
+const idle = (cb) => {
+  const id = requestIdleCallback(cb)
+  return () => cancelIdleCallback(id)
+}
+```
+
+Dependency tracking works like `computed`: dependencies are registered only from the synchronous part of `handler`. Any reads after `await`/promise resolution are not tracked unless executed inside a frozen/captured context (`freeze`, `capture`, `snapshot`). This makes `createDefer` fit for async fetches—grab dependencies up front, await work, then `commit` the result.
+
+Typical async fetch pattern
+
+```javascript
+const loadUser = createDefer(idle)((commit) => {
+	const id = userId.value      // track dependency synchronously
+	return (async () => {
+		const res = await fetch(`/api/users/${id}`)
+		commit(await res.json())
+	})()
+})
+```
+
+### `deferred`
+
+Prebuilt helper using the default cancellable nextTick deferrer. Equivalent to `createDefer()` when you don't need custom scheduling.
+
+```javascript
+import { deferred } from 'refui'
+
+const me = deferred(async (commit) => {
+	const res = await fetch('/api/me')
+	commit(await res.json())
+})
+```
+
+### `createSchedule(deferrer, onAbort?)`
+
+Batches updates and flushes them together after the provided `deferrer` runs. Useful for timeslicing UI work or coalescing rapid signal writes. The `deferrer` must follow the same contract as `createDefer` (invoke the callback later and return a disposer), so wrap timer/idle APIs.
+
+```javascript
+import { createSchedule, signal } from 'refui'
+
+const idle = (cb) => {
+  const id = requestIdleCallback(cb)
+  return () => cancelIdleCallback(id)
+}
+
+const stage = createSchedule(idle)
+const src = signal(0)
+const staged = stage(src)
+
+src.value = 1
+src.value = 2
+// staged.value stays undefined (or its last flushed value) until the idle callback runs; then it becomes 2
+```
+
+## Extras
+
+### `defineCustomElement(name, component, options?)`
+
+Wraps a rEFui component as a Web Component. Must be called with a renderer context (`defineCustomElement.call(renderer, ...)`) or a bound function (`const wc = defineCustomElement.bind(renderer)`).
+
+- `name`: Custom element tag name.
+- `component`: rEFui component template to render.
+- `options`:
+	- `mode`: Shadow DOM mode (`'open' | 'closed'`, default `'open'`).
+	- `attrs`: Attribute names exposed as signal-backed props.
+	- `slots`: Named slots exposed as props.
+	- `defaultSlot`: Whether to inject the default `<slot>` (default `true`).
+	- `base`: Base class (default `HTMLElement`).
+	- `extends`: Customized built-in extension name (`is=`).
+	- `cssText`: CSS text adopted into the shadow root.
+	- `styleSheets`: Extra `CSSStyleSheet`s to adopt.
+
+```javascript
+import { defineCustomElement } from 'refui/extras'
+import { createDOMRenderer } from 'refui/dom'
+
+const R = createDOMRenderer()
+const wc = defineCustomElement.bind(R)
+
+const Hello = ({ name }) => () => <p>Hello, {name}</p>
+
+wc('hello-card', Hello, { attrs: ['name'] })
+```
 
 ### `props.expose(values)` (v0.8.0+)
 

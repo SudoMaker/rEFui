@@ -86,7 +86,24 @@ export function watch(effect: EffectCallback): BatchDisposer
 export function computed<T>(compute: () => T): Signal<T>
 export function merge<T extends readonly MaybeSignal<any>[], R>(signals: T, handler: (...values: { [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K] }) => R): Signal<R>
 export function tpl(strings: TemplateStringsArray, ...exprs: unknown[]): Signal<string>
-export function not(value: MaybeSignal<unknown>): Signal<boolean>
+
+export type Deferrer = (callback: () => void) => BatchDisposer | void
+
+export function createDefer<T = unknown>(deferrer?: Deferrer): (
+	fn: (commit: (value: MaybeSignal<T>) => void) => BatchDisposer | void,
+	onAbort?: (abort: () => void) => void
+) => Signal<T | undefined>
+
+export const deferred: ReturnType<typeof createDefer>
+
+export function createSchedule<T = unknown>(
+	deferrer: Deferrer,
+	onAbort?: (abort: () => void) => void
+): (
+	fn:
+		| MaybeSignal<T>
+		| ((commit: (value: MaybeSignal<T>) => void) => BatchDisposer | void)
+) => Signal<T | undefined>
 
 export function connect(signals: Iterable<Signal<unknown>>, effect: EffectCallback, runImmediate?: boolean): void
 export function bind(handler: (value: unknown) => void, value: MaybeSignal<unknown> | (() => unknown)): void
