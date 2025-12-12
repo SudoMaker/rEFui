@@ -69,6 +69,26 @@ export default defineConfig({
 })
 ```
 
+#### esbuild
+
+Classic pragma via CLI:
+```bash
+esbuild src/main.jsx --bundle --outfile=dist/bundle.js --jsx-factory=R.c --jsx-fragment=R.f
+```
+
+Classic pragma via JS API:
+```javascript
+import { build } from 'esbuild'
+
+await build({
+	entryPoints: ['src/main.jsx'],
+	outfile: 'dist/bundle.js',
+	bundle: true,
+	jsxFactory: 'R.c',
+	jsxFragment: 'R.f',
+})
+```
+
 #### File-level Pragma Comments
 
 If you don't want to configure your build tool, you can add pragma comments to the top of your JSX files:
@@ -103,6 +123,20 @@ export default defineConfig({
     jsxFragment: 'R.f',
     jsxInject: `import { R } from 'refui/reflow'`
   }
+})
+```
+
+esbuild equivalent:
+```javascript
+import { build } from 'esbuild'
+
+await build({
+	entryPoints: ['src/main.jsx'],
+	outfile: 'dist/bundle.js',
+	bundle: true,
+	jsxFactory: 'R.c',
+	jsxFragment: 'R.f',
+	jsxInject: `import { R } from 'refui/reflow'`,
 })
 ```
 
@@ -230,6 +264,26 @@ export default defineConfig({
 		jsx: 'automatic',
 		jsxImportSource: 'refui', // This tells Vite/esbuild where to find the runtime
 	},
+})
+```
+
+#### esbuild
+
+Automatic runtime via CLI:
+```bash
+esbuild src/main.jsx --bundle --outfile=dist/bundle.js --jsx=automatic --jsx-import-source=refui
+```
+
+Automatic runtime via JS API:
+```javascript
+import { build } from 'esbuild'
+
+await build({
+	entryPoints: ['src/main.jsx'],
+	outfile: 'dist/bundle.js',
+	bundle: true,
+	jsx: 'automatic',
+	jsxImportSource: 'refui',
 })
 ```
 
