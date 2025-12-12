@@ -574,15 +574,99 @@ Creates a template string signal.
 const message = tpl`Hello ${name}, you have ${count} items`
 ```
 
-#### `not(value)`
-Creates a signal that negates the input value. Works with both signals and static values.
+#### `createDefer(deferrer?)`
+Creates a helper that defers an effect until the supplied `deferrer` fires. The returned function takes a callback that receives a `commit` setter; call `commit` to publish a value to the resulting signal. The callback may return a cleanup disposer to run before the next deferred execution.
+
+- `deferrer`: Function invoked with the deferred callback; defaults to a cancellable wrapper around `nextTick` (so you can abort before it runs). **It must return a disposer function or nothing.** Browser APIs like `setTimeout`/`requestIdleCallback` return numeric/handle tokens, so wrap them:
 
 ```javascript
-const isEnabled = signal(true)
-const isDisabled = not(isEnabled) // Creates a signal that returns !isEnabled.value
+const idleDeferrer = (cb) => {
+  const id = requestIdleCallback(cb)
+  return () => cancelIdleCallback(id)
+}
+const timeoutDeferrer = (cb) => {
+  const id = setTimeout(cb, 0)
+  return () => clearTimeout(id)
+}
+```
+- Returns: A function `(handler, onAbort?) => Signal` that defers `handler`. Inside `handler`, perform work and call `commit(finalValue)` to publish; optionally return a disposer to run before the next deferred run. The resulting signal starts as `undefined` until the first commit.
 
-const alwaysFalse = not(true) // Creates a signal that always returns false
-const isDifferent = not(value.eq(expectedValue)) // Negates a comparison
+Dependency tracking mirrors `computed`: any signals you read synchronously inside the handler are tracked. Reads/triggers that happen later (after `await`/promise resolution) are **not** tracked unless you run them inside a frozen or captured context (`freeze`, `capture`, `snapshot`). This makes `createDefer` suitable for async data fetching: read your dependencies before the `await`, perform the async work, then `commit` the result when ready.
+
+Common use: async data loading with dependency-aware caching
+
+```javascript
+import { createDefer, signal } from 'refui/signal'
+
+const userId = signal('42')
+const deferUser = createDefer((cb) => {
+	const id = setTimeout(cb, 0) // wrap setTimeout so we can cancel if needed
+	return () => clearTimeout(id)
+})
+
+const user = deferUser(async (commit) => {
+	const id = userId.value // dependency tracked synchronously
+	const res = await fetch(`/api/users/${id}`)
+	commit(await res.json())
+})
+```
+
+#### `deferred`
+Preconfigured helper equivalent to `createDefer()` with the default cancellable nextTick-based deferrer. Use it when you just need basic async/timesliced work without custom scheduling.
+
+```javascript
+import { deferred } from 'refui/signal'
+
+const user = deferred(async (commit) => {
+	const res = await fetch('/api/me')
+	commit(await res.json())
+})
+```
+
+```javascript
+import { createDefer, nextTick, signal } from 'refui/signal'
+
+const defer = createDefer(requestIdleCallback)
+const latest = defer((commit) => {
+	const value = expensiveCompute()
+	commit(value) // only when work is done, publish the final value
+})
+
+// Somewhere else
+latest.value // last computed value after idle time
+```
+
+#### `createSchedule(deferrer, onAbort?)`
+Aggregates writes and flushes them together after the provided `deferrer` runs. Great for timeslicing UI updates (e.g., idle callbacks or animation frames) while still producing a signal you can subscribe to.
+
+- `deferrer`: Required scheduling function (same contract as `createDefer`): must call the callback later and return a disposer or nothing. Wrap timer/idle APIs so they return a disposer.
+- `onAbort`: Optional hook that receives a cancellation handler invoked when the owning scope disposes.
+- Returns: A function that accepts either a source signal or a function `(commit) => disposer`. It yields a signal whose value starts as `undefined` and updates only when the scheduled flush occurs.
+
+> Tip: reuse the same wrapped deferrers you use with `createDefer`:
+> ```javascript
+> const idle = (cb) => {
+>   const id = requestIdleCallback(cb)
+>   return () => cancelIdleCallback(id)
+> }
+> ```
+
+```javascript
+import { createSchedule, signal } from 'refui/signal'
+
+const idle = (cb) => {
+	const id = requestIdleCallback(cb)
+	return () => cancelIdleCallback(id)
+}
+
+const schedule = createSchedule(idle)
+const source = signal(0)
+const staged = schedule(source)
+
+source.value = 1
+source.value = 2
+// During the idle window, staged.value is still 0
+// After the idle flush, staged.value becomes 2
 ```
 
 #### `derive(signal, key, compute?)`

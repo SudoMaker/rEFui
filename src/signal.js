@@ -67,8 +67,8 @@ function flushRunQueue(queue) {
 				if (--effect.__refui_scheduled > 0) {
 					effect.__refui_pending = true
 				} else if (effect.__refui_scheduled === 0) {
-					effect()
 					effect.__refui_pending = false
+					effect()
 				}
 			}
 		}
@@ -307,7 +307,6 @@ const Signal = class {
 			throw new Error('Signal must not be extended!')
 		}
 
-
 		// effectStore: [id, delCount, ...effects]
 		// eslint-disable-next-line no-plusplus
 		const id = sigID++
@@ -423,8 +422,8 @@ const Signal = class {
 				_onDispose(function() {
 					container[0] = null
 					if (!--effect.__refui_scheduled && effect.__refui_pending) {
-						effect()
 						effect.__refui_pending = false
+						effect()
 					}
 					scheduleVacuum(effects)
 				})
