@@ -13,6 +13,7 @@ This document covers the core APIs available in rEFui. All APIs are exported dir
 - [Context & Lifecycle APIs](#context--lifecycle-apis)
 - [Utility Functions](#utility-functions)
 - [Scheduling Helpers](#scheduling-helpers)
+- [Extras](#extras)
 
 ## Component APIs
 
@@ -292,6 +293,36 @@ const staged = stage(src)
 src.value = 1
 src.value = 2
 // staged.value stays undefined (or its last flushed value) until the idle callback runs; then it becomes 2
+```
+
+## Extras
+
+### `defineCustomElement(name, component, options?)`
+
+Wraps a rEFui component as a Web Component. Must be called with a renderer context (`defineCustomElement.call(renderer, ...)`) or a bound function (`const wc = defineCustomElement.bind(renderer)`).
+
+- `name`: Custom element tag name.
+- `component`: rEFui component template to render.
+- `options`:
+	- `mode`: Shadow DOM mode (`'open' | 'closed'`, default `'open'`).
+	- `attrs`: Attribute names exposed as signal-backed props.
+	- `slots`: Named slots exposed as props.
+	- `defaultSlot`: Whether to inject the default `<slot>` (default `true`).
+	- `base`: Base class (default `HTMLElement`).
+	- `extends`: Customized built-in extension name (`is=`).
+	- `cssText`: CSS text adopted into the shadow root.
+	- `styleSheets`: Extra `CSSStyleSheet`s to adopt.
+
+```javascript
+import { defineCustomElement } from 'refui/extras'
+import { createDOMRenderer } from 'refui/dom'
+
+const R = createDOMRenderer()
+const wc = defineCustomElement.bind(R)
+
+const Hello = ({ name }) => () => <p>Hello, {name}</p>
+
+wc('hello-card', Hello, { attrs: ['name'] })
 ```
 
 ### `props.expose(values)` (v0.8.0+)
