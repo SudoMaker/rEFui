@@ -131,18 +131,17 @@ function createDOMRenderer({
 		}
 		return doc.createTextNode('')
 	}
-	function createTextNode (text) {
+	function createTextNode(text) {
 		if (isSignal(text)) {
 			const node = doc.createTextNode('')
 			text.connect(function() {
-				const newData = peek(text)
-				if (newData === undefined) node.data = ''
-				else node.data = String(newData)
+				const newData = peek(text) ?? ''
+				node.data = String(newData)
 			})
 			return node
 		}
 
-		return doc.createTextNode(String(text))
+		return doc.createTextNode(String(text ?? ''))
 	}
 	function createFragment() {
 		return doc.createDocumentFragment()
