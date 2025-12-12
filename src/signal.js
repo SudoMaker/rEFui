@@ -53,11 +53,8 @@ function flushRunQueue(queue) {
 			if (!effect) {
 				continue
 			}
-			if (effect.__refui_flush_priority >= 0) {
-				effect.__refui_flush_priority += 1
-			} else {
-				effect.__refui_flush_priority = 1
-			}
+			effect.__refui_scheduled = Math.max(1, effect.__refui_scheduled + 1)
+			effect.__refui_pending = false
 		}
 	}
 
@@ -66,8 +63,13 @@ function flushRunQueue(queue) {
 		const effectEnd = effects.length
 		for (let j = 2; j < effectEnd; j++) {
 			const effect = effects[j][0]
-			if (effect && !(--effect.__refui_flush_priority)) {
-				effect()
+			if (effect) {
+				if (--effect.__refui_scheduled > 0) {
+					effect.__refui_pending = true
+				} else if (effect.__refui_scheduled === 0) {
+					effect()
+					effect.__refui_pending = false
+				}
 			}
 		}
 	}
@@ -420,14 +422,23 @@ const Signal = class {
 			if (currentDisposers && currentDisposers !== disposeCtx) {
 				_onDispose(function() {
 					container[0] = null
-					effect.__refui_flush_priority -= 1
+					if (!--effect.__refui_scheduled && effect.__refui_pending) {
+						effect()
+						effect.__refui_pending = false
+					}
 					scheduleVacuum(effects)
 				})
 			}
-			if (!Object.hasOwn(effect, '__refui_flush_priority')) {
-				Object.defineProperty(effect, '__refui_flush_priority', {
-					value: 0,
-					writable: true
+			if (!Object.hasOwn(effect, '__refui_scheduled')) {
+				Object.defineProperties(effect, {
+					__refui_scheduled: {
+						value: 0,
+						writable: true
+					},
+					__refui_pending: {
+						value: false,
+						writable: true
+					}
 				})
 			}
 		}
@@ -707,10 +718,136 @@ function tpl(strs, ...exprs) {
 	})
 }
 
-function not(val) {
-	return signal(null, function() {
-		return !read(val)
+function dummyDeferrer(cb) {
+	let cancelled = false
+	nextTick(function() {
+		if (cancelled) return
+		cb()
 	})
+
+	return function() {
+		cancelled = true
+	}
+}
+function createDefer(deferrer = dummyDeferrer) {
+	return function deferred(fn, onAbort) {
+		const deferredSignal = signal()
+		const commit = Signal.prototype.set.bind(deferredSignal)
+
+		let dispose = null
+		let cleanup = null
+		function callback() {
+			if (!dispose) return
+			cleanup = fn(commit)
+		}
+
+		let run = function() {
+			callback()
+			run = function() {
+				if (!dispose) return
+				cleanup?.()
+				cleanup = deferrer(callback)
+			}
+		}
+
+		const frozenWatch = freeze(watch)
+		dispose = deferrer(function() {
+			if (!dispose) return
+			dispose = frozenWatch(function() {
+				run()
+			})
+		})
+
+		function handleAbort() {
+			if (cleanup) {
+				cleanup()
+				cleanup = null
+			}
+		}
+
+		onDispose(function() {
+			handleAbort()
+			dispose?.()
+			dispose = null
+		})
+
+		onAbort?.(handleAbort)
+
+		return deferredSignal
+	}
+}
+const deferred = createDefer()
+
+function createSchedule(deferrer, onAbort) {
+	const deferred = createDefer(deferrer)
+	const [onFlush, triggerFlush] = useAction()
+
+	let cancelFlush = null
+
+	function _flush() {
+		if (cancelFlush) {
+			cancelFlush = null
+			triggerFlush()
+		}
+	}
+
+	const flush = nextTick.bind(null, _flush)
+
+	function scheduleFlush() {
+		if (!cancelFlush) {
+			cancelFlush = deferrer(flush)
+		}
+	}
+
+	function scheduled(fn) {
+		let _commit = null
+		let _val = null
+
+		const wrappedFn = (function() {
+			if (isSignal(fn)) {
+				return function(commit) {
+					_commit = commit
+					_val = fn.value
+					return scheduleFlush
+				}
+			} else {
+				let _cleanup = null
+				function wrappedCommit(val) {
+					_val = val
+					scheduleFlush()
+				}
+				function wrappedCleanup() {
+					_cleanup?.()
+					scheduleFlush()
+				}
+				return function(commit) {
+					_commit = commit
+					_cleanup = fn(wrappedCommit)
+					return wrappedCleanup
+				}
+			}
+		})()
+
+		onAbort?.(function() {
+			_commit = null
+		})
+
+		onFlush(function() {
+			if (_commit) {
+				_commit(_val)
+				_commit = null
+			}
+		})
+
+		return deferred(wrappedFn, onAbort)
+	}
+
+	onAbort?.(function() {
+		cancelFlush?.()
+		cancelFlush = null
+	})
+
+	return scheduled
 }
 
 function connect(sigs, effect, runImmediate = true) {
@@ -932,6 +1069,9 @@ export {
 	signal,
 	isSignal,
 	computed,
+	createDefer,
+	createSchedule,
+	deferred,
 	connect,
 	bind,
 	useAction,
@@ -940,7 +1080,6 @@ export {
 	derivedExtract,
 	makeReactive,
 	tpl,
-	not,
 	watch,
 	peek,
 	poke,
