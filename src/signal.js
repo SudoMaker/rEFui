@@ -729,7 +729,7 @@ function dummyDeferrer(cb) {
 	}
 }
 function createDefer(deferrer = dummyDeferrer) {
-	return function deferred(fn, onAbort) {
+	return function(fn, onAbort) {
 		const deferredSignal = signal()
 		const commit = Signal.prototype.set.bind(deferredSignal)
 
@@ -780,7 +780,7 @@ function createDefer(deferrer = dummyDeferrer) {
 const deferred = createDefer()
 
 function createSchedule(deferrer, onAbort) {
-	const deferred = createDefer(deferrer)
+	const _deferred = createDefer(deferrer)
 	const [onFlush, triggerFlush] = useAction()
 
 	let cancelFlush = null
@@ -803,6 +803,7 @@ function createSchedule(deferrer, onAbort) {
 	function scheduled(fn) {
 		let _commit = null
 		let _val = null
+		let _valChanged = false
 
 		const wrappedFn = (function() {
 			if (isSignal(fn)) {
@@ -814,6 +815,10 @@ function createSchedule(deferrer, onAbort) {
 			} else {
 				let _cleanup = null
 				function wrappedCommit(val) {
+					if (_val === val) {
+						return
+					}
+					_valChanged = true
 					_val = val
 					scheduleFlush()
 				}
@@ -834,13 +839,14 @@ function createSchedule(deferrer, onAbort) {
 		})
 
 		onFlush(function() {
-			if (_commit) {
+			if (_commit && _valChanged) {
 				_commit(_val)
 				_commit = null
+				_valChanged = false
 			}
 		})
 
-		return deferred(wrappedFn, onAbort)
+		return _deferred(wrappedFn, onAbort)
 	}
 
 	onAbort?.(function() {
