@@ -766,8 +766,10 @@ function createDefer(deferrer = dummyDeferrer) {
 
 		onDispose(function() {
 			handleAbort()
-			dispose?.()
-			dispose = null
+			if (dispose) {
+				dispose()
+				dispose = null
+			}
 		})
 
 		onAbort?.(handleAbort)

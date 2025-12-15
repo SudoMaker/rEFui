@@ -490,7 +490,7 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 	}
 
 	let oldCtx = null
-	props.$ref = (newInstance) => {
+	props.$ref = function(newInstance) {
 		if (oldCtx) {
 			oldCtx.wrapper = null
 			oldCtx = null
@@ -538,55 +538,62 @@ function Dynamic({ is, ctx, expose, ...props }, ...children) {
 markStatic(Dynamic)
 
 function _asyncContainer(name, fallback, catchErr, props, ...children) {
-	const self = getCurrentSelf()
 	const component = signal()
 	let currentDispose = null
+	let disposed = false
 
 	const inputFuture = Promise.resolve(this)
 	const resolvedFuture = inputFuture.then(capture(function(result) {
-		if (self[KEY_CTX]) {
-			currentDispose?.()
-			currentDispose = watch(function() {
-				component.value = read(result)
-			})
+		if (disposed) {
+			return
 		}
+		currentDispose?.()
+		currentDispose = watch(function() {
+			component.value = read(result)
+		})
 	}))
 
 	if (catchErr) {
 		resolvedFuture.catch(capture(function(error) {
-			if (self[KEY_CTX]) {
-				currentDispose?.()
-				currentDispose = watch(function () {
-					const handler = read(catchErr)
-					if (handler) {
-						if (typeof handler === 'function') {
-							component.value = handler({ ...props, error }, ...children)
-						} else {
-							component.value = handler
-						}
-					}
-				})
+			if (disposed) {
+				return
 			}
+			currentDispose?.()
+			currentDispose = watch(function () {
+				const handler = read(catchErr)
+				if (handler) {
+					if (typeof handler === 'function') {
+						component.value = handler({ ...props, error }, ...children)
+					} else {
+						component.value = handler
+					}
+				}
+			})
 		}))
 	}
 
 	if (fallback) {
 		nextTick(capture(function() {
-			if (self[KEY_CTX] && !component.peek()) {
-				currentDispose?.()
-				currentDispose = watch(function () {
-					const handler = read(fallback)
-					if (handler) {
-						if (typeof handler === 'function') {
-							component.value = handler({ ...props }, ...children)
-						} else {
-							component.value = handler
-						}
-					}
-				})
+			if (disposed || component.peek()) {
+				return
 			}
+			currentDispose?.()
+			currentDispose = watch(function () {
+				const handler = read(fallback)
+				if (handler) {
+					if (typeof handler === 'function') {
+						component.value = handler({ ...props }, ...children)
+					} else {
+						component.value = handler
+					}
+				}
+			})
 		}))
 	}
+
+	onDispose(function() {
+		disposed = true
+	})
 
 	return Fn({ name }, function() {
 		return component.value
