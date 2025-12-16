@@ -27,8 +27,7 @@ const rendererFactory = function(props, component, R) {
 }
 
 const createElement = (function() {
-	// if (hotEnabled) {
-	if (false) {
+	if (hotEnabled) {
 		return function(component, props, ...children) {
 			if (typeof component === 'function' && isStatic(component)) {
 				const { $ref, ..._props } = props ?? nullRefObject
