@@ -537,14 +537,21 @@ function Dynamic({ is, ctx, expose, ...props }, ...children) {
 }
 markStatic(Dynamic)
 
-function _asyncContainer(name, fallback, catchErr, props, ...children) {
+let currentFuture = null
+function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children) {
 	const component = signal()
 	let currentDispose = null
 	let disposed = false
+	let _resolve = null
 
-	const inputFuture = Promise.resolve(this)
-	const resolvedFuture = inputFuture.then(capture(function(result) {
+	onDispose(function() {
+		disposed = true
+	})
+
+	const inputFuture = isThenable(this) ? this : Promise.resolve(this)
+	let resolvedFuture = inputFuture.then(capture(function(result) {
 		if (disposed) {
+			_resolve?.()
 			return
 		}
 		currentDispose?.()
@@ -554,8 +561,9 @@ function _asyncContainer(name, fallback, catchErr, props, ...children) {
 	}))
 
 	if (catchErr) {
-		resolvedFuture.catch(capture(function(error) {
+		resolvedFuture = resolvedFuture.catch(capture(function(error) {
 			if (disposed) {
+				_resolve?.()
 				return
 			}
 			currentDispose?.()
@@ -575,6 +583,7 @@ function _asyncContainer(name, fallback, catchErr, props, ...children) {
 	if (fallback) {
 		nextTick(capture(function() {
 			if (disposed || component.peek()) {
+				_resolve?.()
 				return
 			}
 			currentDispose?.()
@@ -591,17 +600,42 @@ function _asyncContainer(name, fallback, catchErr, props, ...children) {
 		}))
 	}
 
-	onDispose(function() {
-		disposed = true
-	})
+	if (suspensed && currentFuture) {
+		const { promise, resolve, reject } = Promise.withResolvers()
+		_resolve = resolve
+		currentFuture.push(resolvedFuture, promise)
+		let currentFn = component.peek()
+		let currentRender = null
 
-	return Fn({ name }, function() {
-		return component.value
-	})
+		const _props = {
+			...props,
+			onLoad(val) {
+				resolve()
+				return val
+			},
+			catch(props) {
+				reject(props.error)
+				return catchErr?.(props)
+			}
+		}
+
+		return Fn({ name }, function() {
+			const renderFn = component.value
+			if (currentFn === renderFn) {
+				return currentRender
+			}
+			currentFn = renderFn
+			return (currentRender = Suspense(_props, renderFn))
+		})
+	} else {
+		return Fn({ name }, function() {
+			return component.value
+		})
+	}
 }
 
-function Async({ future, fallback, catch: catchErr, ...props }, then, now, handleErr) {
-	future = Promise.resolve(future).then(capture(function(result) {
+function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }, then, now, handleErr) {
+	future = (isThenable(future) ? future : Promise.resolve(future)).then(capture(function(result) {
 		let lastResult = null
 		let lastHandler = null
 		return Fn({ name: 'Then' }, function() {
@@ -616,9 +650,41 @@ function Async({ future, fallback, catch: catchErr, ...props }, then, now, handl
 			return (lastResult = handler?.({ ...props, result }))
 		})
 	}))
-	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, props)
+	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, suspensed, props)
 }
 markStatic(Async)
+
+function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...renderFn) {
+	if (!renderFn.length) {
+		return
+	}
+
+	return function({ ensureElement }) {
+		const prevFuture = currentFuture
+		currentFuture = []
+
+		const future = new Promise(function(resolve) {
+			resolve(renderFn.map(ensureElement))
+		})
+
+		let _future = currentFuture.length ? Promise.all(currentFuture).then(function() {
+			return future
+		}) : future
+
+		if (onLoad) {
+			_future = _future.then(function(val) {
+				const ret = onLoad(val)
+				return ret ?? val
+			})
+		}
+
+		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, false, props)
+
+		currentFuture = prevFuture
+		return result
+	}
+}
+markStatic(Suspense)
 
 function Render({ from }) {
 	return Fn({ name: 'Render' }, function() {
@@ -661,7 +727,7 @@ class Component {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
 					const { fallback, catch: catchErr, ..._props } = props
-					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, _props, ...children)
+					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, true, _props, ...children)
 				}
 				ctx.render = renderFn
 			}, () => {
@@ -729,6 +795,7 @@ export {
 	If,
 	Dynamic,
 	Async,
+	Suspense,
 	Render,
 	Component,
 	createComponent
