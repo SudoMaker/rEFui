@@ -839,7 +839,7 @@ function createSchedule(deferrer, onAbort) {
 		})
 
 		onFlush(function() {
-			if (_commit && _valChanged) {
+			if (_valChanged && _commit) {
 				_commit(_val)
 				_commit = null
 				_valChanged = false
