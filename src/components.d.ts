@@ -113,6 +113,18 @@ export function Async<T = unknown, E = unknown>(
 	catchHandler?: (error: E) => PossibleRender
 ): RenderFunction
 
+export interface SuspenseProps<E = unknown> {
+	fallback?: MaybeSignal<PossibleRender>
+	catch?: MaybeSignal<(error: E) => PossibleRender>
+	onLoad?: (value: unknown) => unknown
+	[key: string]: any
+}
+
+export function Suspense<E = unknown>(
+	props: SuspenseProps<E>,
+	...children: any[]
+): RenderFunction
+
 export interface RenderProps {
 	from: MaybeSignal<Component<any> | null | undefined>
 }

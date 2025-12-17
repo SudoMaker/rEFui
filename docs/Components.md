@@ -431,6 +431,57 @@ const App = () => (
 );
 ```
 
+### Suspense
+
+Wraps one or more children and renders a fallback while any nested async work (including `<Async>` or async components) is still pending. It also supports an error handler and an optional `onLoad` hook that runs after all children resolve.
+
+**Props:**
+
+- `fallback`: Shown while pending (component/function/renderable or signal).
+- `catch`: Error handler when any child rejects.
+- `onLoad`: Called once when the initial batch resolves. Receives the resolved value (array of ensured children). If it returns a non-nullish value, that replaces the resolved value; otherwise the original is used. Great for logging/metrics; return `undefined` for pure side effects.
+- Additional props are forwarded to fallback/catch handlers.
+
+**Children:** Renderables to show once resolved. If multiple children are provided, they resolve as a group.
+
+**Behavior notes:**
+- Async components that specify their own `fallback` render that fallback immediately and are **not** accumulated by the surrounding `<Suspense>`.
+- `<Suspense>` coordinates the initial async work only; subsequent async loads triggered later inside the boundary will not be suspended automatically.
+- When *not* using the Reflow renderer (e.g., custom renderer with classic JSX), wrap children in a function so they accumulate correctly inside `<Suspense>`. With Reflow or the default automatic JSX runtime, you can pass children directly.
+
+```jsx
+import { Suspense } from 'refui'
+
+const Profile = ({ id }) => <Async future={fetch(`/api/user/${id}`).then((r) => r.json())}>{({ result }) => <p>{result.name}</p>}</Async>
+
+const App = () => (
+	<Suspense fallback={() => <p>Loading profile…</p>} catch={({ error }) => <p>Failed: {error.message}</p>}>
+		<Profile id={42} />
+	</Suspense>
+)
+
+// Using onLoad side-effects
+<Suspense onLoad={() => console.log('all done')} fallback={() => <Spinner />}>
+	<Async future={doWork()}>{({ result }) => <ResultView data={result} />}</Async>
+</Suspense>
+
+// Non-Reflow/custom renderer: wrap children to accumulate
+<Suspense fallback={() => <p>Loading…</p>}>
+	{() => <Async future={loadData()}>{({ result }) => <p>{result}</p>}</Async>}
+</Suspense>
+
+// Async component example: can be awaited directly
+const UserCard = async ({ id }) => {
+	const res = await fetch(`/api/users/${id}`)
+	const user = await res.json()
+	return () => <div>{user.name}</div>
+}
+
+<Suspense fallback={() => <p>Loading user…</p>}>
+	<UserCard id={123} />
+</Suspense>
+```
+
 #### Automatic Async Components
 
 If a component itself returns a promise (i.e., it's an `async` function), rEFui will automatically wrap it in a boundary similar to `<Async>`. You can provide `fallback` and `catch` props directly to the component invocation.
