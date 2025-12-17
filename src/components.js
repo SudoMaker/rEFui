@@ -603,7 +603,7 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children
 		}))
 	}
 
-	if (suspensed && currentFuture) {
+	if (!fallback && suspensed && currentFuture) {
 		const { promise, resolve, reject } = Promise.withResolvers()
 		_resolve = resolve
 		currentFuture.push(resolvedFuture, promise)
@@ -630,11 +630,11 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children
 			currentFn = renderFn
 			return (currentRender = Suspense(_props, renderFn))
 		})
-	} else {
-		return Fn({ name }, function() {
-			return component.value
-		})
 	}
+
+	return Fn({ name }, function() {
+		return component.value
+	})
 }
 
 function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }, then, now, handleErr) {
