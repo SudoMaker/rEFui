@@ -783,6 +783,7 @@ function createSchedule(deferrer, onAbort) {
 	const _deferred = createDefer(deferrer)
 	const [onFlush, triggerFlush] = useAction()
 
+	let pending = 0
 	let cancelFlush = null
 
 	function _flush() {
@@ -795,7 +796,8 @@ function createSchedule(deferrer, onAbort) {
 	const flush = nextTick.bind(null, _flush)
 
 	function scheduleFlush() {
-		if (!cancelFlush) {
+		pending = Math.max(0, pending - 1)
+		if (!pending && !cancelFlush) {
 			cancelFlush = deferrer(flush)
 		}
 	}
@@ -808,8 +810,10 @@ function createSchedule(deferrer, onAbort) {
 		const wrappedFn = (function() {
 			if (isSignal(fn)) {
 				return function(commit) {
+					pending += 1
 					_commit = commit
 					_val = fn.value
+					nextTick(scheduleFlush)
 					return scheduleFlush
 				}
 			} else {
@@ -827,6 +831,7 @@ function createSchedule(deferrer, onAbort) {
 					scheduleFlush()
 				}
 				return function(commit) {
+					pending += 1
 					_commit = commit
 					_cleanup = fn(wrappedCommit)
 					return wrappedCleanup
