@@ -23,7 +23,7 @@ import { hotEnabled } from 'refui/hmr'
 import { isThenable, isStatic, nullRefObject } from 'refui/utils'
 import { _asyncContainer } from 'refui/components'
 
-const rendererFactory = function(props, component, R) {
+function rendererFactory(props, component, R) {
 	return R.c(component, props, ...this)
 }
 
@@ -45,7 +45,7 @@ const createElement = (function() {
 				const renderer = component(_props, ...children)
 				if (isThenable(renderer)) {
 					const { fallback, catch: catchErr, __props } = props
-					return _asyncContainer.call(renderer, 'Future', fallback, catchErr, true, __props, ...children)
+					return _asyncContainer.bind(renderer, 'Future', fallback, catchErr, true, __props, ...children)
 				}
 
 				return renderer
