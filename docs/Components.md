@@ -448,6 +448,7 @@ Wraps one or more children and renders a fallback while any nested async work (i
 - Async components that specify their own `fallback` render that fallback immediately and are **not** accumulated by the surrounding `<Suspense>`.
 - `<Suspense>` coordinates the initial async work only; subsequent async loads triggered later inside the boundary will not be suspended automatically.
 - When *not* using the Reflow renderer (e.g., custom renderer with classic JSX), wrap children in a function so they accumulate correctly inside `<Suspense>`. With Reflow or the default automatic JSX runtime, you can pass children directly.
+- Suspense watches async components and `<Async>` boundaries; deferred/scheduled signals (`createDefer`/`createSchedule`) are not tracked and won't trigger the fallback.
 
 ```jsx
 import { Suspense } from 'refui'
