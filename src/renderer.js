@@ -30,7 +30,7 @@ const dummyFutureHandler = function(props) {
 }
 
 const createAsync = function(future) {
-	return createComponent(Async, {future}, dummyFutureHandler)
+	return createComponent(Async, { future }, dummyFutureHandler)
 }
 
 function createRenderer(nodeOps, rendererID) {

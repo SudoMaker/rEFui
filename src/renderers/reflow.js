@@ -21,6 +21,7 @@
 import { Fragment } from 'refui/renderer'
 import { hotEnabled } from 'refui/hmr'
 import { isThenable, isStatic, nullRefObject } from 'refui/utils'
+import { _asyncContainer } from 'refui/components'
 
 const rendererFactory = function(props, component, R) {
 	return R.c(component, props, ...this)
@@ -41,7 +42,13 @@ const createElement = (function() {
 		return function(component, props, ...children) {
 			const { $ref, ..._props } = props ?? nullRefObject
 			if (!$ref && typeof component === 'function') {
-				return component(_props, ...children)
+				const renderer = component(_props, ...children)
+				if (isThenable(renderer)) {
+					const { fallback, catch: catchErr, __props } = props
+					return _asyncContainer.call(renderer, 'Future', fallback, catchErr, true, __props, ...children)
+				}
+
+				return renderer
 			}
 
 			return rendererFactory.bind(children, props, component)

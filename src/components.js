@@ -538,6 +538,9 @@ function Dynamic({ is, ctx, expose, ...props }, ...children) {
 markStatic(Dynamic)
 
 let currentFuture = null
+
+// Internal, no document/.d.ts needed
+// DON'T USE UNLESS YOU UNDERSTAND WHAT IT DOES
 function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children) {
 	const component = signal()
 	let currentDispose = null
@@ -548,8 +551,8 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children
 		disposed = true
 	})
 
-	const inputFuture = isThenable(this) ? this : Promise.resolve(this)
-	let resolvedFuture = inputFuture.then(capture(function(result) {
+	// `this` should and is guaranteed to be a Promise
+	let resolvedFuture = this.then(capture(function(result) {
 		if (disposed) {
 			_resolve?.()
 			return
@@ -798,5 +801,6 @@ export {
 	Suspense,
 	Render,
 	Component,
-	createComponent
+	createComponent,
+	_asyncContainer
 }
