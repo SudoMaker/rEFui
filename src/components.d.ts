@@ -19,7 +19,7 @@
  */
 
 import type { MaybeSignal, Signal } from './signal.js'
-import type { Renderer, RendererCore } from './renderer.js'
+import type { Renderer } from './renderer.js'
 
 export type RenderFunction<R extends Renderer = Renderer, Result = unknown> = (renderer: R) => Result
 export type PossibleRender<R extends Renderer = Renderer, Result = unknown> =

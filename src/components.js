@@ -20,7 +20,7 @@
 
 import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
-import { nop, emptyArr, removeFromArr, isThenable, isPrimitive, markStatic, nullRefObject } from 'refui/utils'
+import { nop, emptyArr, removeFromArr, isThenable, markStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
@@ -638,6 +638,9 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, children) {
 }
 
 function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }, then, now, handleErr) {
+	while (typeof future === 'function') {
+		future = future()
+	}
 	future = (isThenable(future) ? future : Promise.resolve(future)).then(capture(function(result) {
 		let lastResult = null
 		let lastHandler = null
