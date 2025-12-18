@@ -103,6 +103,7 @@ export interface AsyncProps<T = unknown, E = unknown> {
 	future: PromiseLike<T> | T
 	fallback?: MaybeSignal<PossibleRender>
 	catch?: MaybeSignal<(error: E) => PossibleRender>
+	suspensed?: boolean
 	[key: string]: any
 }
 
