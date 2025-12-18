@@ -49,6 +49,9 @@ Follow these guides for detailed instructions on specific topics, from rendering
 - **[LLM Guidelines](LLMGuidelines.md)**
 	- Best practices for AI code generators to keep rEFui usage correct and avoid leaking patterns from other frameworks.
 
+- **[FAQ](FAQ.md)**
+	- Fast answers about performance, renderer targets, toolchains, Suspense behavior, and async components.
+
 ## API Reference
 
 For experienced developers who need detailed information about specific functions, classes, and utilities.
