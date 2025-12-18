@@ -16,6 +16,20 @@ import { defaults } from 'refui/browser';
 const renderer = createDOMRenderer(defaults);
 ```
 
+### Using a custom DOM-like document
+If your platform exposes DOM-style APIs (via `undom-ng`, DOMiNATIVE(DOM for NativeScript), or a custom document), pass it to `createDOMRenderer`:
+```javascript
+import { createDOMRenderer } from 'refui/dom'
+import { document } from 'dominative' // or your own doc
+
+const renderer = createDOMRenderer({
+	doc: document,
+	rendererID: 'MyTarget',
+	// optional: namespaces, tagNamespaceMap, tagAliases, propAliases, onDirective, macros
+})
+```
+This reuses all DOM renderer behaviors: signal-aware text/props, event normalization, namespaces, and macros.
+
 ## Usage with JSX
 
 For instructions on how to set up JSX, please see the [JSX Setup Guide](JSX.md). It covers both the preferred **Classic Transform** and the **Automatic Runtime**.

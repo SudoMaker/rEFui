@@ -20,7 +20,7 @@
 
 import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
-import { nop, emptyArr, removeFromArr, isThenable, isPrimitive, markStatic, nullRefObject } from 'refui/utils'
+import { nop, emptyArr, removeFromArr, isThenable, markStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
@@ -541,7 +541,7 @@ let currentFuture = null
 
 // Internal, no document/.d.ts needed
 // DON'T USE UNLESS YOU UNDERSTAND WHAT IT DOES
-function _asyncContainer(name, fallback, catchErr, suspensed, props, children) {
+function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, children) {
 	const component = signal()
 	let currentDispose = null
 	let disposed = false
@@ -552,7 +552,17 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, children) {
 	})
 
 	// `this` should and is guaranteed to be a Promise
-	let resolvedFuture = this.then(capture(function(result) {
+	let resolvedFuture = this
+	if (onLoad) {
+		resolvedFuture = resolvedFuture.then(function(val) {
+			if (disposed) {
+				return
+			}
+			return onLoad(val) ?? val
+		})
+	}
+
+	resolvedFuture = this.then(capture(function(result) {
 		if (disposed) {
 			_resolve?.()
 			return
@@ -637,7 +647,10 @@ function _asyncContainer(name, fallback, catchErr, suspensed, props, children) {
 	})
 }
 
-function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }, then, now, handleErr) {
+function Async({ future, fallback, catch: catchErr, onLoad, suspensed = true, ...props }, then, now, handleErr) {
+	while (typeof future === 'function') {
+		future = future()
+	}
 	future = (isThenable(future) ? future : Promise.resolve(future)).then(capture(function(result) {
 		let lastResult = null
 		let lastHandler = null
@@ -653,7 +666,7 @@ function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }
 			return (lastResult = handler?.({ ...props, result }))
 		})
 	}))
-	return _asyncContainer.bind(future, 'Async', fallback ?? now, catchErr ?? handleErr, suspensed, props, emptyArr)
+	return _asyncContainer.bind(future, 'Async', fallback ?? now, catchErr ?? handleErr, onLoad, suspensed, props, emptyArr)
 }
 markStatic(Async)
 
@@ -670,18 +683,11 @@ function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...children) 
 			resolve(children.map(ensureElement))
 		})
 
-		let _future = currentFuture.length ? Promise.all(currentFuture).then(function() {
+		const _future = currentFuture.length ? Promise.all(currentFuture).then(function() {
 			return future
 		}) : future
 
-		if (onLoad) {
-			_future = _future.then(function(val) {
-				const ret = onLoad(val)
-				return ret ?? val
-			})
-		}
-
-		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, false, props, children)
+		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, onLoad, false, props, children)
 
 		currentFuture = prevFuture
 		return result
@@ -729,8 +735,8 @@ class Component {
 			ctx.dispose = collectDisposers(disposers, function() {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
-					const { fallback, catch: catchErr, ..._props } = props
-					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, true, _props, children)
+					const { fallback, catch: catchErr, onLoad, ..._props } = props
+					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, true, _props, children)
 				}
 				ctx.render = renderFn
 			}, () => {

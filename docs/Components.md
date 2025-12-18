@@ -374,6 +374,7 @@ Manages the lifecycle of asynchronous operations. It uses a render-prop pattern,
 -   `fallback`: (Optional) A component, function, or node to display while the promise is pending.
 -   `catch`: (Optional) A handler for when the promise rejects.
 -   `suspensed`: (Optional, default `true`) When `true` and no `fallback` is provided, the async task is accumulated into the nearest `<Suspense>` boundary. Set to `false` to render immediately without joining Suspense.
+-   `onLoad`: (Optional) Runs once when the promise resolves; return a value to replace the resolved payload, or `undefined` for side effects only.
 
 Any other props passed to `<Async>` will be passed through to the `then`, `fallback`, and `catch` handlers.
 
