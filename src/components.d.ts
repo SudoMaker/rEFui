@@ -104,6 +104,7 @@ export interface AsyncProps<T = unknown, E = unknown> {
 	fallback?: MaybeSignal<PossibleRender>
 	catch?: MaybeSignal<(error: E) => PossibleRender>
 	suspensed?: boolean
+	onLoad?: (value: T) => unknown
 	[key: string]: any
 }
 
