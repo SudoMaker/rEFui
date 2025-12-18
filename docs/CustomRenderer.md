@@ -1,10 +1,15 @@
 # Custom Renderers
 
-Build rEFui renderers for novel platforms: map your platform’s primitives to the small `nodeOps` interface and let signals drive updates. Prefer reusing a DOM shim (`undom-ng`) when possible; write a renderer only when you need platform-specific behavior.
+Build rEFui renderers for novel platforms: map your platform’s primitives to the small `nodeOps` interface and let signals drive updates. Prefer reusing a DOM shim (`undom-ng`) when possible; write a renderer only when you need platform-specific behavior. If your platform already exposes a DOM-like API, you can often reuse `createDOMRenderer` with a custom `doc`.
 
 ## When to write one
 - Your platform exposes node-like handles but no DOM (e.g., terminal UI, canvas scene graph, native UI toolkit).
 - You need custom prop/event normalization or lifecycle hooks that differ from the DOM renderer.
+
+## If you already have a DOM-like API
+- Supply a `doc` that implements `createElement`, `createElementNS`, `createTextNode`, `createComment`, `createDocumentFragment`, and event methods.
+- Call `createDOMRenderer({ doc, rendererID, namespaces, tagNamespaceMap, tagAliases, propAliases, onDirective, macros })`.
+- You inherit the DOM renderer’s behavior: signal-aware text nodes/props, event normalization (passive/once fallbacks), namespaces, aliases, and macros.
 
 ## Minimal interface (`nodeOps`)
 Implement these methods and pass them to `createRenderer(nodeOps)`:
