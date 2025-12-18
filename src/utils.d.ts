@@ -19,6 +19,7 @@
  */
 
 export const nullRefObject: { $ref: null }
+export const emptyArr: readonly []
 
 export function nop(): void
 

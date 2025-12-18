@@ -20,7 +20,7 @@
 
 import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
-import { nop, removeFromArr, isThenable, isPrimitive, markStatic, nullRefObject } from 'refui/utils'
+import { nop, emptyArr, removeFromArr, isThenable, isPrimitive, markStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
@@ -541,7 +541,7 @@ let currentFuture = null
 
 // Internal, no document/.d.ts needed
 // DON'T USE UNLESS YOU UNDERSTAND WHAT IT DOES
-function _asyncContainer(name, fallback, catchErr, suspensed, props, ...children) {
+function _asyncContainer(name, fallback, catchErr, suspensed, props, children) {
 	const component = signal()
 	let currentDispose = null
 	let disposed = false
@@ -653,12 +653,12 @@ function Async({ future, fallback, catch: catchErr, suspensed = true, ...props }
 			return (lastResult = handler?.({ ...props, result }))
 		})
 	}))
-	return _asyncContainer.call(future, 'Async', fallback ?? now, catchErr ?? handleErr, suspensed, props)
+	return _asyncContainer.bind(future, 'Async', fallback ?? now, catchErr ?? handleErr, suspensed, props, emptyArr)
 }
 markStatic(Async)
 
-function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...renderFn) {
-	if (!renderFn.length) {
+function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...children) {
+	if (!children.length) {
 		return
 	}
 
@@ -667,7 +667,7 @@ function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...renderFn) 
 		currentFuture = []
 
 		const future = new Promise(function(resolve) {
-			resolve(renderFn.map(ensureElement))
+			resolve(children.map(ensureElement))
 		})
 
 		let _future = currentFuture.length ? Promise.all(currentFuture).then(function() {
@@ -681,7 +681,7 @@ function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...renderFn) 
 			})
 		}
 
-		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, false, props)
+		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, false, props, children)
 
 		currentFuture = prevFuture
 		return result
@@ -730,7 +730,7 @@ class Component {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
 					const { fallback, catch: catchErr, ..._props } = props
-					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, true, _props, ...children)
+					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, true, _props, children)
 				}
 				ctx.render = renderFn
 			}, () => {
@@ -758,7 +758,7 @@ markStatic(Component)
 const createComponent = (function() {
 	function createComponentRaw(tpl, props, ...children) {
 		if (isSignal(tpl)) {
-			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props ?? {}, ...children)
+			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props ?? Object.create(null), ...children)
 		}
 		const { $ref, ..._props } = (props ?? nullRefObject)
 		const component = new Component(tpl, _props, ...children)
