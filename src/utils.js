@@ -19,6 +19,7 @@
  */
 
 export const nullRefObject = { $ref: null }
+export const emptyArr = []
 
 // eslint-disable-next-line no-empty-function
 export function nop() {}
