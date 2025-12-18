@@ -43,6 +43,9 @@ Follow these guides for detailed instructions on specific topics, from rendering
 - **[JSX Setup](JSX.md)**
 	- Detailed instructions on how to configure your project to use JSX with rEFui, including the recommended "Classic Transform" and the "Automatic Runtime".
 
+- **[Custom Renderer](CustomRenderer.md)**
+	- Step-by-step guide to implementing renderers for novel platforms, nodeOps contract, and when to use DOM shims like undom-ng.
+
 - **[Migration & QA](MigrationGuide.md)**
 	- Questions and walkthroughs for teams migrating from React, Solid, Vue or Svelte, highlighting differences in signals, JSX, lifecycle, and retained rendering.
 

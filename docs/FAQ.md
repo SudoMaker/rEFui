@@ -16,7 +16,7 @@ Prefer using a DOM shim over writing a renderer from scratch. Drop in [undom-ng]
 - NativeScript: [DOMiNATIVE](https://github.com/SudoMaker/nativescript-dom-ng) builds on undom-ng.
 - Embedded/desktop: the upcoming Resonance runtime ships DOM bindings for LVGL and Dear ImGui; its FFI plus undom-ng lets you wire other native UIs.
 
-If you must write a renderer, implement `createRenderer(nodeOps)` mapping your platform primitives to `isNode`, `createNode`, `createTextNode`, `createFragment`, `appendNode`, `insertBefore`, `removeNode`, and `setProps`.
+If you must write a renderer, implement `createRenderer(nodeOps)` mapping your platform primitives to `isNode`, `createNode`, `createTextNode`, `createAnchor`, `createFragment`, `appendNode`, `insertBefore`, `removeNode`, and `setProps`.
 
 ## How do I set up esbuild for JSX?
 - Classic pragma: `esbuild src/main.jsx --bundle --outfile=dist/bundle.js --jsx-factory=R.c --jsx-fragment=R.f` (or via JS API with the same options). Use when you want per-file renderer swapping or Reflow classic patterns.

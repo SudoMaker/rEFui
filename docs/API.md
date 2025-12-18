@@ -112,6 +112,8 @@ Creates a custom renderer with the specified node operations.
 
 **Returns:** Renderer instance
 
+See also: [Custom Renderer guide](CustomRenderer.md) for the full `nodeOps` contract, signal-aware text/prop handling, and platform tips.
+
 ```jsx
 import { createRenderer } from 'refui';
 
