@@ -92,6 +92,11 @@
       "import": "./src/renderers/jsx-dev-runtime.js",
       "default": "./src/renderers/jsx-dev-runtime.js"
     },
+    "./jsx-global": {
+      "types": "./src/jsx-global.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
     "./browser": {
       "types": "./src/presets/browser.d.ts",
       "import": "./src/presets/browser.js",

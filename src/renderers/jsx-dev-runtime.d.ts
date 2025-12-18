@@ -19,6 +19,16 @@
  */
 
 import type { Renderer } from '../renderer.js'
+import type { JSX as JSXNS } from './jsx-runtime.js'
+
+// Re-export JSX namespace so TS also works under `jsx: react-jsxdev`.
+export namespace JSX {
+	export type Element = JSXNS.Element
+	export interface IntrinsicElements extends JSXNS.IntrinsicElements {}
+	export interface ElementChildrenAttribute extends JSXNS.ElementChildrenAttribute {}
+	export interface IntrinsicAttributes extends JSXNS.IntrinsicAttributes {}
+	export type LibraryManagedAttributes<C, P> = JSXNS.LibraryManagedAttributes<C, P>
+}
 
 export interface JSXDevRuntimeBindings {
 	jsxDEV: (tag: any, props: Record<string, any>, key?: string | number | null, isStaticChildren?: boolean, source?: Record<string, any>, self?: any) => any
