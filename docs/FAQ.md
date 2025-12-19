@@ -5,6 +5,26 @@ Common questions and quick answers about rEFui’s performance, rendering target
 ## How do I keep performance high in data‑intensive apps?
 rEFui is fine‑grained: signals track exactly the dependencies they touch, so unaffected subtrees don’t re-render. Prefer storing state in signals close to where it’s read, and rely on built-in tracking instead of manual memoization. Use `For`/`UnKeyed` for lists to avoid diffing, and `createCache` for reusable heavy fragments. Reach for `memo` only when you need to reuse a large subtree across multiple parents (similar to Vue’s keep-alive), not for routine updates.
 
+## How do I selectively re-render deep trees without memo?
+rEFui’s retained mode plus signals already limits work to touched nodes. Tips:
+- Keep state localized: split big blobs into per-branch signals.
+- Use `extract`/`derivedExtract` so subtrees only subscribe to the fields they read.
+- Use `onCondition` for branch-specific flags instead of a global boolean that fans out to every row.
+- For heavy async/state churn, coalesce with `createDefer`/`createSchedule` rather than memoizing.
+Memo (`memo`/`useMemo`) is mainly for reusing large subtrees across parents; everyday updates don’t need manual memoization.
+
+## Why doesn’t my computed signal update?
+Computed/`watch`/`useEffect` track signals only when they’re read. If you early-return before touching a dependency on the first run, it won’t be tracked. Read dependencies up front or ensure every path touches the signals you need. Example fix (multiple signals):
+```js
+const summary = computed(() => {
+  const t = track.value        // read first
+  const meta = metadata.value  // read first
+  if (!t) return 'Ready'
+  return `${t.name} – ${meta}`
+})
+// `$` is a shorthand: const summary = $(() => { ... })
+```
+
 ## Do I need React-style hooks or a VDOM?
 No. rEFui is retained-mode with signals. Effects (`watch`, `useEffect`) run off tracked dependencies; there’s no reconciliation loop or hook ordering rules. JSX returns render functions that operate directly on renderer nodes.
 
