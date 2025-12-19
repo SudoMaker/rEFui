@@ -34,6 +34,9 @@ These documents dive deep into the fundamental building blocks of rEFui. Underst
 
 Follow these guides for detailed instructions on specific topics, from rendering in different environments to configuring your development setup.
 
+- **[Best Practices & Pitfalls](BestPractices.md)**
+	- Practical patterns for signals, effects, lists, cleanup, and avoiding common dependency-tracking bugs.
+
 - **[DOM Renderer](DOMRenderer.md)**
 	- Learn how to use rEFui to build interactive applications that run in the browser. Covers event handling, attribute/property management, and more.
 
