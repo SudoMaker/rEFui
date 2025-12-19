@@ -254,7 +254,7 @@ function freeze(
 
 const untrack = freeze(function(fn, ...args) {
 	return fn(...args)
-}, _invalidatedState)
+})
 
 function vacuumEffectStore() {
 	let delCount = this[1]
