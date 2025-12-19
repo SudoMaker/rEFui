@@ -1,97 +1,94 @@
-# Best Practices & Common Pitfalls
+# rEFui Best Practices & Troubleshooting
 
-This guide collects practical patterns that keep rEFui apps fast, correct, and easy to maintain.
+This guide consolidates performance tips, reactive patterns, renderer notes, and common pitfalls. Prefer these patterns before reaching for custom memoization or heavy abstractions.
 
-## 1) Mental model: retained rendering + signals
+## 1) SVG attributes in JSX
+React-style props on SVG can hit read-only DOM properties. Use `attr:` to set attributes.
+```jsx
+// ❌ Incorrect
+<svg width="24" viewBox="0 0 24 24" />
 
-- rEFui is **not React** and does not rely on a virtual DOM diff.
-- Signals are the unit of reactivity. Only use signals for values that should stay reactive; plain values are fine for static props/children.
+// ✅ Correct
+<svg attr:width="24" attr:viewBox="0 0 24 24" />
+```
 
-## 2) Dependency tracking: read before branching/returning
+## 2) Reactivity & object properties
+Signals track reads/writes on the signal itself, not nested object mutations.
+```ts
+// ❌ Mutation won’t notify
+tracks.value[0].sampleRate = 44100
 
-rEFui tracks dependencies when a signal is **read** during a `computed`, `watch`, or `useEffect` run.
+// ✅ Preferred: mutate in place + trigger for GC-friendly updates
+tracks.value[0].sampleRate = 44100
+tracks.trigger() // re-run dependents without recreating the array
 
-**Rule of thumb:** if a value *might* be needed in any branch of a reactive function, **read it before the first `return`** and before branching that could skip the read.
+// ✅ Replace object
+const next = [...tracks.value]
+next[0] = { ...next[0], sampleRate: 44100 }
+tracks.value = next
 
-### Common pitfall
+// ✅ Nested signals for frequent updates
+track.sampleRate.value = 44100
+```
 
+## 3) `derivedExtract` with nullable sources
+`derivedExtract` tolerates `null`/`undefined` sources. You can extract directly without a safe wrapper:
+```ts
+const current = signal<Track | null>(null)
+const { title, sampleRate } = derivedExtract(current, 'title', 'sampleRate')
+```
+
+## 4) Computed dependency tracking (early-return trap)
+Read dependencies before branching so they’re tracked.
 ```js
-const label = computed(() => {
-	if (!active.value) return '…' // ❌ isPlaying is never tracked for inactive runs
-	return isPlaying.value ? '▶' : 'Ⅱ'
+const info = computed(() => {
+	const t = track.value
+	const m = metadata.value
+	if (!t) return 'Ready'
+	return `${t.title} - ${m}`
 })
 ```
 
-### Safer pattern
-
-```js
-const label = computed(() => {
-	const active = isActive.value
-	const playing = isPlaying.value // read up-front so it’s tracked whenever needed
-	if (!active) return '…'
-	return playing ? '▶' : 'Ⅱ'
-})
+## 5) Component structure
+Define complex computeds at the top of a component; keep JSX lean.
+```jsx
+const fileInfo = computed(() => /* ... */)
+return <div>{fileInfo}</div>
 ```
 
-When you want to avoid “global signal fan-out” for large lists, prefer **`onCondition`** to update only the relevant rows/items.
+## 6) Mental model: retained rendering + signals
+- No VDOM diff; signals drive precise updates.
+- Use signals only when values must stay reactive; literals are fine for static props/children.
 
-## 3) `watch` vs `useEffect` vs `onDispose`
+## 7) Dependency tracking: read before branching/returning
+If a value may matter, read it before an early return. Use `onCondition` to scope fan-out in large lists.
 
-### `watch(fn)`
+## 8) `watch` vs `useEffect` vs `onDispose`
+- `watch`: reactive computations, no external cleanup.
+- `useEffect`: setup + cleanup that reruns when deps change.
+- `onDispose`: teardown only.
 
-- Use for **reactive computations** and glue code that only needs to run when its dependencies change.
-- Avoid doing “setup + cleanup” of external resources (DOM listeners, timers, subscriptions) directly in `watch`.
+## 9) Lists: keep updates local
+- Prefer `<For entries={items} track="id">`.
+- Use `onCondition` or class toggles for per-row state instead of wide `computed` fan-out.
 
-### `useEffect(effect, ...args)`
+## 10) DOM refs: `$ref` prop
+Pass a signal or callback: `<div $ref={el} />` or `<div $ref={(n) => ...} />`.
 
-- Use when you need **setup + cleanup** that can re-run when dependencies change.
-- Return a cleanup function:
+## 11) Debounce & scheduling
+Use `createDefer` / `createSchedule` with cancelable deferrers to coalesce expensive work during rapid input.
 
-```js
-useEffect(() => {
-	const el = ref.value
-	if (!el) return
-	const onClick = () => {}
-	el.addEventListener('click', onClick)
-	return () => el.removeEventListener('click', onClick)
-})
-```
+## 12) Tooling & HMR
+- Use Refurbish (Vite/Webpack/Rspack) for HMR.
+- Prefer `$ref`/`expose` over relying on return values of `render()` in dev.
 
-### `onDispose(cleanup)`
+## 13) Custom render targets
+If you have a DOM-like API, pass its `doc` to `createDOMRenderer`. Otherwise, implement `nodeOps` via `createRenderer`; see CustomRenderer.md.
 
-- Use for **unmount-only** cleanup (release object URLs, close a single resource, final teardown).
-- Avoid calling `onDispose` *inside* `watch` branches; prefer `useEffect` for cleanup that depends on reactive state.
+## 14) Suspense/Async notes
+- Async components with their own `fallback` render immediately (not accumulated).
+- `suspensed` on `<Async>` defaults true; set false to skip Suspense.
+- `onLoad` exists on Async/Suspense and can replace the resolved value (return `undefined` for side effects).
 
-## 4) Lists: keep updates local
-
-- Use `<For entries={items} track="id">` for stable list identity.
-- Avoid per-row `computed(() => currentId.value === item.id)` across huge lists if the global signal changes often.
-- Prefer:
-	- `onCondition(currentId)(item.id)` for “active row” selection.
-	- `class:active={...}` and `class:playing={...}` to toggle classes without rebuilding strings.
-
-## 5) DOM refs: use `$ref` (not an imported function)
-
-- `$ref` is a **prop**, not an exported helper.
-- Pass either a signal or a callback:
-	- `const el = signal(null); <div $ref={el} />`
-	- `<div $ref={(node) => { /* ... */ }} />`
-
-## 6) Debounce & scheduling: `createDefer` / `createSchedule`
-
-For “user is dragging a slider” scenarios, don’t spam expensive work. Use `createDefer` with a cancelable deferrer:
-
-```js
-const defer = createDefer((cb) => {
-	const id = setTimeout(cb, 80)
-	return () => clearTimeout(id)
-})
-```
-
-Then write into an input signal (`target.value = ...`) and let the deferred signal drive the expensive side effect.
-
-## 7) Tooling & HMR
-
-- For Vite, use the Refurbish plugin to inject rEFui HMR code into `.jsx/.tsx` modules.
-- During HMR, do not rely on return values of `render()` / `createComponent()` for “stable component handles” in dev; prefer `$ref`/`expose` patterns.
-
+## 15) Avoid stale derived values
+Effects/computeds flush at tick end. Use `await nextTick()` to read fresh derived values after writes.
