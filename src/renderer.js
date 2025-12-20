@@ -280,7 +280,7 @@ function createRenderer(nodeOps, rendererID) {
 			}
 		}
 
-		return ensureElement(render(createComponent(tag, props, ...children), renderer))
+		return render(createComponent(tag, props, ...children), renderer)
 	}
 
 	function renderComponent(target, ...args) {

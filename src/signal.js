@@ -36,9 +36,15 @@ let effectQueue = []
 // Scheduler part
 
 function scheduleSignal(signalEffects) {
+	if (signalEffects.length <= 2) {
+		return
+	}
 	return signalQueue.push(signalEffects)
 }
 function scheduleEffect(effects) {
+	if (effects.length <= 2) {
+		return
+	}
 	return effectQueue.push(effects)
 }
 
@@ -372,11 +378,8 @@ const Signal = class {
 
 	set(val) {
 		const { compute, value } = this._
-		val = compute ? peek(
-			compute(
-				read(val)
-			)
-		) : read(val)
+		const newVal = read(val)
+		val = compute ? peek(compute(newVal)) : newVal
 		if (value !== val) {
 			this._.value = val
 			this.trigger()
