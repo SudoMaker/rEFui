@@ -374,7 +374,7 @@ Manages the lifecycle of asynchronous operations. It uses a render-prop pattern,
 -   `fallback`: (Optional) A component, function, or node to display while the promise is pending.
 -   `catch`: (Optional) A handler for when the promise rejects.
 -   `suspensed`: (Optional, default `true`) When `true` and no `fallback` is provided, the async task is accumulated into the nearest `<Suspense>` boundary. Set to `false` to render immediately without joining Suspense.
--   `onLoad`: (Optional) Runs once when the promise resolves; return a value to replace the resolved payload, or `undefined` for side effects only.
+-   `onLoad`: (Optional) Runs before the resolved value is committed; can be `async`. Its return value is ignored—use it only for side effects or to await work that should finish before display.
 
 Any other props passed to `<Async>` will be passed through to the `then`, `fallback`, and `catch` handlers.
 
@@ -441,7 +441,7 @@ Wraps one or more children and renders a fallback while any nested async work (i
 
 - `fallback`: Shown while pending (component/function/renderable or signal).
 - `catch`: Error handler when any child rejects.
-- `onLoad`: Called once when the initial batch resolves. Receives the resolved value (array of ensured children). If it returns a non-nullish value, that replaces the resolved value; otherwise the original is used. Great for logging/metrics; return `undefined` for pure side effects.
+- `onLoad`: Called once when the initial batch resolves (can be `async`). Its return value is ignored; use it to block display until your work finishes (e.g., exit animations, logging).
 - Additional props are forwarded to fallback/catch handlers.
 
 **Children:** Renderables to show once resolved. If multiple children are provided, they resolve as a group.
@@ -483,6 +483,63 @@ const UserCard = async ({ id }) => {
 <Suspense fallback={() => <p>Loading user…</p>}>
 	<UserCard id={123} />
 </Suspense>
+```
+
+### Transition
+
+Swaps components with an async handoff. It renders a new component inside a `Suspense` container, waits for it to resolve, then commits it while toggling a `pending` signal and calling `onLoad`.
+
+**Props:**
+- `is`: Component (or signal of component) to render.
+- `pending`: Optional `Signal<boolean>` toggled during the transition.
+- `current`: Optional signal or callback that receives the current component instance.
+- `onLoad`: Optional hook called when the pending component resolves; can return a value or a promise. Receives `(currentElement, pendingElement)`.
+- `name`: Optional display name (default `"Transition"`).
+- Additional props are forwarded to the rendered component.
+
+**Children:** forwarded to the rendered component.
+
+**Caveat:** `onLoad` runs before the pending view is committed; you can await exit animations there, but don’t await entrance animations—the swap happens after `onLoad` returns and its return value is ignored.
+
+```jsx
+import { Transition, signal } from 'refui'
+
+const ViewA = () => () => <div>A</div>
+const ViewB = () => () => <div>B</div>
+const LazyView = lazy(() => import('./LazyModule'))
+const AsyncView = async () => {
+	const data = await fetch('/api/data').then((r) => r.json())
+	return () => <div>{data.title}</div>
+}
+
+const current = signal(ViewA)
+const pending = signal(false)
+
+const App = () => (
+	<Transition
+		is={current}
+		pending={pending}
+		onLoad={async (currentEl, pendingEl) => {
+			// run exit on current
+			if (currentEl?.classList) {
+				currentEl.classList.add('fade-out')
+				await currentEl.getAnimations?.().map(a => a.finished)
+			}
+			// run enter on pending
+			if (pendingEl?.classList) {
+				pendingEl.classList.add('fade-in')
+			}
+			console.log('transition complete')
+		}}
+	>
+		{/* children forwarded to the view */}
+	</Transition>
+)
+
+// Trigger swaps
+current.value = ViewB
+current.value = LazyView // works with lazy() components; pending toggles until resolve
+current.value = AsyncView // also works with async components
 ```
 
 #### Automatic Async Components

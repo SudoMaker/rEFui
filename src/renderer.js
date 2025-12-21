@@ -280,7 +280,7 @@ function createRenderer(nodeOps, rendererID) {
 			}
 		}
 
-		return ensureElement(render(createComponent(tag, props, ...children), renderer))
+		return render(createComponent(tag, props, ...children), renderer)
 	}
 
 	function renderComponent(target, ...args) {
@@ -296,6 +296,7 @@ function createRenderer(nodeOps, rendererID) {
 		id: rendererID || Symbol('rEFui renderer'),
 		normalizeChildren,
 		isFragment,
+		expandFragment,
 		createFragment,
 		createElement,
 		ensureElement,

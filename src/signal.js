@@ -36,9 +36,15 @@ let effectQueue = []
 // Scheduler part
 
 function scheduleSignal(signalEffects) {
+	if (signalEffects.length <= 2) {
+		return
+	}
 	return signalQueue.push(signalEffects)
 }
 function scheduleEffect(effects) {
+	if (effects.length <= 2) {
+		return
+	}
 	return effectQueue.push(effects)
 }
 
@@ -97,10 +103,24 @@ function flushQueues() {
 	}
 }
 
+
+function tickHandler(resolve) {
+	currentResolve = resolve
+}
+function resetTick() {
+	ticking = false
+	currentTick = new Promise(tickHandler).then(flushQueues)
+	currentTick.finally(resetTick)
+}
+function _tick() {
+	currentResolve()
+	return currentTick
+}
 function tick() {
 	if (!ticking) {
 		ticking = true
 		currentResolve()
+		currentTick = currentTick.finally(_tick)
 	}
 	return currentTick
 }
@@ -109,14 +129,6 @@ function nextTick(cb, ...args) {
 		cb = cb.bind(null, ...args)
 	}
 	return tick().finally(cb)
-}
-function tickHandler(resolve) {
-	currentResolve = resolve
-}
-function resetTick() {
-	ticking = false
-	currentTick = new Promise(tickHandler).then(flushQueues)
-	currentTick.finally(resetTick)
 }
 
 // Signal part
@@ -372,11 +384,8 @@ const Signal = class {
 
 	set(val) {
 		const { compute, value } = this._
-		val = compute ? peek(
-			compute(
-				read(val)
-			)
-		) : read(val)
+		const newVal = read(val)
+		val = compute ? peek(compute(newVal)) : newVal
 		if (value !== val) {
 			this._.value = val
 			this.trigger()

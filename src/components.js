@@ -63,7 +63,7 @@ function render(instance, renderer) {
 	const { run, render: renderComponent } = ctx
 	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
 
-	return run(renderComponent, renderer)[0]
+	return renderer.ensureElement(run(renderComponent, renderer)[0])
 }
 
 function dispose(instance) {
@@ -226,7 +226,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 			const currentDataLength = currentData.length
 			for (let i = 0; i < currentDataLength; i++) {
 				const sig = ks.get(currentData[i])
-				sig.value = i
+				sig.set(i)
 			}
 		}
 	}
@@ -238,7 +238,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		_clear()
 		if (kv) kv = new Map()
 		currentData = []
-		if (entries.value.length) entries.value = []
+		if (isSignal(entries) && entries.peek()?.length) entries.set([])
 	}
 
 	if (expose) {
@@ -448,13 +448,7 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 	}
 
 	if (isSignal(condition)) {
-		return Fn({ name: 'If' }, function() {
-			if (condition.value) {
-				return trueBranch
-			} else {
-				return falseBranch
-			}
-		})
+		condition = condition.get.bind(condition)
 	}
 
 	if (typeof condition === 'function') {
@@ -472,39 +466,7 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 }
 markStatic(If)
 
-function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
-	const self = currentCtx.self
-
-	let syncRef = null
-
-	if ($ref) {
-		if (isSignal($ref)) {
-			syncRef = function(node) {
-				$ref.value = node
-			}
-		} else if (typeof $ref === 'function') {
-			syncRef = $ref
-		} else if (!isProduction) {
-			throw new Error(`Invalid $ref type: ${typeof $ref}`)
-		}
-	}
-
-	let oldCtx = null
-	props.$ref = function(newInstance) {
-		if (oldCtx) {
-			oldCtx.wrapper = null
-			oldCtx = null
-		}
-
-		const newCtx = newInstance?.[KEY_CTX]
-		if (newCtx) {
-			newCtx.wrapper = self
-			oldCtx = newCtx
-		}
-
-		syncRef?.(newInstance)
-	}
-
+function _dynContainer(name, catchErr, ctx, props, ...children) {
 	let current = null
 	let renderFn = null
 
@@ -526,18 +488,15 @@ function _dynContainer(name, catchErr, ctx, { $ref, ...props }, ...children) {
 		return renderFn
 	}, catchErr)
 }
-function Dynamic({ is, ctx, expose, ...props }, ...children) {
-	if (expose) {
-		props.$ref = signal()
-		expose?.({
-			current: props.$ref
-		})
+function Dynamic({ is, current, ...props }, ...children) {
+	if (current) {
+		props.$ref = current
 	}
-	return _dynContainer.call(is, 'Dynamic', null, ctx, props, ...children)
+	return _dynContainer.call(is, 'Dynamic', null, null, props, ...children)
 }
 markStatic(Dynamic)
 
-let currentFuture = null
+let currentFutureList = null
 
 // Internal, no document/.d.ts needed
 // DON'T USE UNLESS YOU UNDERSTAND WHAT IT DOES
@@ -554,22 +513,23 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 	// `this` should and is guaranteed to be a Promise
 	let resolvedFuture = this
 	if (onLoad) {
-		resolvedFuture = resolvedFuture.then(function(val) {
+		resolvedFuture = resolvedFuture.then(async function(val) {
 			if (disposed) {
 				return
 			}
-			return onLoad(val) ?? val
+			await onLoad()
+			return val
 		})
 	}
 
-	resolvedFuture = this.then(capture(function(result) {
+	resolvedFuture = resolvedFuture.then(capture(function(result) {
 		if (disposed) {
 			_resolve?.()
 			return
 		}
 		currentDispose?.()
 		currentDispose = watch(function() {
-			component.value = read(result)
+			component.set(read(result))
 		})
 	}))
 
@@ -584,9 +544,9 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 				const handler = read(catchErr)
 				if (handler) {
 					if (typeof handler === 'function') {
-						component.value = handler({ ...props, error }, ...children)
+						component.set(handler({ ...props, error }, ...children))
 					} else {
-						component.value = handler
+						component.set(handler)
 					}
 				}
 			})
@@ -604,27 +564,27 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 				const handler = read(fallback)
 				if (handler) {
 					if (typeof handler === 'function') {
-						component.value = handler({ ...props }, ...children)
+						component.set(handler({ ...props }, ...children))
 					} else {
-						component.value = handler
+						component.set(handler)
 					}
 				}
 			})
 		}))
 	}
 
-	if (!fallback && suspensed && currentFuture) {
+	if (!fallback && suspensed && currentFutureList) {
 		const { promise, resolve, reject } = Promise.withResolvers()
 		_resolve = resolve
-		currentFuture.push(resolvedFuture, promise)
+		currentFutureList.push(promise)
 		let currentFn = component.peek()
 		let currentRender = null
 
 		const _props = {
 			...props,
-			onLoad(val) {
+			name: null,
+			onLoad() {
 				resolve()
-				return val
 			},
 			catch(props) {
 				reject(props.error)
@@ -632,8 +592,8 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 			}
 		}
 
-		return Fn({ name }, function() {
-			const renderFn = component.value
+		return Fn({ name: isProduction ? null : `${name}(suspensed)` }, function() {
+			const renderFn = component.get()
 			if (currentFn === renderFn) {
 				return currentRender
 			}
@@ -643,11 +603,11 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 	}
 
 	return Fn({ name }, function() {
-		return component.value
+		return component.get()
 	})
 }
 
-function Async({ future, fallback, catch: catchErr, onLoad, suspensed = true, ...props }, then, now, handleErr) {
+function Async({ name = 'Async', future, fallback, catch: catchErr, onLoad, suspensed = true, ...props }, then, now, handleErr) {
 	while (typeof future === 'function') {
 		future = future()
 	}
@@ -666,34 +626,119 @@ function Async({ future, fallback, catch: catchErr, onLoad, suspensed = true, ..
 			return (lastResult = handler?.({ ...props, result }))
 		})
 	}))
-	return _asyncContainer.bind(future, 'Async', fallback ?? now, catchErr ?? handleErr, onLoad, suspensed, props, emptyArr)
+	return _asyncContainer.bind(future, name, fallback ?? now, catchErr ?? handleErr, onLoad, suspensed, props, emptyArr)
 }
 markStatic(Async)
 
-function Suspense({ fallback, catch: catchErr, onLoad, ...props }, ...children) {
+function Suspense({ name = 'Suspense', fallback, catch: catchErr, onLoad, ...props }, ...children) {
 	if (!children.length) {
 		return
 	}
 
-	return function({ ensureElement }) {
-		const prevFuture = currentFuture
-		currentFuture = []
+	return function(R) {
+		const prevFutureList = currentFutureList
+		currentFutureList = []
 
 		const future = new Promise(function(resolve) {
-			resolve(children.map(ensureElement))
+			resolve(children.map(R.ensureElement))
 		})
 
-		const _future = currentFuture.length ? Promise.all(currentFuture).then(function() {
+		const _future = currentFutureList.length ? Promise.all(currentFutureList).then(function() {
 			return future
 		}) : future
 
-		const result = _asyncContainer.call(_future, 'Suspense', fallback, catchErr, onLoad, false, props, children)
+		const result = _asyncContainer.call(_future, name, fallback, catchErr, onLoad, false, props, children)(R)
 
-		currentFuture = prevFuture
+		currentFutureList = prevFutureList
 		return result
 	}
 }
 markStatic(Suspense)
+
+function Transition({ name = 'Transition', is, current, onLoad, pending, ...props }, ...children) {
+	let currentInstance = null
+	if (current) {
+		props.$ref = function(newInstance) {
+			currentInstance = newInstance
+		}
+	}
+
+	return function(R) {
+		const currentElement = signal()
+		let currentDispose = null
+		let pendingDispose = null
+		let pendingElement = null
+
+		onDispose(function() {
+			if (pendingDispose) {
+				pendingDispose()
+				pendingDispose = null
+				pendingElement = null
+				pending?.set(false)
+			}
+			if (currentDispose) {
+				currentDispose()
+				currentDispose = null
+				currentInstance?.set(null)
+			}
+		})
+
+		async function _onLoad() {
+			if (onLoad) {
+				await onLoad(currentElement.peek(), pendingElement)
+			}
+
+			currentDispose?.()
+			currentDispose = pendingDispose
+			pendingDispose = null
+
+			currentElement.set(pendingElement)
+			pendingElement = null
+
+			pending?.set(false)
+
+			if (current) {
+				if (isSignal(current)) {
+					current.set(currentInstance)
+				} else if (typeof current === 'function') {
+					current(currentInstance)
+				}
+			}
+		}
+
+		watch(async function() {
+			const newComponent = read(is)
+
+			await nextTick()
+
+			if (pendingDispose) {
+				pendingDispose()
+				pendingDispose = null
+			}
+
+			if (!newComponent) {
+				if (currentDispose) {
+					currentDispose()
+					currentDispose = null
+				}
+				pending?.set(false)
+				return
+			}
+
+			pendingDispose = collectDisposers([], function() {
+				pendingElement = Suspense({ name: 'TransitionContainer', onLoad: _onLoad }, function() {
+					return R.c(newComponent, props, ...children)
+				})(R)
+			})
+			pending?.set(true)
+		})
+
+		return Fn({ name }, function() {
+			return currentElement.get()
+		})
+	}
+}
+markStatic(Transition)
 
 function Render({ from }) {
 	return Fn({ name: 'Render' }, function() {
@@ -709,7 +754,6 @@ class Component {
 			run: null,
 			render: null,
 			dispose: null,
-			wrapper: null,
 			self: this
 		}
 
@@ -735,8 +779,8 @@ class Component {
 			ctx.dispose = collectDisposers(disposers, function() {
 				let renderFn = tpl(props, ...children)
 				if (isThenable(renderFn)) {
-					const { fallback, catch: catchErr, onLoad, ..._props } = props
-					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, true, _props, children)
+					const { fallback, catch: catchErr, onLoad, suspensed = true, ..._props } = props
+					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, suspensed, _props, children)
 				}
 				ctx.render = renderFn
 			}, () => {
@@ -764,13 +808,13 @@ markStatic(Component)
 const createComponent = (function() {
 	function createComponentRaw(tpl, props, ...children) {
 		if (isSignal(tpl)) {
-			return new Component(_dynContainer.bind(tpl, 'Signal', null, null), props ?? Object.create(null), ...children)
+			return new Component(_dynContainer.bind(tpl, 'Dynamic(signal)', null, null), props ?? Object.create(null), ...children)
 		}
 		const { $ref, ..._props } = (props ?? nullRefObject)
 		const component = new Component(tpl, _props, ...children)
 		if ($ref) {
 			if (isSignal($ref)) {
-				$ref.value = component
+				$ref.set(component)
 			} else if (typeof $ref === 'function') {
 				$ref(component)
 			} else if (!isProduction) {
@@ -805,6 +849,7 @@ export {
 	Dynamic,
 	Async,
 	Suspense,
+	Transition,
 	Render,
 	Component,
 	createComponent,
