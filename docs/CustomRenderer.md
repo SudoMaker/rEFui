@@ -20,6 +20,7 @@ Implement these methods and pass them to `createRenderer(nodeOps)`:
 - `createAnchor(name?): Node` (used for comment/placeholder anchors)
 - `createFragment(name?): Fragment` (can be a lightweight grouping/anchor)
 - `isFragment(value): boolean`
+- `expandFragment(fragment): Array<Node | Fragment>` flatten a connected fragment into anchor + children + anchor; see built-in renderer for behavior
 - `removeNode(node|fragment)`
 - `appendNode(parent, ...children)`
 - `insertBefore(node, ref)`
