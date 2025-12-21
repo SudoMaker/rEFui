@@ -92,7 +92,6 @@ export interface DynamicExpose {
 
 export interface DynamicProps {
 	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
-	ctx?: unknown
 	expose?: (api: DynamicExpose) => void
 	[key: string]: any
 }
@@ -104,7 +103,7 @@ export interface AsyncProps<T = unknown, E = unknown> {
 	fallback?: MaybeSignal<PossibleRender>
 	catch?: MaybeSignal<(error: E) => PossibleRender>
 	suspensed?: boolean
-	onLoad?: (value: T) => unknown
+	onLoad?: (value: T) => void | Promise<void>
 	[key: string]: any
 }
 
@@ -115,10 +114,24 @@ export function Async<T = unknown, E = unknown>(
 	catchHandler?: (error: E) => PossibleRender
 ): RenderFunction
 
+export interface TransitionProps {
+	name?: string
+	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
+	current?: MaybeSignal<Component<any> | null | undefined> | ((instance: Component<any> | null) => void)
+	onLoad?: (currentElement: unknown, pendingElement: unknown) => void | Promise<void>
+	pending?: Signal<boolean>
+	[key: string]: any
+}
+
+export function Transition(
+	props: TransitionProps,
+	...children: any[]
+): RenderFunction
+
 export interface SuspenseProps<E = unknown> {
 	fallback?: MaybeSignal<PossibleRender>
 	catch?: MaybeSignal<(error: E) => PossibleRender>
-	onLoad?: (value: unknown) => unknown
+	onLoad?: (value: unknown) => void | Promise<void>
 	[key: string]: any
 }
 

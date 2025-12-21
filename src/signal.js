@@ -103,10 +103,24 @@ function flushQueues() {
 	}
 }
 
+
+function tickHandler(resolve) {
+	currentResolve = resolve
+}
+function resetTick() {
+	ticking = false
+	currentTick = new Promise(tickHandler).then(flushQueues)
+	currentTick.finally(resetTick)
+}
+function _tick() {
+	currentResolve()
+	return currentTick
+}
 function tick() {
 	if (!ticking) {
 		ticking = true
 		currentResolve()
+		currentTick = currentTick.finally(_tick)
 	}
 	return currentTick
 }
@@ -115,14 +129,6 @@ function nextTick(cb, ...args) {
 		cb = cb.bind(null, ...args)
 	}
 	return tick().finally(cb)
-}
-function tickHandler(resolve) {
-	currentResolve = resolve
-}
-function resetTick() {
-	ticking = false
-	currentTick = new Promise(tickHandler).then(flushQueues)
-	currentTick.finally(resetTick)
 }
 
 // Signal part

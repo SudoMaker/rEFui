@@ -41,6 +41,7 @@ export interface RendererCore<Node = unknown, Fragment = unknown> extends BaseNo
 	Fragment: '<>'
 	isFragment(value: unknown): value is Fragment
 	createFragment(name?: string | null): Fragment
+	expandFragment(node: Fragment): Array<Node | Fragment>
 	normalizeChildren(children: unknown[]): Array<Node | Fragment>
 	createElement<P = any>(tag: any, props?: P, ...children: any[]): Node | Fragment | null
 	ensureElement(value: unknown): Node | Fragment | null

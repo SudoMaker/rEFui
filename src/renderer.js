@@ -296,6 +296,7 @@ function createRenderer(nodeOps, rendererID) {
 		id: rendererID || Symbol('rEFui renderer'),
 		normalizeChildren,
 		isFragment,
+		expandFragment,
 		createFragment,
 		createElement,
 		ensureElement,

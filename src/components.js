@@ -517,7 +517,8 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 			if (disposed) {
 				return
 			}
-			return await onLoad(val) ?? val
+			await onLoad()
+			return val
 		})
 	}
 
@@ -582,9 +583,8 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 		const _props = {
 			...props,
 			name: null,
-			onLoad(val) {
+			onLoad() {
 				resolve()
-				return val
 			},
 			catch(props) {
 				reject(props.error)
@@ -683,8 +683,10 @@ function Transition({ name = 'Transition', is, current, onLoad, pending, ...prop
 			}
 		})
 
-		async function _onLoad(val) {
-			const ret = await onLoad?.(currentElement.peek(), pendingElement)
+		async function _onLoad() {
+			if (onLoad) {
+				await onLoad(currentElement.peek(), pendingElement)
+			}
 
 			currentDispose?.()
 			currentDispose = pendingDispose
@@ -702,8 +704,6 @@ function Transition({ name = 'Transition', is, current, onLoad, pending, ...prop
 					current(currentInstance)
 				}
 			}
-
-			return ret
 		}
 
 		watch(async function() {
