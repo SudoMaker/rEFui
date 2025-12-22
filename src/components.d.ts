@@ -116,16 +116,27 @@ export function Async<T = unknown, E = unknown>(
 
 export interface TransitionProps {
 	name?: string
-	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
-	current?: MaybeSignal<Component<any> | null | undefined> | ((instance: Component<any> | null) => void)
-	onLoad?: (currentElement: unknown, pendingElement: unknown) => void | Promise<void>
-	pending?: Signal<boolean>
-	[key: string]: any
+	fallback?: MaybeSignal<PossibleRender>
+	loading?: MaybeSignal<Signal<boolean>>
+	pending?: MaybeSignal<Signal<boolean>>
+	catch?: MaybeSignal<(error: unknown) => PossibleRender>
+	onLoad?: (state: TransitionState, hasCurrent: boolean) => void | Promise<void>
+}
+
+export interface TransitionState {
+	loading: Signal<boolean>
+	pending: Signal<boolean>
+	leaving: Signal<boolean>
+	entered: Signal<boolean>
+	entering: Signal<boolean>
+	data: Record<string, unknown>
 }
 
 export function Transition(
 	props: TransitionProps,
-	...children: any[]
+	then: (state: TransitionState) => PossibleRender,
+	now?: PossibleRender,
+	catchHandler?: (error: unknown) => PossibleRender
 ): RenderFunction
 
 export interface SuspenseProps<E = unknown> {
