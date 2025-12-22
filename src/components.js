@@ -564,7 +564,9 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 				const handler = read(fallback)
 				if (handler) {
 					if (typeof handler === 'function') {
-						component.set(handler({ ...props }, ...children))
+						component.set(function() {
+							return handler({ ...props }, ...children)
+						})
 					} else {
 						component.set(handler)
 					}
@@ -602,9 +604,7 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 		})
 	}
 
-	return Fn({ name }, function() {
-		return component.get()
-	})
+	return Fn({ name }, component.get.bind(component))
 }
 
 function Async({ name = 'Async', future, fallback, catch: catchErr, onLoad, suspensed = true, ...props }, then, now, handleErr) {
@@ -655,87 +655,134 @@ function Suspense({ name = 'Suspense', fallback, catch: catchErr, onLoad, ...pro
 }
 markStatic(Suspense)
 
-function Transition({ name = 'Transition', is, current, onLoad, pending, ...props }, ...children) {
-	let currentInstance = null
-	if (current) {
-		props.$ref = function(newInstance) {
-			currentInstance = newInstance
-		}
-	}
-
+function Transition({ name = 'Transition', onLoad: userOnLoad, fallback, loading: userLoading, pending: userPending, catch: catchErr }, then, now, handleErr) {
 	return function(R) {
+		const loading = isSignal(userLoading) ? userLoading : signal(false)
+		const pending = isSignal(userPending) ? userPending : signal(false)
 		const currentElement = signal()
+		const data = Object.create(null)
+
+		let currentState = null
+
+		let disposed = false
 		let currentDispose = null
 		let pendingDispose = null
 		let pendingElement = null
 
 		onDispose(function() {
+			disposed = true
 			if (pendingDispose) {
 				pendingDispose()
 				pendingDispose = null
 				pendingElement = null
-				pending?.set(false)
+				pending.set(false)
 			}
 			if (currentDispose) {
 				currentDispose()
 				currentDispose = null
-				currentInstance?.set(null)
 			}
+			currentState = null
 		})
 
-		async function _onLoad() {
-			if (onLoad) {
-				await onLoad(currentElement.peek(), pendingElement)
-			}
+		function createState() {
+			const leaving = signal(false)
+			const entered = signal(false)
+			const entering = entered.inverse()
 
-			currentDispose?.()
-			currentDispose = pendingDispose
-			pendingDispose = null
-
-			currentElement.set(pendingElement)
-			pendingElement = null
-
-			pending?.set(false)
-
-			if (current) {
-				if (isSignal(current)) {
-					current.set(currentInstance)
-				} else if (typeof current === 'function') {
-					current(currentInstance)
-				}
+			return {
+				__proto__: null,
+				loading,
+				pending,
+				leaving,
+				entered,
+				entering,
+				data
 			}
 		}
 
-		watch(async function() {
-			const newComponent = read(is)
+		async function _onLoad(_pendingElement, state) {
+			if (disposed) {
+				return
+			}
 
-			await nextTick()
+			if (userOnLoad) {
+				if (currentState && currentElement.peek()) {
+					currentState.leaving.set(true)
+				}
+				await userOnLoad(state, !!currentState)
+				currentState = state
+			}
+
+			currentElement.set(_pendingElement)
+		}
+
+		watch(function() {
+			const state = createState()
+
+			const future = new Promise(function(resolve) {
+				resolve(then(state))
+			})
+
+			let _dispose = null
+			let _element = null
 
 			if (pendingDispose) {
 				pendingDispose()
 				pendingDispose = null
 			}
 
-			if (!newComponent) {
-				if (currentDispose) {
-					currentDispose()
-					currentDispose = null
+			async function onLoad() {
+				if (_element !== pendingElement) {
+					_dispose()
+					return
 				}
-				pending?.set(false)
-				return
+
+				loading.set(false)
+				await _onLoad(pendingElement, state)
+
+				if (_dispose !== pendingDispose) {
+					_dispose()
+					return
+				}
+
+				pending.set(false)
+
+				currentDispose?.()
+				currentDispose = pendingDispose
+				pendingDispose = null
+				pendingElement = null
 			}
 
-			pendingDispose = collectDisposers([], function() {
-				pendingElement = Suspense({ name: 'TransitionContainer', onLoad: _onLoad }, function() {
-					return R.c(newComponent, props, ...children)
+			pendingDispose = _dispose = collectDisposers([], function() {
+				pendingElement = _element = Suspense({ name: 'TransitionContainer', onLoad, catch: catchErr ?? handleErr, state }, function() {
+					return future
 				})(R)
 			})
-			pending?.set(true)
+
+			loading.set(true)
+			pending.set(true)
 		})
 
-		return Fn({ name }, function() {
-			return currentElement.get()
-		})
+		if (fallback) {
+			nextTick(capture(function() {
+				if (disposed || currentElement.peek()) {
+					return
+				}
+				currentDispose = watch(function() {
+					const handler = read(fallback)
+					if (handler) {
+						const state = createState()
+						if (typeof handler === 'function') {
+							_onLoad(handler.bind(null, state), state)
+						} else {
+							_onLoad(handler, state)
+						}
+					}
+				})
+			}))
+		}
+
+		return Fn({ name }, currentElement.get.bind(currentElement))
 	}
 }
 markStatic(Transition)
