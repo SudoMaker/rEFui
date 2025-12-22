@@ -464,14 +464,18 @@ const App = () => (
 )
 
 // Using onLoad side-effects
+(
 <Suspense onLoad={() => console.log('all done')} fallback={() => <Spinner />}>
 	<Async future={doWork()}>{({ result }) => <ResultView data={result} />}</Async>
 </Suspense>
+)
 
 // Non-Reflow/custom renderer: wrap children to accumulate
+(
 <Suspense fallback={() => <p>Loading…</p>}>
 	{() => <Async future={loadData()}>{({ result }) => <p>{result}</p>}</Async>}
 </Suspense>
+)
 
 // Async component example: can be awaited directly
 const UserCard = async ({ id }) => {
@@ -480,36 +484,42 @@ const UserCard = async ({ id }) => {
 	return () => <div>{user.name}</div>
 }
 
+(
 <Suspense fallback={() => <p>Loading user…</p>}>
 	<UserCard id={123} />
 </Suspense>
+)
 ```
 
 ### Transition
 
-Swaps components with an async handoff. It renders a new component inside a `Suspense` container, waits for it to resolve, then commits it while toggling a `pending` signal and calling `onLoad`.
+Swaps views with an async handoff. Provide a child render function that receives a `state` object; Transition wraps it in `Suspense`, manages pending/enter/leave flags, and blocks commit until `onLoad` finishes.
 
 **Props:**
-- `is`: Component (or signal of component) to render.
-- `pending`: Optional `Signal<boolean>` toggled during the transition.
-- `current`: Optional signal or callback that receives the current component instance.
-- `onLoad`: Optional hook called when the pending component resolves; can return a value or a promise. Receives `(currentElement, pendingElement)`.
+- `fallback`: Optional initial render before the first view commits.
+- `loading`: Optional `Signal<boolean>` to mirror loading state.
+- `pending`: Optional `Signal<boolean>` to mirror pending swaps.
+- `catch`: Optional error handler for the inner suspense.
+- `onLoad`: Optional async hook run before committing the new view; return value is ignored. Signature `(state, hasCurrent) => void|Promise<void>`.
 - `name`: Optional display name (default `"Transition"`).
-- Additional props are forwarded to the rendered component.
 
-**Children:** forwarded to the rendered component.
+**Child (required):** `(state) => renderable`
+
+`state` includes: `loading`, `pending`, `leaving`, `entered`, `entering`, and a shared `data` object.
+
+**Note:** Additional props are *not* forwarded; everything you need is provided via `state`, `onLoad`, and the child render function.
 
 **Caveat:** `onLoad` runs before the pending view is committed; you can await exit animations there, but don’t await entrance animations—the swap happens after `onLoad` returns and its return value is ignored.
 
 ```jsx
-import { Transition, signal } from 'refui'
+import { Transition, signal, lazy } from 'refui'
 
-const ViewA = () => () => <div>A</div>
-const ViewB = () => () => <div>B</div>
+const ViewA = (props) => <div {...props}>A</div>
+const ViewB = (props) => <div {...props}>B</div>
 const LazyView = lazy(() => import('./LazyModule'))
-const AsyncView = async () => {
+const AsyncView = async (props) => {
 	const data = await fetch('/api/data').then((r) => r.json())
-	return () => <div>{data.title}</div>
+	return <div {...props}>{data.title}</div>
 }
 
 const current = signal(ViewA)
@@ -517,22 +527,37 @@ const pending = signal(false)
 
 const App = () => (
 	<Transition
-		is={current}
 		pending={pending}
-		onLoad={async (currentEl, pendingEl) => {
-			// run exit on current
-			if (currentEl?.classList) {
-				currentEl.classList.add('fade-out')
-				await currentEl.getAnimations?.().map(a => a.finished)
+		fallback={(state) => (
+			<div
+					class:entering={state.entering}
+					class:leaving={state.leaving}
+					class:entered={state.entered}
+			>Loading...</div>
+		)}
+		onLoad={async (state, hasCurrent) => {
+			// If we have a previous view, await its exit animation
+			if (hasCurrent) {
+				await new Promise((r) => setTimeout(r, 200)) // simulate exit animation
 			}
-			// run enter on pending
-			if (pendingEl?.classList) {
-				pendingEl.classList.add('fade-in')
-			}
-			console.log('transition complete')
+			// If we're still preparing fallback, skip entrance wiring
+			if (state.loading.value) return
+
+			// Kick off enter animation on the new element; mark entered when done
+			setTimeout(() => state.entered.set(true), 200) // simulate enter animation done
 		}}
 	>
-		{/* children forwarded to the view */}
+		{(state) => {
+			const Next = current.value
+			return (
+				<Next
+					class:entering={state.entering}
+					class:leaving={state.leaving}
+					class:entered={state.entered}
+					clsss:disabled={state.pending}
+				/>
+			)
+		}}
 	</Transition>
 )
 
