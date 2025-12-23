@@ -496,11 +496,12 @@ const UserCard = async ({ id }) => {
 Swaps views with an async handoff. Provide a child render function that receives a `state` object; Transition wraps it in `Suspense`, manages pending/enter/leave flags, and blocks commit until `onLoad` finishes.
 
 **Props:**
+- `data`: Optional shared object passed into every `state.data`.
 - `fallback`: Optional initial render before the first view commits.
-- `loading`: Optional `Signal<boolean>` to mirror loading state.
-- `pending`: Optional `Signal<boolean>` to mirror pending swaps.
+- `loading`: Optional `Signal<boolean>` to mirror loading state (must be a signal if provided).
+- `pending`: Optional `Signal<boolean>` to mirror pending swaps (must be a signal if provided).
 - `catch`: Optional error handler for the inner suspense.
-- `onLoad`: Optional async hook run before committing the new view; return value is ignored. Signature `(state, hasCurrent) => void|Promise<void>`.
+- `onLoad`: Optional async hook run before committing the new view; return value is ignored. Signature `(state, hasCurrent, swap) => void|Promise<void>`. Call `swap()` to commit manually.
 - `name`: Optional display name (default `"Transition"`).
 
 **Child (required):** `(state) => renderable`
@@ -508,26 +509,32 @@ Swaps views with an async handoff. Provide a child render function that receives
 `state` includes: `loading`, `pending`, `leaving`, `entered`, `entering`, and a shared `data` object.
 
 **Note:** Additional props are *not* forwarded; everything you need is provided via `state`, `onLoad`, and the child render function.
+**Note:** If `state.loading` is true when `onLoad` runs, Transition is still preparing the fallback render.
 
-**Caveat:** `onLoad` runs before the pending view is committed; you can await exit animations there, but don’t await entrance animations—the swap happens after `onLoad` returns and its return value is ignored.
+**Caveat:** `onLoad` runs before the pending view is committed. Calling `swap()` manually is optional—if you don’t call it, Transition commits automatically after `onLoad` returns.
 
 ```jsx
 import { Transition, signal, lazy } from 'refui'
 
-const ViewA = (props) => <div {...props}>A</div>
-const ViewB = (props) => <div {...props}>B</div>
+const ViewA = ({ viewRef, ...props }) => <div $ref={viewRef} {...props}>A</div>
+const ViewB = ({ viewRef, ...props }) => <div $ref={viewRef} {...props}>B</div>
 const LazyView = lazy(() => import('./LazyModule'))
-const AsyncView = async (props) => {
+const AsyncView = async ({ viewRef, ...props }) => {
 	const data = await fetch('/api/data').then((r) => r.json())
-	return <div {...props}>{data.title}</div>
+	return <div $ref={viewRef} {...props}>{data.title}</div>
 }
 
 const current = signal(ViewA)
 const pending = signal(false)
+const loading = signal(false)
+const transitionData = { viewName: 'page' }
+const nextEl = signal(null)
 
 const App = () => (
 	<Transition
 		pending={pending}
+		loading={loading}
+		data={transitionData}
 		fallback={(state) => (
 			<div
 					class:entering={state.entering}
@@ -535,7 +542,7 @@ const App = () => (
 					class:entered={state.entered}
 			>Loading...</div>
 		)}
-		onLoad={async (state, hasCurrent) => {
+		onLoad={async (state, hasCurrent, swap) => {
 			// If we have a previous view, await its exit animation
 			if (hasCurrent) {
 				await new Promise((r) => setTimeout(r, 200)) // simulate exit animation
@@ -543,7 +550,15 @@ const App = () => (
 			// If we're still preparing fallback, skip entrance wiring
 			if (state.loading.value) return
 
-			// Kick off enter animation on the new element; mark entered when done
+			// Commit manually (or integrate with View Transition API)
+			const vt = document.startViewTransition?.(swap)
+			if (vt) {
+				await vt.updateCallbackDone
+			} else {
+				await swap()
+			}
+
+			// Mark entered when the enter animation ends
 			setTimeout(() => state.entered.set(true), 200) // simulate enter animation done
 		}}
 	>
@@ -554,7 +569,9 @@ const App = () => (
 					class:entering={state.entering}
 					class:leaving={state.leaving}
 					class:entered={state.entered}
-					clsss:disabled={state.pending}
+					class:pending={state.pending}
+					style:viewTransitionName={state.data.viewName}
+					viewRef={nextEl} // Next forwards viewRef -> DOM $ref
 				/>
 			)
 		}}
