@@ -116,11 +116,12 @@ export function Async<T = unknown, E = unknown>(
 
 export interface TransitionProps {
 	name?: string
+	data?: Record<string, unknown>
 	fallback?: MaybeSignal<PossibleRender>
 	loading?: MaybeSignal<Signal<boolean>>
 	pending?: MaybeSignal<Signal<boolean>>
 	catch?: MaybeSignal<(error: unknown) => PossibleRender>
-	onLoad?: (state: TransitionState, hasCurrent: boolean) => void | Promise<void>
+	onLoad?: (state: TransitionState, hasCurrent: boolean, swap: () => Promise<void>) => void | Promise<void>
 }
 
 export interface TransitionState {

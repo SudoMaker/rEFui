@@ -655,12 +655,12 @@ function Suspense({ name = 'Suspense', fallback, catch: catchErr, onLoad, ...pro
 }
 markStatic(Suspense)
 
-function Transition({ name = 'Transition', onLoad: userOnLoad, fallback, loading: userLoading, pending: userPending, catch: catchErr }, then, now, handleErr) {
+function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, loading: userLoading, pending: userPending, catch: catchErr }, then, now, handleErr) {
 	return function(R) {
 		const loading = isSignal(userLoading) ? userLoading : signal(false)
 		const pending = isSignal(userPending) ? userPending : signal(false)
 		const currentElement = signal()
-		const data = Object.create(null)
+		data ??= Object.create(null)
 
 		let currentState = null
 
@@ -709,8 +709,20 @@ function Transition({ name = 'Transition', onLoad: userOnLoad, fallback, loading
 				if (currentState && currentElement.peek()) {
 					currentState.leaving.set(true)
 				}
-				await userOnLoad(state, !!currentState)
+				let swapped = false
+				function swap() {
+					if (swapped) {
+						return
+					}
+					currentElement.set(_pendingElement)
+					swapped = true
+					return nextTick()
+				}
+				await userOnLoad(state, !!currentState, swap)
 				currentState = state
+				if (swapped) {
+					return
+				}
 			}
 
 			currentElement.set(_pendingElement)
