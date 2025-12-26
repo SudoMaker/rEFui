@@ -576,7 +576,12 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 	}
 
 	if (!fallback && suspensed && currentFutureList) {
-		const { promise, resolve, reject } = Promise.withResolvers()
+		let resolve = null
+		let reject = null
+		const promise = new Promise(function(r, j) {
+			resolve = r
+			reject = j
+		})
 		_resolve = resolve
 		currentFutureList.push(promise)
 		let currentFn = component.peek()
