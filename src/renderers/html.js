@@ -183,11 +183,9 @@ function createHTMLRenderer ({
 			}
 		}
 
-		const propHeader = ` ${key}="`
-
 		return function(propsNode, val) {
 			if (isSignal(val)) {
-				const propNode = [propHeader, '', '"']
+				const propNode = [` ${key}="`, '', '"']
 				val.connect(function() {
 					const newData = peek(val)
 					if (newData === undefined || newData === null) {
@@ -200,8 +198,10 @@ function createHTMLRenderer ({
 						propNode[1] = escapeHtml(newData)
 					}
 				})
+			} else if (val === true) {
+				propsNode.push(` ${key}`)
 			} else if (val !== undefined && val !== null) {
-				propsNode.push(`${propHeader}${escapeHtml(val)}"`)
+				propsNode.push(` ${key}="${escapeHtml(val)}"`)
 			}
 		}
 	})
