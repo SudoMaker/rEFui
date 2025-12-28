@@ -125,8 +125,8 @@ function createDOMRenderer({
 	function createNode(tagName) {
 		return getNodeCreator(tagName)()
 	}
-	function createAnchor(anchorName) {
-		if (!isProduction && anchorName) {
+	function createAnchor(anchorName, explicit) {
+		if (explicit || !isProduction && anchorName) {
 			return doc.createComment(anchorName)
 		}
 		return doc.createTextNode('')

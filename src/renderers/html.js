@@ -82,8 +82,8 @@ function createHTMLRenderer ({
 		node.nodeName = tagName
 		return node
 	}
-	function createAnchor(anchorName) {
-		if (!isProduction && anchorName) {
+	function createAnchor(anchorName, explicit) {
+		if (explicit || !isProduction && anchorName) {
 			return makeNode([`<!--${escapeHtml(anchorName)}-->`])
 		}
 		return makeNode([''])
