@@ -54,16 +54,18 @@ function snapshot() {
 	return capture(_runInSnapshot)
 }
 
-function render(instance, renderer) {
+function render(instance, R) {
 	const ctx = instance[KEY_CTX]
 	if (!ctx) {
 		return
 	}
 
 	const { run, render: renderComponent } = ctx
-	if (!renderComponent || typeof renderComponent !== 'function') return renderComponent
+	if (!renderComponent || typeof renderComponent !== 'function') {
+		return R.ensureElement(renderComponent)
+	}
 
-	return renderer.ensureElement(run(renderComponent, renderer)[0])
+	return run(renderComponent, R)[0]
 }
 
 function dispose(instance) {
@@ -127,10 +129,10 @@ function useMemo(fn) {
 	}
 }
 
-function dummyRun(fn) {
+function dummyRun(fn, R) {
 	let result = null
 	const cleanup = collectDisposers([], function() {
-		result = fn()
+		result = R.ensureElement(fn())
 	})
 	return [result, cleanup]
 }
@@ -194,7 +196,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 							onDispose(prevDispose)
 						}
 					}
-				})[1]
+				}, R)[1]
 			} else {
 				currentDispose?.()
 				currentDispose = null
@@ -826,10 +828,10 @@ class Component {
 
 		const disposers = []
 
-		ctx.run = capture(function(fn, ...args) {
+		ctx.run = capture(function(fn, R) {
 			let result = null
 			const cleanup = collectDisposers([], function() {
-				result = fn(...args)
+				result = R.ensureElement(fn(R))
 			}, function(batch) {
 				if (!batch) {
 					removeFromArr(disposers, cleanup)
