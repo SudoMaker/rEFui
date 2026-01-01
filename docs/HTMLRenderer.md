@@ -128,6 +128,47 @@ const BlogIndex = () => {
 };
 ```
 
+## Raw HTML (unsafe)
+
+By default, the HTML renderer escapes text and attribute values. For trusted markup, use `renderer.rawHTML` to insert unescaped HTML. It accepts a tagged template literal and keeps embedded signals reactive.
+
+```jsx
+import { createHTMLRenderer } from 'refui/html';
+import { signal, nextTick } from 'refui';
+
+const renderer = createHTMLRenderer();
+const content = signal('<strong>Hello</strong>');
+
+const node = renderer.rawHTML`<div class="content">${content}</div>`;
+await nextTick();
+
+const html = renderer.serialize(node);
+// Output: <div class="content"><strong>Hello</strong></div>
+```
+
+**Caveat (scripts):** If you render `<script>` content via normal JSX (e.g., `<script>{code}</script>`), the renderer will escape the content, producing unusable scripts after serialization. Use `rawHTML` when you need to emit script bodies as-is.
+
+```jsx
+import { createHTMLRenderer } from 'refui/html';
+import { signal, nextTick } from 'refui';
+
+const renderer = createHTMLRenderer();
+const code = signal('console.log("hi")');
+
+// JSX escapes script content
+const escaped = renderer.createElement('script', null, code);
+const escapedHtml = renderer.serialize(escaped);
+// Output: <script>console.log(&quot;hi&quot;)</script>
+
+// rawHTML emits the script body as-is
+const raw = renderer.rawHTML`<script>${code}</script>`;
+await nextTick();
+const rawHtml = renderer.serialize(raw);
+// Output: <script>console.log("hi")</script>
+```
+
+Only use `rawHTML` with trusted content. It does not escape markup and can introduce XSS if you pass untrusted strings. This includes injecting `<script>` tags—treat it as a direct HTML escape hatch.
+
 ## Key Differences from DOM Renderer
 
 - **Output**: It produces an HTML string via the `serialize()` method, not live DOM nodes.
