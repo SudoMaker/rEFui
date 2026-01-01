@@ -86,6 +86,8 @@ export function watch(effect: EffectCallback): BatchDisposer
 export function computed<T>(compute: () => T): Signal<T>
 export function merge<T extends readonly MaybeSignal<any>[], R>(signals: T, handler: (...values: { [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K] }) => R): Signal<R>
 export function tpl(strings: TemplateStringsArray, ...exprs: unknown[]): Signal<string>
+export function tpl(strings: readonly string[], ...exprs: unknown[]): Signal<string>
+export function tpl(strings: string, ...exprs: unknown[]): Signal<string>
 
 export type Deferrer = (callback: () => void) => BatchDisposer | void
 
