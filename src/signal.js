@@ -719,8 +719,11 @@ function _merged(vals) {
 function merge(vals, handler) {
 	return computed(_merged.bind(handler, vals))
 }
-function tpl(strs, ...exprs) {
-	const raw = { raw: strs }
+function tpl(raw, ...exprs) {
+	if (Array.isArray(raw)) {
+		raw = [raw]
+	}
+	raw = { raw }
 	return signal(null, function() {
 		return String.raw(raw, ...exprs)
 	})

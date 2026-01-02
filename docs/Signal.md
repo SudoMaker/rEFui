@@ -567,8 +567,10 @@ Merges multiple signals into a computed signal.
 const fullName = merge([firstName, lastName], (first, last) => `${first} ${last}`)
 ```
 
-#### `tpl(strings, ...expressions)`
-Creates a template string signal.
+#### `tpl(raw, ...expressions)`
+Creates a template string signal using `String.raw`.
+
+Use it as a tagged template literal most of the time. You can also pass a single raw string segment (no expressions) or a raw strings array generated programmatically (make sure the array has one more entry than the number of expressions).
 
 ```javascript
 const message = tpl`Hello ${name}, you have ${count} items`

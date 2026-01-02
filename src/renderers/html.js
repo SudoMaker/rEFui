@@ -18,7 +18,7 @@
  * under the License.
  */
 
-import { isSignal, nextTick, peek, bind } from 'refui/signal'
+import { isSignal, nextTick, peek, bind, watch } from 'refui/signal'
 import { createRenderer } from 'refui/renderer'
 import { nop, cachedStrKeyNoFalsy, removeFromArr } from 'refui/utils'
 import { isProduction } from 'refui/constants'
@@ -40,14 +40,28 @@ function escapeReplacer(match) {
 	return escapeMap[match]
 }
 function escapeHtml(unsafe) {
-	return `${unsafe}`
-		.replace(/[<>"'&]/g, escapeReplacer)
+	return `${unsafe}`.replace(/[<>"'&]/g, escapeReplacer)
 }
 
-
-function makeNode(node) {
+function makeNode(...node) {
 	node[FLAG_NODE] = true
 	node.parent = null
+	return node
+}
+
+function isNode(node) {
+	return !!(node && node[FLAG_NODE])
+}
+
+function rawHTML(raw, ...exprs) {
+	if (!Array.isArray(raw)) {
+		raw = [raw]
+	}
+	raw = { raw }
+	const node = makeNode()
+	watch(function() {
+		node[0] = String.raw(raw, ...exprs)
+	})
 	return node
 }
 
@@ -57,21 +71,18 @@ function serialize(node) {
 	return node.flat(Infinity).join('')
 }
 
-function createHTMLRenderer ({
+function createHTMLRenderer({
 	rendererID = defaultRendererID,
-	selfClosingTags = {
-		hr: true,
-		br: true,
-		input: true,
-		img: true,
-	},
+	selfClosingTags = Object.fromEntries(
+		['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'].map(
+			function (i) {
+				return [i, true]
+			}
+		)
+	)
 } = {}) {
-	function isNode(node) {
-		return !!(node && node[FLAG_NODE])
-	}
-
 	function createNode(tagName) {
-		const node = makeNode([`<${tagName}`, []])
+		const node = makeNode(`<${tagName}`, [])
 		if (selfClosingTags[tagName]) {
 			node.push('/>')
 			node[FLAG_SELF_CLOSING] = true
@@ -83,25 +94,25 @@ function createHTMLRenderer ({
 		return node
 	}
 	function createAnchor(anchorName, explicit) {
-		if (explicit || !isProduction && anchorName) {
-			return makeNode([`<!--${escapeHtml(anchorName)}-->`])
+		if (explicit || (!isProduction && anchorName)) {
+			return makeNode(`<!--${escapeHtml(anchorName)}-->`)
 		}
-		return makeNode([''])
+		return makeNode()
 	}
 	function createTextNode(text) {
 		if (isSignal(text)) {
-			const node = makeNode([''])
-			text.connect(function() {
+			const node = makeNode('')
+			text.connect(function () {
 				const newData = peek(text) ?? ''
 				node[0] = escapeHtml(String(newData))
 			})
 			return node
 		}
 
-		return makeNode([escapeHtml(String(text ?? ''))])
+		return makeNode(escapeHtml(String(text ?? '')))
 	}
 	function createFragment() {
-		const frag = makeNode([])
+		const frag = makeNode()
 		frag[FLAG_FRAG] = true
 		return frag
 	}
@@ -166,7 +177,7 @@ function createHTMLRenderer ({
 		}
 	}
 
-	const getPropSetter = cachedStrKeyNoFalsy(function(key) {
+	const getPropSetter = cachedStrKeyNoFalsy(function (key) {
 		const [prefix, _key] = key.split(':')
 		if (_key) {
 			switch (prefix) {
@@ -183,10 +194,10 @@ function createHTMLRenderer ({
 			}
 		}
 
-		return function(propsNode, val) {
+		return function (propsNode, val) {
 			if (isSignal(val)) {
 				const propNode = [` ${key}="`, '', '"']
-				val.connect(function() {
+				val.connect(function () {
 					const newData = peek(val)
 					if (newData === undefined || newData === null) {
 						removeFromArr(propsNode, propNode)
@@ -224,7 +235,8 @@ function createHTMLRenderer ({
 		insertBefore,
 		appendNode,
 		removeNode,
-		serialize,
+		rawHTML,
+		serialize
 	}
 
 	return createRenderer(nodeOps, rendererID)

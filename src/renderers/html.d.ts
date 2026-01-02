@@ -26,6 +26,7 @@ export interface HTMLRendererOptions {
 }
 
 export interface HTMLNodeOps extends BaseNodeOps<any, any> {
+	rawHTML(strings: TemplateStringsArray | readonly string[] | string, ...exprs: unknown[]): any
 	serialize(node: unknown): string
 }
 
