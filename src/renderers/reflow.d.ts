@@ -31,7 +31,10 @@ export interface ReflowRuntime {
 		...children: any[]
 	): PossibleRender
 	c: ReflowRuntime['createElement']
-	isNode(): boolean
+	isNode(node: unknown): boolean
 }
 
 export const R: ReflowRuntime
+
+export function markNode(node: object): void
+export function isNode(node: unknown): boolean
