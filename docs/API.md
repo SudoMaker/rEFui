@@ -545,6 +545,18 @@ In development mode, `$ref` will throw an error if you pass an invalid type (not
 
 ## Utility Functions
 
+### Reflow Runtime Helpers
+
+`refui/reflow` exports helpers for tagging and detecting host nodes when using the Reflow runtime.
+
+#### `markNode(node)`
+
+Marks a host node so Reflow treats it as an already-created node (instead of trying to interpret it as a component or value). Use this when you construct nodes manually or pass through nodes from another renderer. This is especially important for array-based node representations; otherwise the JSX automatic runtime may treat them as child arrays. The HTML renderer already marks its nodes for you.
+
+#### `isNode(value)`
+
+Returns `true` when a value has been marked with `markNode`. Use this to detect host nodes in custom utilities. If you are writing your own renderer, ensure `nodeOps.isNode` recognizes your node shape so the runtime doesn't misinterpret nodes as arrays.
+
 ### Renderer Instance Methods
 
 When you create a renderer (DOM, HTML, etc.), it provides these utility methods:

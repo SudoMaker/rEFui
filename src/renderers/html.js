@@ -22,8 +22,8 @@ import { isSignal, nextTick, peek, bind, watch } from 'refui/signal'
 import { createRenderer } from 'refui/renderer'
 import { nop, cachedStrKeyNoFalsy, removeFromArr } from 'refui/utils'
 import { isProduction } from 'refui/constants'
+import { markNode, isNode } from 'refui/reflow'
 
-const FLAG_NODE = Symbol(isProduction ? '' : 'F_Node')
 const FLAG_FRAG = Symbol(isProduction ? '' : 'F_Fragment')
 const FLAG_SELF_CLOSING = Symbol(isProduction ? '' : 'F_SelfClosing')
 const KEY_TAG_NAME = Symbol(isProduction ? '' : 'K_TagName')
@@ -44,13 +44,9 @@ function escapeHtml(unsafe) {
 }
 
 function makeNode(...node) {
-	node[FLAG_NODE] = true
 	node.parent = null
+	markNode(node)
 	return node
-}
-
-function isNode(node) {
-	return !!(node && node[FLAG_NODE])
 }
 
 function rawHTML(raw, ...exprs) {

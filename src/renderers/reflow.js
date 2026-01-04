@@ -23,6 +23,11 @@ import { hotEnabled } from 'refui/hmr'
 import { isThenable, isStatic, nullRefObject } from 'refui/utils'
 import { _asyncContainer } from 'refui/components'
 
+const nodeSet = new WeakSet()
+function markNode(obj) {
+	nodeSet.add(obj)
+}
+
 function rendererFactory(props, component, R) {
 	return R.c(component, props, ...this)
 }
@@ -56,8 +61,8 @@ const createElement = (function() {
 	}
 })()
 
-const isNode = function() {
-	return false
+const isNode = function(node) {
+	return nodeSet.has(node)
 }
 
 const R = {
@@ -68,4 +73,4 @@ const R = {
 	isNode
 }
 
-export { R }
+export { R, markNode, isNode }
