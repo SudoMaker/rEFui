@@ -109,6 +109,8 @@ Historically Reflow required the classic JSX transform, but as of v0.8.0 the aut
 
 Reflow renderer surfaces a module-level `R`, but the render function still receives its own `R` argument at render time. The parameter shadows the outer reference, so they do not interfere; only toolchains that mishandle shadowing (notably some SWC-based runtimes) may run into trouble, in which case isolate those modules or swap to the automatic transform without using Reflow mode.
 
+If you construct host nodes manually (or pass through nodes created by another renderer), mark them with `markNode` from `refui/reflow` so Reflow recognizes them as nodes. This is especially important when your node type is an array (HTML renderer nodes are arrays); otherwise the JSX automatic runtime may treat the node as an array of children. Use `isNode` to detect them. The HTML renderer already marks its nodes, so they interoperate out of the box. If you are building your own renderer, make sure `nodeOps.isNode` recognizes your node shape.
+
 Configure your bundler to inject `R` like this:
 
 ```js
