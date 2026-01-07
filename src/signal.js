@@ -720,7 +720,7 @@ function merge(vals, handler) {
 	return computed(_merged.bind(handler, vals))
 }
 function tpl(raw, ...exprs) {
-	if (Array.isArray(raw)) {
+	if (!Array.isArray(raw)) {
 		raw = [raw]
 	}
 	raw = { raw }
