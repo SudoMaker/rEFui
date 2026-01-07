@@ -1,8 +1,14 @@
+---
+title: HTML Renderer
+description: Guide to server-side rendering (SSR) with rEFui.
+weight: 32
+---
+
 # HTML Renderer
 
 The HTML renderer is designed for server-side rendering (SSR), allowing you to generate static HTML strings from your rEFui components. This is useful for improving initial page load performance and SEO.
 
-> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](../concepts/signals.md).
 
 ## Initial Setup
 
@@ -17,7 +23,7 @@ const renderer = createHTMLRenderer();
 
 ## Usage with JSX
 
-Just like with the DOM renderer, you can use JSX with the HTML renderer. For detailed instructions on how to set up JSX, please see the [JSX Setup Guide](JSX.md). The recommended **Classic Transform** is fully supported.
+Just like with the DOM renderer, you can use JSX with the HTML renderer. For detailed instructions on how to set up JSX, please see the [JSX Setup Guide](jsx-setup.md). The recommended **Classic Transform** is fully supported.
 
 ## "Hello, World!" Example
 

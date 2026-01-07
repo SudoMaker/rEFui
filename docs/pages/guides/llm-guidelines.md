@@ -1,3 +1,10 @@
+---
+title: LLM Guidelines
+description: Best practices for AI code generators.
+weight: 999
+hidden: true
+---
+
 # LLM Integration Guidelines for rEFui
 
 These instructions target language models that generate source code or documentation involving rEFui. They capture canonical patterns, call out common mistakes, and anchor outputs to the library’s retained-mode, signal-driven architecture.
@@ -196,10 +203,10 @@ Before finalizing output, the assistant should verify:
 ## 10. Reference Summary
 
 Keep these files handy while generating answers:
-- `docs/Signal.md` — full signal API (batching, helpers, lifecycle utilities).
-- `docs/Components.md` — component model, built-ins, best practices.
-- `docs/DOMRenderer.md` — DOM directives, macros, event system, props handling.
-- `docs/JSX.md` — setup for classic vs automatic JSX transforms.
-- `docs/MigrationGuide.md` — mappings from React, Solid, Vue, Svelte.
+- `docs/pages/concepts/signals.md` — full signal API (batching, helpers, lifecycle utilities).
+- `docs/pages/concepts/components.md` — component model, built-ins, best practices.
+- `docs/pages/guides/dom-renderer.md` — DOM directives, macros, event system, props handling.
+- `docs/pages/guides/jsx-setup.md` — setup for classic vs automatic JSX transforms.
+- `docs/pages/guides/migration.md` — mappings from React, Solid, Vue, Svelte.
 
 Adhering to this guideline ensures generated content respects rEFui’s architecture, avoids accidental framework leakage, and produces code that aligns with real-world rEFui usage.

@@ -1,17 +1,14 @@
+---
+title: Signals
+description: Comprehensive guide to rEFui's reactive system.
+weight: 20
+---
+
 # Signals
 
 Signals are the fundamental building blocks for rEFui. It is a lightweight, reactive signal system for building reactive applications. Signals provide a way to create reactive data that automatically updates dependent computations when the underlying data changes.
 
 Signals can be used without rEFui by importing directly from `refui/signal`.
-
-## Table of Contents
-
-- [Core Concepts](#core-concepts)
-- [Important Notice](#important-notice)
-- [Basic Usage](#basic-usage)
-- [API Reference](#api-reference)
-- [Advanced Features](#advanced-features)
-- [Best Practices](#best-practices)
 
 ## Core Concepts
 
@@ -1008,6 +1005,3 @@ function toggleTodo(id) {
 ```
 
 This reactive signal system provides a powerful foundation for building reactive applications with automatic dependency tracking and efficient updates.
-watch(() => {
-	touchCounter()
-})

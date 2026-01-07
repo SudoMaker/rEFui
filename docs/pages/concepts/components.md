@@ -1,8 +1,14 @@
+--- 
+title: Components
+description: Explore built-in components like If, For, Async, and Dynamic.
+weight: 21
+---
+
 # Components
 
 rEFui provides a set of built-in components to handle common UI patterns like conditional rendering, loops, and asynchronous operations. These are the building blocks for creating dynamic and reactive user interfaces.
 
-> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](signals.md).
 
 A core concept in rEFui is that a component ultimately behaves like a function that accepts `props` and `children`, and produces a render function. With the JSX **automatic runtime** together with the **Reflow** renderer (the default for most apps), you usually author components as plain JSX factories:
 
@@ -17,8 +23,8 @@ const MyComponent = (props, ...children) => (R) => <div>Hello rEFui!</div>
 ```
 
 > **Note on JSX Runtimes**
->
-> While rEFui supports different JSX transforms, the preferred approach for maximum flexibility is the **Classic Transform**. This pattern allows you to swap or wrap renderers on a per-component basis. But for generic usage, automatic transform can cover most scenarios. For a detailed guide on setting up both Classic and Automatic runtimes, see the [JSX Setup documentation](JSX.md). In this guide, we'll default to Automatic runtime for the ease of usage and alignment to most other JSX based frameworks like `React` and `Solid.js`.
+> 
+> While rEFui supports different JSX transforms, the preferred approach for maximum flexibility is the **Classic Transform**. This pattern allows you to swap or wrap renderers on a per-component basis. But for generic usage, automatic transform can cover most scenarios. For a detailed guide on setting up both Classic and Automatic runtimes, see the [JSX Setup documentation](../guides/jsx-setup.md). In this guide, we'll default to Automatic runtime for the ease of usage and alignment to most other JSX based frameworks like `React` and `Solid.js`.
 
 ## Basic Components
 
@@ -71,8 +77,8 @@ Renders a list of items from a signal that resolves to an array (or any value ex
 
 The child of a `<For>` component can be a **component** or a **function** that returns a renderable node.
 
--   **Component:** Pass a component function directly. It will receive `item` and `index` as props. This is the recommended approach for better code organization.
--   **Function:** Pass a function that takes `item` and `index` as arguments (destructured from a props object) and returns a node.
+- **Component:** Pass a component function directly. It will receive `item` and `index` as props. This is the recommended approach for better code organization.
+- **Function:** Pass a function that takes `item` and `index` as arguments (destructured from a props object) and returns a node.
 
 Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
 
@@ -152,9 +158,9 @@ const SimpleTodoList = () => {
 
 The `<For>` component exposes several methods via its optional `expose` prop (v0.8.0+), allowing you to interact with the list imperatively.
 
--   `getItem(key)`: Retrieves the original data item associated with a given key. (Only available when `track` is used).
--   `remove(key)`: Removes an item from the list by its key. (Only available when `track` is used).
--   `clear()`: Removes all items from the list.
+- `getItem(key)`: Retrieves the original data item associated with a given key. (Only available when `track` is used).
+- `remove(key)`: Removes an item from the list by its key. (Only available when `track` is used).
+- `clear()`: Removes all items from the list.
 
 Here's an example of how to use them:
 
@@ -240,8 +246,8 @@ so that updates happen from stable reactive owners rather than from the `Fn` con
 
 The `Fn` component accepts two additional props for more advanced scenarios:
 
--   `ctx`: A value or signal that is passed as the first argument to the child handler function. This is useful for providing context to the handler without creating closures in the render path.
--   `catch`: A function that gets called if an error is thrown during the rendering of the handler's result. It receives the `error`, the component `name`, and the `ctx` as arguments, allowing you to create robust error boundaries.
+- `ctx`: A value or signal that is passed as the first argument to the child handler function. This is useful for providing context to the handler without creating closures in the render path.
+- `catch`: A function that gets called if an error is thrown during the rendering of the handler's result. It receives the `error`, the component `name`, and the `ctx` as arguments, allowing you to create robust error boundaries.
 
 Here's how you can use them together:
 
@@ -370,11 +376,11 @@ Manages the lifecycle of asynchronous operations. It uses a render-prop pattern,
 
 **Props:**
 
--   `future`: A promise or a function that returns a promise. The promise should resolve to a value.
--   `fallback`: (Optional) A component, function, or node to display while the promise is pending.
--   `catch`: (Optional) A handler for when the promise rejects.
--   `suspensed`: (Optional, default `true`) When `true` and no `fallback` is provided, the async task is accumulated into the nearest `<Suspense>` boundary. Set to `false` to render immediately without joining Suspense.
--   `onLoad`: (Optional) Runs before the resolved value is committed; can be `async`. Its return value is ignored—use it only for side effects or to await work that should finish before display.
+- `future`: A promise or a function that returns a promise. The promise should resolve to a value.
+- `fallback`: (Optional) A component, function, or node to display while the promise is pending.
+- `catch`: (Optional) A handler for when the promise rejects.
+- `suspensed`: (Optional, default `true`) When `true` and no `fallback` is provided, the async task is accumulated into the nearest `<Suspense>` boundary. Set to `false` to render immediately without joining Suspense.
+- `onLoad`: (Optional) Runs before the resolved value is committed; can be `async`. Its return value is ignored—use it only for side effects or to await work that should finish before display.
 
 Any other props passed to `<Async>` will be passed through to the `then`, `fallback`, and `catch` handlers.
 
@@ -382,9 +388,9 @@ Any other props passed to `<Async>` will be passed through to the `then`, `fallb
 
 `<Async>` expects children to be provided in a specific order to handle different states:
 
-1.  **`then` (required):** The first child is a component or function that renders when the promise resolves successfully. It receives a `result` prop with the resolved value, along with any other props passed to `<Async>`.
-2.  **`fallback` (optional):** The second child is a component or function to render while the promise is pending. It can also be provided via the `fallback` prop.
-3.  **`catch` (optional):** The third child is a handler for when the promise rejects. It receives an `error` prop. It can also be provided via the `catch` prop.
+1. **`then` (required):** The first child is a component or function that renders when the promise resolves successfully. It receives a `result` prop with the resolved value, along with any other props passed to `<Async>`.
+2. **`fallback` (optional):** The second child is a component or function to render while the promise is pending. It can also be provided via the `fallback` prop.
+3. **`catch` (optional):** The third child is a handler for when the promise rejects. It receives an `error` prop. It can also be provided via the `catch` prop.
 
 > **Note:** If the parent component unmounts before the awaited promise settles, the runtime sets `contextValid` to `false`. In that case the async boundary skips rendering the resolved value, preventing work from running against a disposed instance.
 
@@ -496,17 +502,17 @@ const UserCard = async ({ id }) => {
 Swaps views with an async handoff. Provide a child render function that receives a `state` object; Transition wraps it in `Suspense`, manages pending/enter/leave flags, and blocks commit until `onLoad` finishes.
 
 **Props:**
-- `data`: Optional shared object passed into every `state.data`.
+- `data`: Optional shared object passed into every `state.data`. 
 - `fallback`: Optional initial render before the first view commits.
 - `loading`: Optional `Signal<boolean>` to mirror loading state (must be a signal if provided).
 - `pending`: Optional `Signal<boolean>` to mirror pending swaps (must be a signal if provided).
 - `catch`: Optional error handler for the inner suspense.
 - `onLoad`: Optional async hook run before committing the new view; return value is ignored. Signature `(state, hasCurrent, swap) => void|Promise<void>`. Call `swap()` to commit manually.
-- `name`: Optional display name (default `"Transition"`).
+- `name`: Optional display name (default "Transition").
 
 **Child (required):** `(state) => renderable`
 
-`state` includes: `loading`, `pending`, `leaving`, `entered`, `entering`, and a shared `data` object.
+`state` includes: `loading`, `pending`, `leaving`, `entered`, and a shared `data` object.
 
 **Note:** Additional props are *not* forwarded; everything you need is provided via `state`, `onLoad`, and the child render function.
 **Note:** If `state.loading` is true when `onLoad` runs, Transition is still preparing the fallback render.
@@ -540,7 +546,9 @@ const App = () => (
 					class:entering={state.entering}
 					class:leaving={state.leaving}
 					class:entered={state.entered}
-			>Loading...</div>
+			>
+				Loading...
+			</div>
 		)}
 		onLoad={async (state, hasCurrent, swap) => {
 			// If we have a previous view, await its exit animation
@@ -554,7 +562,8 @@ const App = () => (
 			const vt = document.startViewTransition?.(swap)
 			if (vt) {
 				await vt.updateCallbackDone
-			} else {
+			}
+			else {
 				await swap()
 			}
 
@@ -1112,7 +1121,7 @@ Wrap a rEFui component as a Web Component. Call with a renderer context (`define
 - `name`: Custom element tag name.
 - `component`: rEFui component template to render.
 - `options`:
-	- `mode`: Shadow DOM mode (`'open' | 'closed'`, default `'open'`).
+	- `mode`: Shadow DOM mode (`'open' | 'closed'`, default `'open'`)
 	- `attrs`: Attribute names mapped to signal-backed props on the element instance.
 	- `slots`: Named slots exposed as props (each becomes an R slot placeholder).
 	- `defaultSlot`: Whether to inject the default `<slot>` (default `true`).
@@ -1138,9 +1147,9 @@ Efficiently parses and renders text content (or any structured source) using a c
 
 **Props:**
 
--   `source`: A value passed verbatim to your parser. It can be a string, a signal, or any other type your parser understands. When you pass a signal, call `read(source)` inside the returned render function to access its current value and opt into reactivity.
--   `parser`: Either a parser function, or a signal that resolves to a parser function. The parser is called as `parser({ source, onAppend }, ...children)` and should return a render function (or any other renderable shape). When `parser` is a signal, `Parse` memoizes the underlying render function and only recreates it when the signal's value changes.
--   `expose` (optional): A callback that receives an object with an `append` function. The parser can call `onAppend(append)` to register an `append` handler; `Parse` will then expose that handler to the parent via `expose({ append })`. This is useful for incremental or streaming parsing, where the parent pushes new chunks into the parser over time.
+- `source`: A value passed verbatim to your parser. It can be a string, a signal, or any other type your parser understands. When you pass a signal, call `read(source)` inside the returned render function to access its current value and opt into reactivity.
+- `parser`: Either a parser function, or a signal that resolves to a parser function. The parser is called as `parser({ source, onAppend }, ...children)` and should return a render function (or any other renderable shape). When `parser` is a signal, `Parse` memoizes the underlying render function and only recreates it when the signal's value changes.
+- `expose` (optional): A callback that receives an object with an `append` function. The parser can call `onAppend(append)` to register an `append` handler; `Parse` will then expose that handler to the parent via `expose({ append })`. This is useful for incremental or streaming parsing, where the parent pushes new chunks into the parser over time.
 
 Because the render function returned by your parser runs in a tracked scope, any signals you read inside it (for example the `source` signal itself) will cause the output to update when they change, making `Parse` ideal for dynamic content parsing scenarios.
 
@@ -1240,8 +1249,8 @@ const customHtmlParser = ({ source }) => {
 		const text = read(source)
 
 		// Convert [button:text] to actual button elements
-		const buttonRegex = /\[button:(.*?)\]/g
-		const linkRegex = /\[link:(.*?)\|(.*?)\]/g
+		const buttonRegex = /\ \[button:(.*?)\]/g
+		const linkRegex = /\ \[link:(.*?)\|(.*?)\]/g
 
 		let result = text
 
@@ -1303,7 +1312,7 @@ const expensiveParser = ({ source }) => {
 
 		// Simulate expensive parsing operation
 		const words = text.split(' ')
-		return words.map((word, index) =>
+		return words.map((word, index)
 			R.c('span', {
 				key: index,
 				style: `color: hsl(${index * 30}, 70%, 50%);`

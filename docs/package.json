@@ -1,0 +1,20 @@
+{
+  "name": "refui-docs",
+  "version": "0.0.0",
+  "description": "Docs for rEFui",
+  "license": "Apache-2.0",
+  "author": "",
+  "type": "module",
+  "main": "methanol.config.js",
+  "scripts": {
+    "dev": "methanol dev",
+    "build": "methanol build",
+    "serve": "methanol serve"
+  },
+  "devDependencies": {
+    "methanol": "^0.0.6",
+    "pagefind": "^1.4.0",
+    "vite-plugin-pwa": "^1.2.0",
+    "vite-plugin-sitemap": "^0.8.2"
+  }
+}

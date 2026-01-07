@@ -1,19 +1,16 @@
+---
+title: API Reference
+description: Complete reference for all core APIs in rEFui.
+weight: 40
+---
+
 # API Reference
 
 This document covers the core APIs available in rEFui. All APIs are exported directly from the `refui` package unless otherwise specified.
 
-> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md). All signal APIs are exported directly from the `refui` package.
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](../concepts/signals.md). All signal APIs are exported directly from the `refui` package.
 
-> **Note**: For built-in components (If, For, Dynamic, Async, etc.), see the [Components documentation](Components.md).
-
-## Table of Contents
-
-- [Component APIs](#component-apis)
-- [Renderer APIs](#renderer-apis)
-- [Context & Lifecycle APIs](#context--lifecycle-apis)
-- [Utility Functions](#utility-functions)
-- [Scheduling Helpers](#scheduling-helpers)
-- [Extras](#extras)
+> **Note**: For built-in components (If, For, Dynamic, Async, etc.), see the [Components documentation](../concepts/components.md).
 
 ## Component APIs
 
@@ -112,7 +109,7 @@ Creates a custom renderer with the specified node operations.
 
 **Returns:** Renderer instance
 
-See also: [Custom Renderer guide](CustomRenderer.md) for the full `nodeOps` contract, signal-aware text/prop handling, and platform tips.
+See also: [Custom Renderer guide](../guides/custom-renderer.md) for the full `nodeOps` contract, signal-aware text/prop handling, and platform tips.
 
 ```jsx
 import { createRenderer } from 'refui';
@@ -851,4 +848,4 @@ const App = () => {
 };
 ```
 
-This API reference covers all the core functionality available in rEFui. For reactive state management, refer to the [Signals documentation](Signal.md), and for built-in components, see the [Components documentation](Components.md).
+This API reference covers all the core functionality available in rEFui. For reactive state management, refer to the [Signals documentation](../concepts/signals.md), and for built-in components, see the [Components documentation](../concepts/components.md).

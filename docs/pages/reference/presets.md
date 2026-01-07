@@ -1,6 +1,10 @@
-## Browser
+---
+title: Presets
+description: rEFui presets for browser and other environments.
+weight: 41
+---
 
-- [Source](src/presets/browser.js)
+## Browser
 
 Presets for browsers, with pre-defined tag namespaces (especially for SVG) and several preset attributes.
 

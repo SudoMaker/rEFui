@@ -1,3 +1,9 @@
+---
+title: Custom Renderers
+description: Guide to implementing renderers for novel platforms.
+weight: 33
+---
+
 # Custom Renderers
 
 Build rEFui renderers for novel platforms: map your platform’s primitives to the small `nodeOps` interface and let signals drive updates. Prefer reusing a DOM shim (`undom-ng`) when possible; write a renderer only when you need platform-specific behavior. If your platform already exposes a DOM-like API, you can often reuse `createDOMRenderer` with a custom `doc`.
@@ -47,24 +53,24 @@ If the platform lacks fragments, create an anchor node or manage an array of chi
 import { createRenderer } from 'refui'
 
 const nodeOps = {
-  isNode: (n) => !!n && n.type === 'node',
-  createNode: (tag) => platformCreate(tag),
-  createTextNode(text) {
-    // mirror DOM/HTML behavior: if text is a signal, subscribe
-    if (isSignal(text)) {
-      const n = platformCreateText('')
-      text.connect(() => platformSetText(n, String(peek(text) ?? '')))
-      return n
-    }
-    return platformCreateText(String(text ?? ''))
-  },
-  createAnchor: () => platformCreateComment(''),
-  createFragment: () => platformCreateFragment(),
-  removeNode: platformRemove,
-  appendNode(parent, ...kids) { kids.forEach(k => platformAppend(parent, k)) },
-  insertBefore(node, ref) { platformInsertBefore(node, ref) },
-  setProps(node, props) { platformSetProps(node, props) },
-  isFragment: (n) => n && n.type === 'fragment'
+	isNode: (n) => !!n && n.type === 'node',
+	createNode: (tag) => platformCreate(tag),
+	createTextNode(text) {
+		// mirror DOM/HTML behavior: if text is a signal, subscribe
+		if (isSignal(text)) {
+			const n = platformCreateText('')
+			text.connect(() => platformSetText(n, String(peek(text) ?? '')))
+			return n
+		}
+		return platformCreateText(String(text ?? ''))
+	},
+	createAnchor: () => platformCreateComment(''),
+	createFragment: () => platformCreateFragment(),
+	removeNode: platformRemove,
+	appendNode(parent, ...kids) { kids.forEach(k => platformAppend(parent, k)) },
+	insertBefore(node, ref) { platformInsertBefore(node, ref) },
+	setProps(node, props) { platformSetProps(node, props) },
+	isFragment: (n) => n && n.type === 'fragment'
 }
 
 export const R = createRenderer(nodeOps)

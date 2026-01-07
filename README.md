@@ -1,4 +1,4 @@
-<p align="center"><img width="200" height="200" src="https://github.com/SudoMaker/rEFui/raw/main/assets/rEFui.svg"/></p>
+<p align="center"><img width="200" height="200" src="https://github.com/SudoMaker/rEFui/raw/main/docs/assets/rEFui.svg"/></p>
 
 <h1 align="center">rEFui</h1>
 
@@ -126,7 +126,7 @@ DOMRenderer.render(document, App)
 
 ## JSX configurations
 
-For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](docs/JSX.md).
+For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](docs/pages/JSX.md).
 
 ## Hot Module Replacement
 
@@ -182,13 +182,13 @@ Notes:
 
 ## Built-in Components
 
-See [Components](docs/Components.md)
+See [Components](docs/pages/Components.md)
 
 ## Renderers
 
-- [DOM](docs/DOMRenderer.md): `refui/dom`
-- [HTML](docs/HTMLRenderer.md): `refui/html`
-- [Reflow](docs/JSX.md): Composing logic without concerning about UI
+- [DOM](docs/pages/DOMRenderer.md): `refui/dom`
+- [HTML](docs/pages/HTMLRenderer.md): `refui/html`
+- [Reflow](docs/pages/JSX.md): Composing logic without concerning about UI
 
 ## CDN
 

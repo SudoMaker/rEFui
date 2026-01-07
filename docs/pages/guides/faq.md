@@ -1,3 +1,9 @@
+--- 
+title: FAQ
+description: Common questions about rEFui.
+weight: 35
+---
+
 # FAQ
 
 Common questions and quick answers about rEFui’s performance, rendering targets, and toolchains.
@@ -17,10 +23,10 @@ Memo (`memo`/`useMemo`) is mainly for reusing large subtrees across parents; eve
 Computed/`watch`/`useEffect` track signals only when they’re read. If you early-return before touching a dependency on the first run, it won’t be tracked. Read dependencies up front or ensure every path touches the signals you need. Example fix (multiple signals):
 ```js
 const summary = computed(() => {
-  const t = track.value        // read first
-  const meta = metadata.value  // read first
-  if (!t) return 'Ready'
-  return `${t.name} – ${meta}`
+	const t = track.value        // read first
+	const meta = metadata.value  // read first
+	if (!t) return 'Ready'
+	return `${t.name} – ${meta}`
 })
 // `$` is a shorthand: const summary = $(() => { ... })
 ```
@@ -36,7 +42,7 @@ Prefer using a DOM shim over writing a renderer from scratch. Drop in [undom-ng]
 - NativeScript: [DOMiNATIVE](https://github.com/SudoMaker/nativescript-dom-ng) builds on undom-ng.
 - Embedded/desktop: the upcoming Resonance runtime ships DOM bindings for LVGL and Dear ImGui; its FFI plus undom-ng lets you wire other native UIs.
 
-If you already have a DOM-like API, pass its `doc` into `createDOMRenderer({ doc, ...options })` and reuse the full DOM renderer behavior. If you must write a renderer, implement `createRenderer(nodeOps)` mapping your platform primitives to `isNode`, `createNode`, `createTextNode`, `createAnchor`, `createFragment`, `expandFragment`, `appendNode`, `insertBefore`, `removeNode`, and `setProps`.
+If you already have a DOM-like API, pass its `doc` into `createDOMRenderer({ doc, ...options })` and reuse the full DOM renderer behavior. If you must write a renderer, implement `createRenderer(nodeOps)` mapping your platform primitives to `isNode`, `createNode`, `createTextNode`, `createAnchor`, `createFragment`, `expandFragment`, `appendNode`, `insertBefore`, `removeNode`, and `setProps`. See the [Custom Renderer guide](custom-renderer.md).
 
 ## How do I set up esbuild for JSX?
 - Classic pragma: `esbuild src/main.jsx --bundle --outfile=dist/bundle.js --jsx-factory=R.c --jsx-fragment=R.f` (or via JS API with the same options). Use when you want per-file renderer swapping or Reflow classic patterns.
@@ -52,7 +58,7 @@ No. Suspense tracks async components and `<Async>` boundaries. Work queued with 
 Yes. An `async` component that returns a promise is wrapped like `<Async>` automatically; you can still pass `fallback`/`catch` props. Combine with `Suspense` for grouped loading states.
 
 ## What renderer should I pick to start?
-Use the DOM renderer for browsers, the HTML renderer for SSR, and Reflow when you want renderer-agnostic logic or to swap renderers later. For new projects, Vite + automatic JSX is the fastest path; switch to classic JSX when you need explicit renderer control.
+Use the [DOM renderer](dom-renderer.md) for browsers, the HTML renderer for SSR, and Reflow when you want renderer-agnostic logic or to swap renderers later. For new projects, Vite + automatic JSX is the fastest path; switch to classic JSX when you need explicit renderer control.
 
 ## How do I avoid stale derived values?
 Effects/computed signals flush at the end of the tick. Use `nextTick`/`await nextTick()` to read freshly derived values after mutations; use `tick()` only when you need manual flushing.
@@ -67,4 +73,4 @@ Use `createPortal()` from `refui/extras`; it returns `[Inlet, Outlet]`. Render `
 Use the `refurbish` plugin (Vite/Webpack/Rspack). Components are retained; state survives reloads. You don’t need `import.meta.hot` boilerplate in components.
 
 ## What if I need templated strings as signals?
-Use `tpl\`...\`` from `refui/signal` to build a reactive string; it tracks embedded expressions automatically.
+Use `tpl`...` from `refui/signal` to build a reactive string; it tracks embedded expressions automatically.

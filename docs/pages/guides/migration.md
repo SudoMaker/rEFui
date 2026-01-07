@@ -1,3 +1,9 @@
+--- 
+title: Migration & QA
+description: Walkthroughs for teams migrating from React, Solid, Vue or Svelte.
+weight: 36
+---
+
 # Migration & QA Guide
 
 Transitioning from other reactive UI libraries to rEFui usually raises the same set of questions. This guide captures the most common ones for teams coming from React, Solid, or Vue, focusing on three key areas:
@@ -102,7 +108,8 @@ Svelte precomputes DOM operations; rEFui opts for runtime retention with asynchr
 ## JSX & Renderer Checklist
 
 - **Choose a JSX strategy**: Prefer the classic transform if you want per-component renderers (`(R) => ...`). Use the automatic runtime when tooling cannot inject `R` (MDX, SWC, Deno). Configure `jsxFactory`/`jsxFragment` or `jsxImportSource` accordingly.
-- **Audit expressions**: Any inline computed value (string interpolation, ternaries, etc.) must be a signal. Wrap complex expressions with `$(() => ...)`, `tpl\`...\`` or established derived helpers.
+- **Audit expressions**: Any inline computed value (string interpolation, ternaries, etc.) must be a signal. Wrap complex expressions with `$(() => ...)`, `tpl`...
+`` or established derived helpers.
 - **Register macros**: Port custom DOM directives (e.g., Vue directives, Solid custom directives) using `renderer.useMacro({ name, handler })` and reference them via `m:name` in JSX.
 - **Lifecycle**: Replace hook lifecycle code with `watch`, `useEffect`, and `onDispose`. Ensure cleanups live inside the component render factory scope.
 
@@ -110,7 +117,7 @@ Svelte precomputes DOM operations; rEFui opts for runtime retention with asynchr
 
 ## Additional Resources
 
-- [Signals](Signal.md) — deep dive into batching, helpers, and utilities like `nextTick` and `bind`.
-- [Components](Components.md) — retained component patterns (`<If>`, `<For>`, `<Async>`), useful while replacing template syntax from other frameworks.
-- [DOM Renderer](DOMRenderer.md) — covers directives, events, and macro registration referenced in this guide.
-- [JSX Setup](JSX.md) — configuration for classic vs automatic runtimes, required when adjusting build pipelines during migration.
+- [Signals](../concepts/signals.md) — deep dive into batching, helpers, and utilities like `nextTick` and `bind`.
+- [Components](../concepts/components.md) — retained component patterns (`<If>`, `<For>`, `<Async>`), useful while replacing template syntax from other frameworks.
+- [DOM Renderer](dom-renderer.md) — covers directives, events, and macro registration referenced in this guide.
+- [JSX Setup](jsx-setup.md) — configuration for classic vs automatic runtimes, required when adjusting build pipelines during migration.

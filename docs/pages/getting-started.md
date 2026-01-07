@@ -1,25 +1,12 @@
+---
+title: Getting Started
+description: Learn how to set up rEFui and build your first reactive application.
+weight: 10
+---
+
 # Getting Started
 
 Welcome to rEFui! This guide will walk you through the core concepts and help you build your first reactive application.
-
-## Table of Contents
-
-- [What is rEFui?](#what-is-refui)
-- [Core Concepts](#core-concepts)
-	- [Signals](#signals)
-	- [Components](#components)
-	- [Renderers](#renderers)
-- [Project Setup](#project-setup)
-	- [Configuring JSX](#configuring-jsx)
-	- [Best Practices](#best-practices)
-- [A Note on Reactivity in JSX](#a-note-on-reactivity-in-jsx)
-- [Your First Component](#your-first-component)
-	- ["Hello, World!"](#hello-world)
-- [Building a Reactive Counter](#building-a-reactive-counter)
-- [Working with Lists & Conditionals](#working-with-lists--conditionals)
-	- [Conditional Rendering with `If`](#conditional-rendering-with-if)
-	- [Rendering Lists with `For`](#rendering-lists-with-for)
-- [Next Steps](#next-steps)
 
 ## What is rEFui?
 
@@ -37,7 +24,7 @@ Key features include:
 
 Signals are the fundamental building blocks of reactivity in rEFui. They are reactive containers for values that automatically notify observers when they change. This allows your UI to update automatically in response to state changes.
 
-> For a deep dive into signals, see the [**Signals Documentation**](Signal.md).
+> For a deep dive into signals, see the [**Signals Documentation**](concepts/signals.md).
 
 ### Components
 
@@ -58,7 +45,7 @@ const Greeting = ({ name }) => {
 };
 ```
 
-> Learn more about built-in components in the [**Components Documentation**](Components.md).
+> Learn more about built-in components in the [**Components Documentation**](concepts/components.md).
 
 ### Renderers
 
@@ -67,7 +54,7 @@ rEFui uses a pluggable renderer system to decouple component logic from the rend
 - **DOM Renderer**: For building interactive web applications.
 - **HTML Renderer**: For server-side rendering (SSR) to generate static HTML.
 
-> See the [**DOM Renderer**](DOMRenderer.md) and [**HTML Renderer**](HTMLRenderer.md) guides for more details.
+> See the [**DOM Renderer**](guides/dom-renderer.md) and [**HTML Renderer**](guides/html-renderer.md) guides for more details.
 
 ## Project Setup
 
@@ -120,7 +107,7 @@ export default defineConfig({
 }
 ```
 
-> For more details on JSX configuration, see the [**JSX Setup Guide**](JSX.md).
+> For more details on JSX configuration, see the [**JSX Setup Guide**](guides/jsx-setup.md).
 
 ## Best Practices
 
@@ -325,7 +312,7 @@ const LoginStatus = () => {
 
 The `<For>` component efficiently renders and updates lists of items. You can provide a function as a child that receives the `item` and returns a renderable node.
 
-For a more dynamic example, checkout [For](Components.md#for).
+For a more dynamic example, checkout [For](concepts/components.md#for).
 
 ```jsx
 import { signal, For } from 'refui';
@@ -378,9 +365,9 @@ const UserProfile = () => {
 
 You've now learned the basics of rEFui! To continue your journey, explore the detailed documentation:
 
-- [**Signals**](Signal.md): Master the reactive system.
-- [**Components**](Components.md): Discover all built-in components.
-- [**DOM Renderer**](DOMRenderer.md): Learn about DOM-specific features.
-- [**HTML Renderer**](HTMLRenderer.md): Get started with server-side rendering.
-- [**JSX Setup**](JSX.md): Advanced JSX configurations.
-- [**API Reference**](API.md): Explore the full rEFui API.
+- [**Signals**](concepts/signals.md): Master the reactive system.
+- [**Components**](concepts/components.md): Discover all built-in components.
+- [**DOM Renderer**](guides/dom-renderer.md): Learn about DOM-specific features.
+- [**HTML Renderer**](guides/html-renderer.md): Get started with server-side rendering.
+- [**JSX Setup**](guides/jsx-setup.md): Advanced JSX configurations.
+- [**API Reference**](reference/api.md): Explore the full rEFui API.

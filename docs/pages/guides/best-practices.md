@@ -1,3 +1,9 @@
+---
+title: Best Practices & Troubleshooting
+description: Performance tips, reactive patterns, renderer notes, and common pitfalls.
+weight: 33
+---
+
 # rEFui Best Practices & Troubleshooting
 
 This guide consolidates performance tips, reactive patterns, renderer notes, and common pitfalls. Prefer these patterns before reaching for custom memoization or heavy abstractions.
@@ -83,7 +89,7 @@ Use `createDefer` / `createSchedule` with cancelable deferrers to coalesce expen
 - Prefer `$ref`/`expose` over relying on return values of `render()` in dev.
 
 ## 13) Custom render targets
-If you have a DOM-like API, pass its `doc` to `createDOMRenderer`. Otherwise, implement `nodeOps` via `createRenderer`; see CustomRenderer.md.
+If you have a DOM-like API, pass its `doc` to `createDOMRenderer`. Otherwise, implement `nodeOps` via `createRenderer`; see [Custom Renderer guide](custom-renderer.md).
 
 ## 14) Suspense/Async notes
 - Async components with their own `fallback` render immediately (not accumulated).

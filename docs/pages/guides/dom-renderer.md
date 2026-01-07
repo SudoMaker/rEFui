@@ -1,8 +1,14 @@
+---
+title: DOM Renderer
+description: Guide to using the rEFui DOM renderer for building reactive web applications.
+weight: 31
+---
+
 # DOM Renderer
 
 This document provides a guide on how to set up and use the rEFui DOM renderer for building reactive web applications.
 
-> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](Signal.md).
+> **Note**: For detailed information about rEFui's reactive system and signals, see the [Signals documentation](../concepts/signals.md).
 
 ## Initial Setup
 
@@ -32,11 +38,11 @@ This reuses all DOM renderer behaviors: signal-aware text/props, event normaliza
 
 ## Usage with JSX
 
-For instructions on how to set up JSX, please see the [JSX Setup Guide](JSX.md). It covers both the preferred **Classic Transform** and the **Automatic Runtime**.
+For instructions on how to set up JSX, please see the [JSX Setup Guide](jsx-setup.md). It covers both the preferred **Classic Transform** and the **Automatic Runtime**.
 
 ## "Hello, World!" Example (Classic Transform)
 
-Here is a complete example of rendering a component to the DOM using the preferred classic transform. You will first need to [configure your build tool](JSX.md#classic-transform-preferred).
+Here is a complete example of rendering a component to the DOM using the preferred classic transform. You will first need to [configure your build tool](jsx-setup.md#classic-transform-preferred).
 
 **index.html:**
 ```html
@@ -219,7 +225,7 @@ const StatusCard = ({ status, isLoading }) => {
 };
 ```
 
-> **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](Presets.md#browser).
+> **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](../reference/presets.md#browser).
 
 > **Tailwind CSS tip**: Tailwind’s scanner only picks up class names that appear inside literal `class="..."` attributes. Keep your full utility list in the static `class` attribute, then layer `class:` toggles for conditional pieces. For example, `class="card text-sm error"` plus `class:error={isError}` ensures Tailwind sees `card`, `text-sm`, and `error` while still letting you flip the class on and off at runtime.
 
@@ -337,4 +343,4 @@ We provide presets for conveinence.
 
 ### Browser
 
-- Check [here](Presets.md#browser)
+- Check [here](../reference/presets.md#browser)
