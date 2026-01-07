@@ -22,6 +22,21 @@ Computed signals derive their value from other signals and automatically update 
 ## Important notice
 Signal effects are semi-lazily computed, that means, no matter how many times you changed the value of a signal, its effects will only be executed once at the end of this tick. So if you modifred a signal's value and want to retrieve its updated derived signals value, you'll need to use `nextTick(cb)` or `await nextTick()` to get the new value. The lower-level `tick()` API exists to manually trigger a flush; prefer `nextTick` when you need to await the scheduler rather than calling `tick()` directly.
 
+### Avoiding Stale Values
+Effects and computed signals flush at the end of the tick. If you need to read a fresh derived value immediately after a write, always use `await nextTick()`.
+
+### Dependency Tracking
+Signals track dependencies only when they are read during the synchronous execution of a computation. If you use early returns or branching logic, ensure all necessary signals are read before the branch:
+
+```js
+const summary = computed(() => {
+  const t = track.value        // read first to ensure tracking
+  const meta = metadata.value  // read first to ensure tracking
+  if (!t) return 'Ready'
+  return `${t.name} – ${meta}`
+})
+```
+
 ## Basic Usage
 
 ### Creating Signals

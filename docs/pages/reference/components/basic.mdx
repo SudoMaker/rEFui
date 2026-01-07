@@ -132,6 +132,12 @@ const SimpleTodoList = () => {
 };
 ```
 
+### Optimization Tip: Keep Updates Local
+
+For large lists, avoid global state that triggers a full list re-render. Instead:
+- **Track by Key**: Use the `track` prop so only changed items are reconciled when the full list is recreated(e.g. updated from a request).
+- **Localized State**: Use `onCondition` or class toggles within individual list items to handle per-row selection or visibility states. This ensures that changing the state of one row doesn't affect the entire list.
+
 ### Exposed Methods
 
 The `<For>` component exposes several methods via its optional `expose` prop (v0.8.0+), allowing you to interact with the list imperatively.

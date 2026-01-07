@@ -85,3 +85,7 @@ export const R = createRenderer(nodeOps)
 - Log every `nodeOps` call initially (like the console renderer example) to verify ordering.
 - Ensure `setProps` handles prop removal (unset handlers/styles).
 - If updates don’t appear, check `isNode`/`isFragment` guards—they gate all tree ops.
+
+## Custom Render Targets
+
+If you have a DOM-like API available on your target platform, you can often pass its `doc` implementation to `createDOMRenderer` instead of building a full `nodeOps` implementation from scratch. This allows you to leverage the existing DOM renderer logic for reactive properties and text.

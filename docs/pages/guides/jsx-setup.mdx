@@ -359,4 +359,9 @@ export default defineConfig({
 
 That's it! Your rEFui components will now hot-reload during development, preserving component state and providing instant feedback.
 
+### HMR Best Practices
+
+- **Use `$ref` or `expose`**: Prefer these for accessing component instances or DOM nodes in dev mode. HMR wrappers can change the immediate return values of `render()` or `createComponent()`, but `$ref` remains stable.
+- **Manual Disposal**: Use the return value of `render()` primarily for calling `dispose(instance)` when you need to manually tear down a component tree.
+
 > **Learn More**: Visit the [refurbish repository](https://github.com/SudoMaker/refurbish) for Webpack configuration and advanced options.

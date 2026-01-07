@@ -77,7 +77,7 @@ rEFui's power comes from its reactive signal system. Here's an example with inte
 > **Note on Expressions**: Because rEFui is a retained-mode renderer, you only need to wrap expressions that dereference `.value` or perform inline computations in a computed signal (`$()`) to keep them reactive.
 >
 > - `<div>Count: {count}</div>` - **Correct**: Passing the signal itself keeps it reactive.
-> - `<div>{$(() => `Count is ${count.value}`)}</div>` - **Correct**: Wrap computed strings or `.value` access.
+> - <code>{`<div>{$(() => \`Count is \${count.value}\`)}</div>`}</code> - **Correct**: Wrap computed strings or `.value` access.
 > - `<div>Count is {count.value}</div>` - **Incorrect**: Dereferencing `.value` inline is evaluated once and will not update.
 
 If you know a value will never change after the initial render, you can pass a plain literal—or even `signal.value`—so the renderer keeps it static and skips wiring a subscription.
@@ -228,6 +228,18 @@ const StatusCard = ({ status, isLoading }) => {
 > **Note**: The `class:` directive is available when using the browser preset (`refui/browser`). For more information about presets and directives, see the [Presets documentation](../reference/presets.md#browser).
 
 > **Tailwind CSS tip**: Tailwind’s scanner only picks up class names that appear inside literal `class="..."` attributes. Keep your full utility list in the static `class` attribute, then layer `class:` toggles for conditional pieces. For example, `class="card text-sm error"` plus `class:error={isError}` ensures Tailwind sees `card`, `text-sm`, and `error` while still letting you flip the class on and off at runtime.
+
+## SVG Attributes
+
+React-style props on SVG can hit read-only DOM properties. Use `attr:` to set attributes for SVG elements to ensure they are applied correctly.
+
+```jsx
+// ❌ Incorrect
+<svg width="24" viewBox="0 0 24 24" />
+
+// ✅ Correct
+<svg attr:width="24" attr:viewBox="0 0 24 24" />
+```
 
 ## Macro Directives (`m:`)
 

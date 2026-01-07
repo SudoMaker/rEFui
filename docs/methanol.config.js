@@ -20,7 +20,7 @@ export default ({ mode }) => ({
 				}
 			}),
 			Sitemap({
-				hostname: 'https://methanol.netlify.app'
+				hostname: 'https://refui.sudomaker.com'
 			})
 		]
 	}

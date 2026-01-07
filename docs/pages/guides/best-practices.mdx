@@ -1,0 +1,122 @@
+---
+title: Best Practices & Troubleshooting
+description: Reactive patterns, performance optimizations, and common pitfalls.
+weight: 34
+---
+
+# rEFui Best Practices & Troubleshooting
+
+This guide consolidates performance tips, reactive patterns, and common pitfalls. Prefer these patterns before reaching for custom memoization or heavy abstractions.
+
+## General Architecture
+
+### Mental model: retained rendering + signals
+- No VDOM diff; signals drive precise updates.
+- Use signals only when values must stay reactive; literals are fine for static props/children.
+
+### Renderer Instance Management
+**Create renderer instances once** at your application's entry point (typically `main.js` or `index.js`). Avoid creating multiple renderer instances within components.
+
+```jsx
+// ✅ Good: Create renderer once in main.js
+import { createDOMRenderer } from 'refui/dom';
+import { defaults } from 'refui/browser';
+
+// Single renderer instance
+export const renderer = createDOMRenderer(defaults);
+
+// Use throughout your app
+renderer.render(document.getElementById('app'), App);
+```
+
+```jsx
+// ❌ Avoid: Creating renderers in components
+const MyComponent = () => {
+	// Don't do this - creates unnecessary renderer instances
+	const renderer = createDOMRenderer(defaults);
+
+	return <div>Hello</div>;
+};
+```
+
+### Component Organization
+Keep your components focused and reusable. When components grow large, consider breaking them into smaller, composable pieces.
+
+```jsx
+// ✅ Good: Small, focused components
+const UserName = ({ user }) => <span>{user.name}</span>;
+const UserEmail = ({ user }) => <span>{user.email}</span>;
+
+const UserCard = ({ user }) => (
+	<div>
+		<UserName user={user} />
+		<UserEmail user={user} />
+	</div>
+);
+```
+
+## Reactivity Patterns
+
+### Reactivity & object properties
+Signals track reads/writes on the signal itself, not nested object mutations.
+```ts
+// ❌ Mutation won’t notify
+tracks.value[0].sampleRate = 44100
+
+// ✅ Preferred: mutate in place + trigger for GC-friendly updates
+tracks.value[0].sampleRate = 44100
+tracks.trigger() // re-run dependents without recreating the array
+
+// ✅ Replace object
+const next = [...tracks.value]
+next[0] = { ...next[0], sampleRate: 44100 }
+tracks.value = next
+
+// ✅ Nested signals for frequent updates
+track.sampleRate.value = 44100
+```
+
+### Computed dependency tracking (early-return trap)
+Read dependencies before branching so they’re tracked.
+```js
+const info = computed(() => {
+	const t = track.value
+	const m = metadata.value
+	if (!t) return 'Ready'
+	return `${t.title} - ${m}`
+})
+```
+
+### `derivedExtract` with nullable sources
+`derivedExtract` tolerates `null`/`undefined` sources. You can extract directly without a safe wrapper:
+```ts
+const current = signal<Track | null>(null)
+const { title, sampleRate } = derivedExtract(current, 'title', 'sampleRate')
+```
+
+### `watch` vs `useEffect` vs `onDispose`
+- `watch`: reactive computations, no external cleanup.
+- `useEffect`: setup + cleanup that reruns when deps change.
+- `onDispose`: teardown only.
+
+## Performance Optimization
+
+### Keeping updates local
+- **Lists**: Use `onCondition` or class toggles for per-row state instead of wide `computed` fan-out.
+- **Signals**: Keep state localized; split big blobs into per-branch signals.
+- **Extracting**: Use `extract`/`derivedExtract` so subtrees only subscribe to the fields they read.
+
+### Coalescing updates
+Use `createDefer` / `createSchedule` with cancelable deferrers to coalesce expensive work during rapid input (e.g. search boxes or window resizing).
+
+## Component Design
+
+### Keeping JSX lean
+Define complex computeds at the top of a component; keep the JSX return as a simple "view" of your reactive data.
+```jsx
+const fileInfo = computed(() => /* ... */)
+return <div>{fileInfo}</div>
+```
+
+### Dependency Scope
+Use `onCondition` to scope fan-out in large lists or complex conditional branches. This prevents every item in a list from re-evaluating when a single global flag changes.

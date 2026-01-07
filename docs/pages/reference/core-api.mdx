@@ -227,28 +227,22 @@ import { signal } from 'refui';
 const MyComponent = () => {
 	// Using signal for ref
 	const buttonRef = signal();
-	const divRef = signal();
 
 	// Using function for ref
 	const handleInputRef = (inputElement) => {
-		console.log('Input element:', inputElement);
 		inputElement.focus();
 	};
 
-	const focusButton = () => {
-		buttonRef.value?.focus();
-	};
-
 	return (
-		<div $ref={divRef}>
+		<div>
 			<input $ref={handleInputRef} type="text" />
-			<button $ref={buttonRef} on:click={focusButton}>
-				Focus me programmatically
-			</button>
+			<button $ref={buttonRef}>Click Me</button>
 		</div>
 	);
 };
 ```
+
+> **Note**: In development mode with HMR, prefer using `$ref` or the `expose` callback over relying on the return value of `render()` or `createComponent()`, as the latter may change due to HMR wrappers.
 
 ## Utility Functions
 

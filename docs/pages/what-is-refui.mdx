@@ -1,0 +1,63 @@
+---
+title: What is rEFui?
+weight: 1
+---
+
+# What is rEFui?
+
+rEFui is a lightweight JavaScript library for building user interfaces with a powerful reactive signal system at its core. It's designed to be flexible and performant, allowing you to create dynamic applications with minimal overhead.
+
+Key features include:
+- A fine-grained reactive system with **Signals**
+- A simple, function-based **Component** model
+- A pluggable **Renderer** architecture (DOM, SSR, etc.)
+- Flexible **JSX** support without a required compiler
+
+**WARNING**: rEFui is **NOT** React—avoid React hooks or virtual DOM assumptions. Please understand and use rEFui's patterns instead. Values passed to element props/children only need to be signals when they should remain reactive; static strings, numbers, and handlers are fine. Use `$(() => computeFn)` or <code>t\`$\{signal\} template\`</code> for inline value transformation or to derive a signal.
+
+## Core Concepts
+
+### Signals
+
+Signals are the fundamental building blocks of reactivity in rEFui. They are reactive containers for values that automatically notify observers when they change. This allows your UI to update automatically in response to state changes.
+
+> For a deep dive into signals, see the [**Signals Documentation**](concepts/signals.md).
+
+### Components
+
+In rEFui, a component is a function that returns another function (the "render function"). This unique structure allows for maximum flexibility, especially with different renderers. When you use the JSX **automatic runtime** together with the **Reflow** renderer, the runtime wraps plain JSX returns into these factories for you, so you can usually omit the explicit `(R) =>` layer.
+
+```jsx
+// Automatic runtime / Reflow style (factory is inferred)
+const Greeting = ({ name }) => <h1>Hello, {name}!</h1>;
+```
+
+For classic JSX transform or when you need direct access to the renderer object (for example to call `R.createFragment` or other renderer utilities), keep the explicit factory:
+
+```jsx
+// Classic transform / explicit render factory
+const Greeting = ({ name }) => {
+	// The returned function receives the renderer `R`
+	return (R) => <h1>Hello, {name}!</h1>;
+};
+```
+
+> Learn more about built-in components in the [**Components Documentation**](concepts/components.md).
+
+### Renderers
+
+rEFui uses a pluggable renderer system to decouple component logic from the rendering environment. This means you can use the same components to render to the DOM, a string (for SSR), or even a custom target.
+
+- **DOM Renderer**: For building interactive web applications.
+- **HTML Renderer**: For server-side rendering (SSR) to generate static HTML.
+
+> See the [**DOM Renderer**](guides/dom-renderer.md) and [**HTML Renderer**](guides/html-renderer.md) guides for more details.
+
+## Mental Model
+
+### Retained Rendering + Signals
+rEFui is a **retained mode** library. Unlike "immediate mode" frameworks that re-run your component functions to determine what changed, rEFui runs your component exactly once to set up the initial structure. Subsequent updates are driven by signals that surgically update only the specific parts of the DOM they are bound to.
+
+- **No VDOM diffing**: Updates happen directly on the affected nodes.
+- **Signals drive updates**: Use signals only when values must stay reactive; literals are fine for static props or children.
+- **Component bodies are setup**: Think of the component body as a "constructor" for your UI fragment.
