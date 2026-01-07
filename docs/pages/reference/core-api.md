@@ -1,0 +1,290 @@
+---
+title: Core API
+description: Lifecycle, context, and component reference APIs.
+weight: 46
+---
+
+# Core API
+
+## Component APIs
+
+Examples in this section favor the **JSX automatic runtime + Reflow** style, where components simply return JSX:
+
+```jsx
+const Comp = (props) => <div />
+```
+
+Under the hood, the runtime wraps these into render factories for you. When you are using the classic JSX transform or need direct access to the renderer object, you can always write the equivalent explicit factory:
+
+```jsx
+const Comp = (props) => (R) => <div />
+```
+
+The APIs below behave the same in both cases; only the authoring style differs.
+
+### `createComponent(template, props?, ...children)`
+
+Creates a component instance from a template.
+
+**Parameters:**
+- `template`: Component function. With the automatic runtime it usually returns JSX; with the classic transform it returns a render function `(R) => node`.
+- `props`: Optional props object to pass to the component
+- `...children`: Child elements or components
+
+**Returns:** Component instance
+
+```jsx
+import { createComponent } from 'refui';
+
+const MyComponent = ({ name }) => <div>Hello, {name}!</div>;
+
+// Create component instance
+const instance = createComponent(MyComponent, { name: 'World' });
+
+// Can be used with Render component
+const App = () => <Render from={instance} />;
+```
+
+### `render(instance, renderer)`
+
+Renders a component instance using the specified renderer.
+
+**Parameters:**
+- `instance`: Component instance created with `createComponent`
+- `renderer`: Renderer instance (DOM, HTML, etc.)
+
+**Returns:** Rendered node or element
+
+```jsx
+import { createComponent, render } from 'refui';
+import { createDOMRenderer } from 'refui/dom';
+
+const renderer = createDOMRenderer();
+const instance = createComponent(MyComponent, { name: 'World' });
+const node = render(instance, renderer);
+```
+
+### `dispose(instance)`
+
+Disposes of a component instance and cleans up its resources.
+
+**Parameters:**
+- `instance`: Component instance to dispose
+
+```jsx
+import { createComponent, dispose } from 'refui';
+
+const instance = createComponent(MyComponent);
+
+// Later, when component is no longer needed
+dispose(instance);
+```
+
+### `Component`
+
+The base Component class. Generally, you should use `createComponent` instead of instantiating this directly.
+
+```jsx
+import { Component } from 'refui';
+
+// Direct instantiation (not recommended)
+const instance = new Component(MyTemplate, props, ...children);
+```
+
+## Context & Lifecycle APIs
+
+### `capture(fn)`
+
+Captures the current rendering context and returns a new function. When this new function is called later (e.g., inside a promise `then`), it executes the original function `fn` within the captured context, ensuring it can interact with signals and other reactive APIs correctly. If the originating component has already been disposed, the captured function runs with an inert context, allowing guards that depend on `getCurrentSelf()` or similar APIs to detect teardown.
+
+**Parameters:**
+- `fn`: Function to wrap with the current context.
+
+**Returns:** A new function that will execute in the captured context.
+
+```jsx
+import { capture, getCurrentSelf, signal } from 'refui';
+
+const Inspector = () => {
+	const self = getCurrentSelf();
+	const status = signal('pending');
+
+	// Capture getCurrentSelf for later calls.
+	const getSelf = capture(getCurrentSelf);
+
+	(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+		const current = getSelf();
+		if (!current) {
+			// Component was disposed before the timeout completed.
+			return;
+		}
+		status.value = 'resolved';
+	})();
+
+	return <div>Status: {status}</div>;
+};
+```
+
+If the component gets disposed(usually unmounted) before the timeout resolves, `getSelf()` returns `null`, preventing the deferred callback from mutating state that no longer has a live context.
+
+Think of `capture` (and the lower-level `freeze`) as rEFui's equivalent of `AsyncContext`: they carry the current component context across promises, timers, or other deferred callbacks—until the owning instance disposes, at which point the captured function reports `null` so you can bail out safely.
+
+### `snapshot()`
+
+Creates a snapshot of the current rendering context that can be used to run functions later.
+
+**Returns:** Function that can execute other functions in the captured context
+
+```jsx
+import { snapshot, getCurrentSelf } from 'refui';
+
+const MyComponent = () => {
+	const snap = snapshot();
+	const self = getCurrentSelf()
+
+	setTimeout(() => {
+		// Run function in the original context
+			snap(() => {
+				console.log('Should be true while mounted:', self === getCurrentSelf());
+			});
+		}, 1000);
+
+	return <div>Component</div>;
+};
+```
+
+### `contextValid`
+
+Boolean flag exported from `refui/signal` that indicates whether the current reactive scope is still active. Async helpers such as `<Async>` check this value to avoid rendering after their parent component has disposed. Inside deferred callbacks, guard on `contextValid` (or capture it through `freeze`/`capture`) before mutating signals or DOM.
+
+### `getCurrentSelf()`
+
+Gets the current component instance within a component's execution context.
+
+**Returns:** Current component instance or `undefined`
+
+```jsx
+import { getCurrentSelf, onDispose } from 'refui';
+
+const MyComponent = () => {
+	const self = getCurrentSelf();
+
+	onDispose(() => {
+		console.log('Component disposed:', self);
+	});
+
+	return <div>Component</div>;
+};
+```
+
+### `props.expose(values)` (v0.8.0+)
+
+Components that need to share imperative handles now opt in by accepting an `expose` prop from their parent. When the parent supplies a callback, call `expose(values)` inside the child to publish any signals, methods, or metadata. Because the callback is a regular closure, you can invoke it later—even after awaits or timers—without extra helpers.
+
+**Parameters:**
+- `values`: Object containing the handles you want to make available to the parent component.
+
+```jsx
+import { signal } from 'refui';
+
+const ChildComponent = ({ expose }) => {
+	const count = signal(0);
+	const increment = () => count.value++;
+
+	expose?.({ count, increment });
+
+	return <div>Count: {count}</div>;
+};
+
+const ParentComponent = () => {
+	const childApi = signal(null);
+
+	return (
+		<div>
+			<ChildComponent expose={(api) => { childApi.value = api; }} />
+			<button on:click={() => childApi.value?.increment()}>
+				Increment from parent
+			</button>
+		</div>
+	);
+};
+```
+
+## Component References
+
+### `$ref` Prop
+
+The `$ref` prop is a special prop that allows you to get a reference to the rendered DOM element or component instance. It works with both HTML elements and custom components.
+
+**Supported Types:**
+- **Signal**: The element/component will be assigned to `$ref.value`
+- **Function**: The function will be called with the element/component as an argument
+
+```jsx
+import { signal } from 'refui';
+
+const MyComponent = () => {
+	// Using signal for ref
+	const buttonRef = signal();
+	const divRef = signal();
+
+	// Using function for ref
+	const handleInputRef = (inputElement) => {
+		console.log('Input element:', inputElement);
+		inputElement.focus();
+	};
+
+	const focusButton = () => {
+		buttonRef.value?.focus();
+	};
+
+	return (
+		<div $ref={divRef}>
+			<input $ref={handleInputRef} type="text" />
+			<button $ref={buttonRef} on:click={focusButton}>
+				Focus me programmatically
+			</button>
+		</div>
+	);
+};
+```
+
+## Utility Functions
+
+### Reflow Runtime Helpers
+
+`refui/reflow` exports helpers for tagging and detecting host nodes when using the Reflow runtime.
+
+#### `markNode(node)`
+
+Marks a host node so Reflow treats it as an already-created node (instead of trying to interpret it as a component or value). Use this when you construct nodes manually or pass through nodes from another renderer. This is especially important for array-based node representations; otherwise the JSX automatic runtime may treat them as child arrays. The HTML renderer already marks its nodes for you.
+
+#### `isNode(value)`
+
+Returns `true` when a value has been marked with `markNode`. Use this to detect host nodes in custom utilities. If you are writing your own renderer, ensure `nodeOps.isNode` recognizes your node shape so the runtime doesn't misinterpret nodes as arrays.
+
+### Static Components and HMR Helpers
+
+rEFui uses a lightweight notion of “static” components for framework-level primitives and HMR integration.
+
+#### `markStatic(component)`
+
+Marks a function component as static/abstract. Static components may be called directly by the renderer (bypassing `createComponent` in some cases) and are treated as leaf nodes by the HMR system.
+
+```js
+import { markStatic } from 'refui/utils'
+
+function MyPrimitive(props, ...children) {
+	// low-level wrapper logic
+	return (R) => /* render something via renderer R */
+}
+
+markStatic(MyPrimitive)
+```
+
+You generally don’t need this in application code; it’s intended for building primitives like `Fn`, `For`, `If`, `Dynamic`, `Async`, `Render`, and extras such as `Parse`, `UnKeyed`, or `createPortal`’s components.
+
+#### `isStatic(component)`
+
+Returns `true` if a component was previously marked with `markStatic`. This is used internally by the renderer and HMR to detect abstract components.

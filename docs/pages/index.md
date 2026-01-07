@@ -61,5 +61,13 @@ Follow these guides for detailed instructions on specific topics, from rendering
 
 For experienced developers who need detailed information about specific functions, classes, and utilities.
 
-- **[API Reference](reference/api.md)**
-	- A complete reference for all core APIs, including component lifecycle functions (`createComponent`, `dispose`), renderer creation (`createRenderer`), context management (`capture`, `snapshot`), and component references (`$ref`) plus per-component expose callbacks introduced in v0.8.0.
+- **[Core API](reference/core-api.md)**
+	- Lifecycle, context, component references, and utility functions.
+- **[Signals API](reference/signals-api.md)**
+	- Detailed API for signals, computeds, effects, and helpers.
+- **[Renderer API](reference/renderer-api.md)**
+	- Low-level renderer creation and manipulation.
+- **[Scheduling API](reference/scheduling-api.md)**
+	- `createDefer`, `deferred`, and `createSchedule`.
+- **[Component Reference](reference/components/basic.md)**
+	- Detailed props and usage for [Basic](reference/components/basic.md), [Async](reference/components/async.md), and [Extra](reference/components/extras.md) components.

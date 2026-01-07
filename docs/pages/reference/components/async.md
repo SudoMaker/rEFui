@@ -1,0 +1,434 @@
+---
+title: Async Components
+description: Async, Suspense, Transition, and lazy loading.
+weight: 44
+---
+
+# Async Components
+
+## Async
+
+Manages the lifecycle of asynchronous operations. It uses a render-prop pattern, where you provide components or functions as children to render different states (`pending`, `resolved`, `rejected`).
+
+**Props:**
+
+-   `future`: A promise or a function that returns a promise. The promise should resolve to a value.
+-   `fallback`: (Optional) A component, function, or node to display while the promise is pending.
+-   `catch`: (Optional) A handler for when the promise rejects.
+-   `suspensed`: (Optional, default `true`) When `true` and no `fallback` is provided, the async task is accumulated into the nearest `<Suspense>` boundary. Set to `false` to render immediately without joining Suspense.
+-   `onLoad`: (Optional) Runs before the resolved value is committed; can be `async`. Its return value is ignored—use it only for side effects or to await work that should finish before display.
+
+Any other props passed to `<Async>` will be passed through to the `then`, `fallback`, and `catch` handlers.
+
+**Children:**
+
+`<Async>` expects children to be provided in a specific order to handle different states:
+
+1.  **`then` (required):** The first child is a component or function that renders when the promise resolves successfully. It receives a `result` prop with the resolved value, along with any other props passed to `<Async>`.
+2.  **`fallback` (optional):** The second child is a component or function to render while the promise is pending. It can also be provided via the `fallback` prop.
+3.  **`catch` (optional):** The third child is a handler for when the promise rejects. It receives an `error` prop. It can also be provided via the `catch` prop.
+
+> **Note:** If the parent component unmounts before the awaited promise settles, the runtime sets `contextValid` to `false`. In that case the async boundary skips rendering the resolved value, preventing work from running against a disposed instance.
+
+### Basic Usage with Functions
+
+```jsx
+import { Async } from 'refui';
+
+const fetchMessage = () => new Promise(resolve => setTimeout(() => resolve('Data loaded!'), 1000));
+
+const App = () => (
+	<Async
+		future={fetchMessage()}
+		fallback={() => <p>Loading...</p>}
+		catch={({ error }) => <p>Error: {error.message}</p>}
+	>
+		{({ result }) => <p>Success: {result}</p>}
+	</Async>
+);
+```
+
+### Usage with Components and Prop-drilling
+
+You can pass components directly as children. Any extra props on `<Async>` will be passed down to them.
+
+```jsx
+import { Async } from 'refui';
+
+const SuccessComponent = ({ result, message }) => <p>{message}: {result}</p>;
+
+const LoadingComponent = ({ message }) => <p>{message}</p>;
+
+const ErrorComponent = ({ error }) => <p>Failed to load: {error.message}</p>;
+
+const fetchUser = () => Promise.resolve('John Doe');
+
+const App = () => (
+	<Async
+		future={fetchUser()}
+		message="User loaded" // This prop is passed down
+	>
+		{SuccessComponent}
+		{LoadingComponent}
+		{ErrorComponent}
+	</Async>
+);
+```
+
+## Suspense
+
+Wraps one or more children and renders a fallback while any nested async work (including `<Async>` or async components) is still pending. It also supports an error handler and an optional `onLoad` hook that runs after all children resolve.
+
+**Props:**
+
+- `fallback`: Shown while pending (component/function/renderable or signal).
+- `catch`: Error handler when any child rejects.
+- `onLoad`: Called once when the initial batch resolves (can be `async`). Its return value is ignored; use it to block display until your work finishes (e.g., exit animations, logging).
+- Additional props are forwarded to fallback/catch handlers.
+
+**Children:** Renderables to show once resolved. If multiple children are provided, they resolve as a group.
+
+**Behavior notes:**
+- Async components that specify their own `fallback` render that fallback immediately and are **not** accumulated by the surrounding `<Suspense>`.
+- `<Suspense>` coordinates the initial async work only; subsequent async loads triggered later inside the boundary will not be suspended automatically.
+- When *not* using the Reflow renderer (e.g., custom renderer with classic JSX), wrap children in a function so they accumulate correctly inside `<Suspense>`. With Reflow or the default automatic JSX runtime, you can pass children directly.
+- Suspense watches async components and `<Async>` boundaries; deferred/scheduled signals (`createDefer`/`createSchedule`) are not tracked and won't trigger the fallback.
+
+```jsx
+import { Suspense } from 'refui'
+
+const Profile = ({ id }) => <Async future={fetch(`/api/user/${id}`).then((r) => r.json())}>{({ result }) => <p>{result.name}</p>}</Async>
+
+const App = () => (
+	<Suspense fallback={() => <p>Loading profile…</p>} catch={({ error }) => <p>Failed: {error.message}</p>}>
+		<Profile id={42} />
+	</Suspense>
+)
+
+// Using onLoad side-effects
+(
+<Suspense onLoad={() => console.log('all done')} fallback={() => <Spinner />}>
+	<Async future={doWork()}>{({ result }) => <ResultView data={result} />}</Async>
+</Suspense>
+)
+
+// Non-Reflow/custom renderer: wrap children to accumulate
+(
+<Suspense fallback={() => <p>Loading…</p>}>
+	{() => <Async future={loadData()}>{({ result }) => <p>{result}</p>}</Async>}
+</Suspense>
+)
+
+// Async component example: can be awaited directly
+const UserCard = async ({ id }) => {
+	const res = await fetch(`/api/users/${id}`)
+	const user = await res.json()
+	return () => <div>{user.name}</div>
+}
+
+(
+<Suspense fallback={() => <p>Loading user…</p>}>
+	<UserCard id={123} />
+</Suspense>
+)
+```
+
+## Transition
+
+Swaps views with an async handoff. Provide a child render function that receives a `state` object; Transition wraps it in `Suspense`, manages pending/enter/leave flags, and blocks commit until `onLoad` finishes.
+
+**Props:**
+- `data`: Optional shared object passed into every `state.data`.
+- `fallback`: Optional initial render before the first view commits.
+- `loading`: Optional `Signal<boolean>` to mirror loading state (must be a signal if provided).
+- `pending`: Optional `Signal<boolean>` to mirror pending swaps (must be a signal if provided).
+- `catch`: Optional error handler for the inner suspense.
+- `onLoad`: Optional async hook run before committing the new view; return value is ignored. Signature `(state, hasCurrent, swap) => void|Promise<void>`. Call `swap()` to commit manually.
+- `name`: Optional display name (default `"Transition"`).
+
+**Child (required):** `(state) => renderable`
+
+`state` includes: `loading`, `pending`, `leaving`, `entered`, `entering`, and a shared `data` object.
+
+**Note:** Additional props are *not* forwarded; everything you need is provided via `state`, `onLoad`, and the child render function.
+**Note:** If `state.loading` is true when `onLoad` runs, Transition is still preparing the fallback render.
+
+**Caveat:** `onLoad` runs before the pending view is committed. Calling `swap()` manually is optional—if you don’t call it, Transition commits automatically after `onLoad` returns.
+
+```jsx
+import { Transition, signal, lazy } from 'refui'
+
+const ViewA = ({ viewRef, ...props }) => <div $ref={viewRef} {...props}>A</div>
+const ViewB = ({ viewRef, ...props }) => <div $ref={viewRef} {...props}>B</div>
+const LazyView = lazy(() => import('./LazyModule'))
+const AsyncView = async ({ viewRef, ...props }) => {
+	const data = await fetch('/api/data').then((r) => r.json())
+	return <div $ref={viewRef} {...props}>{data.title}</div>
+}
+
+const current = signal(ViewA)
+const pending = signal(false)
+const loading = signal(false)
+const transitionData = { viewName: 'page' }
+const nextEl = signal(null)
+
+const App = () => (
+	<Transition
+		pending={pending}
+		loading={loading}
+		data={transitionData}
+		fallback={(state) => (
+			<div
+					class:entering={state.entering}
+					class:leaving={state.leaving}
+					class:entered={state.entered}
+			>Loading...</div>
+		)}
+		onLoad={async (state, hasCurrent, swap) => {
+			// If we have a previous view, await its exit animation
+			if (hasCurrent) {
+				await new Promise((r) => setTimeout(r, 200)) // simulate exit animation
+			}
+			// If we're still preparing fallback, skip entrance wiring
+			if (state.loading.value) return
+
+			// Commit manually (or integrate with View Transition API)
+			const vt = document.startViewTransition?.(swap)
+			if (vt) {
+				await vt.updateCallbackDone
+			} else {
+				await swap()
+			}
+
+			// Mark entered when the enter animation ends
+			setTimeout(() => state.entered.set(true), 200) // simulate enter animation done
+		}}
+	>
+		{(state) => {
+			const Next = current.value
+			return (
+				<Next
+					class:entering={state.entering}
+					class:leaving={state.leaving}
+					class:entered={state.entered}
+					class:pending={state.pending}
+					style:viewTransitionName={state.data.viewName}
+					viewRef={nextEl} // Next forwards viewRef -> DOM $ref
+				/>
+			)
+		}}
+	</Transition>
+)
+
+// Trigger swaps
+current.value = ViewB
+current.value = LazyView // works with lazy() components; pending toggles until resolve
+current.value = AsyncView // also works with async components
+```
+
+## Automatic Async Components
+
+If a component itself returns a promise (i.e., it's an `async` function), rEFui will automatically wrap it in a boundary similar to `<Async>`. You can provide `fallback` and `catch` props directly to the component invocation.
+
+```jsx
+import { signal, Fn } from 'refui';
+
+// An async component that fetches user data
+const UserProfile = async ({ userId }) => {
+	const response = await fetch(`https://jsonplaceholder.typicode.com/users/${userId}`);
+	if (!response.ok) throw new Error('User not found');
+	const user = await response.json();
+
+	return <div>Hello, {user.name}</div>;
+};
+
+// Use <Fn> to re-create the component when the ID changes
+const App = () => {
+	const userId = signal(1);
+
+	return (
+		<div>
+			<Fn>
+				{() => (
+					<UserProfile
+						userId={userId.value}
+						fallback={() => <div>Loading...</div>}
+						catch={({ error }) => <div>Error: {error.message}</div>}
+					/>
+				)}
+			</Fn>
+			<button on:click={() => userId.value++}>Load next</button>
+		</div>
+	);
+};
+```
+
+### Error Handling in Async Components
+
+When a component function is `async`, rEFui automatically creates an async boundary. The `fallback` and `catch` props work directly on the component:
+
+```jsx
+// Async component that might fail
+const StoryItem = async ({ id }) => {
+	const story = await fetchStory(id); // This might throw
+
+	return (
+		<article>
+			<h2>{story.title}</h2>
+			<p>By {story.author}</p>
+		</article>
+	);
+};
+
+// Usage with error handling
+const StoryList = () => {
+	const storyIds = signal([1, 2, 3, 4, 5]);
+
+	return (
+		<div>
+			<For entries={storyIds}>
+				{({ item: id }) => (
+					<StoryItem
+						id={id}
+						fallback={() => <div class="loading">Loading story...</div>}
+						catch={({ error }) => (
+							<div class="error">
+								Failed to load story {id}: {error.message}
+								<button on:click={() => window.location.reload()}>
+									Retry
+								</button>
+							</div>
+						)}
+					/>
+				)}
+			</For>
+		</div>
+	);
+};
+```
+
+> **Important**: When using implicit async components (async functions), the `fallback` and `catch` props are applied **directly to the component invocation**, not to a wrapping `<Async>` component. This makes async error handling much more streamlined.
+
+## lazy
+
+Creates a lazy-loaded component that can be dynamically imported and rendered. This is useful for code splitting and performance optimization, allowing components to be loaded only when needed while preserving the current rendering context.
+
+The `lazy` function takes a loader function (typically a dynamic import) and an optional identifier to extract from the loaded value. The loader may resolve either to a component function or to a module-like object:
+
+- If the resolved value is a function and no identifier is provided, that function is used directly as the component.
+- Otherwise, `lazy` looks up `resolved[identifier ?? 'default']` on the loaded module and uses that export.
+
+If the loader cannot produce a component (for example, the requested export is missing or resolves to `null`/`undefined`), the lazy wrapper rejects with a `SyntaxError`. You can handle this via the lazy component's `fallback`/`catch` props in the same way as other async components.
+
+It returns a function that can be called with additional arguments to render the lazy component.
+
+**Parameters:**
+
+- `loader`: A function that returns a Promise resolving to the module/component
+- `ident` (optional): The export key to extract from the loaded module (defaults to `'default'` when the loader returns a module object)
+
+**Returns:** A function that can be called with additional arguments to render the lazy component
+
+### Basic Usage
+
+```jsx
+import { lazy, Fn } from 'refui'
+
+// Create a lazy-loaded component
+const LazyComponent = lazy(() => import('./MyComponent.js'))
+
+// Use it in your application
+const App = () => (
+	<div>
+		<h1>My App</h1>
+		<Fn>
+			{() => LazyComponent({ message: 'Hello from lazy component!' })}
+		</Fn>
+	</div>
+)
+```
+
+### Loading Specific Exports
+
+```jsx
+import { lazy } from 'refui'
+
+// Load a specific named export
+const LazyButton = lazy(() => import('./components.js'), 'Button')
+const LazyModal = lazy(() => import('./components.js'), 'Modal')
+
+const App = () => (
+	<div>
+		<LazyButton text="Click me" />
+		<LazyModal isOpen={true} />
+	</div>
+)
+```
+
+### Dynamic Component Loading
+
+```jsx
+import { lazy, signal, Dynamic } from 'refui'
+
+const Dashboard = lazy(() => import('./Dashboard.js'))
+const Profile = lazy(() => import('./Profile.js'))
+const Settings = lazy(() => import('./Settings.js'))
+
+const App = () => {
+	const pages = {
+		dashboard: Dashboard,
+		profile: Profile,
+		settings: Settings
+	}
+
+	const currentPage = signal('dashboard')
+	const currentComponent = signal(pages.dashboard)
+
+	const switchPage = (page) => {
+		currentPage.value = page
+		currentComponent.value = pages[page]
+	}
+
+	return (
+		<div>
+			<nav>
+				<button on:click={() => switchPage('dashboard')}>Dashboard</button>
+				<button on:click={() => switchPage('profile')}>Profile</button>
+				<button on:click={() => switchPage('settings')}>Settings</button>
+			</nav>
+
+			<main>
+				<Dynamic is={currentComponent} />
+			</main>
+		</div>
+	)
+}
+```
+
+### Error Handling with Lazy Components
+
+Lazy components are just async components and can handle loading errors using the `catch` prop directly:
+
+```jsx
+import { lazy } from 'refui'
+
+const LazyFeature = lazy(() => import('./FeatureComponent.js'))
+
+const App = () => (
+	<div>
+		<LazyFeature
+			title="My Feature"
+			fallback={() => <div>Loading feature...</div>}
+			catch={({ error }) => (
+				<div style="color: red; padding: 10px; border: 1px solid red;">
+					<h3>Failed to load feature component</h3>
+					<p>Error: {error.message}</p>
+					<button on:click={() => window.location.reload()}>
+						Retry
+					</button>
+				</div>
+			)}
+		/>
+	</div>
+)
+```

@@ -312,7 +312,7 @@ const LoginStatus = () => {
 
 The `<For>` component efficiently renders and updates lists of items. You can provide a function as a child that receives the `item` and returns a renderable node.
 
-For a more dynamic example, checkout [For](concepts/components.md#for).
+For a more dynamic example, checkout [For](reference/components/basic.md#for).
 
 ```jsx
 import { signal, For } from 'refui';
@@ -370,4 +370,4 @@ You've now learned the basics of rEFui! To continue your journey, explore the de
 - [**DOM Renderer**](guides/dom-renderer.md): Learn about DOM-specific features.
 - [**HTML Renderer**](guides/html-renderer.md): Get started with server-side rendering.
 - [**JSX Setup**](guides/jsx-setup.md): Advanced JSX configurations.
-- [**API Reference**](reference/api.md): Explore the full rEFui API.
+- [**Core API**](reference/core-api.md): Explore the full rEFui API.

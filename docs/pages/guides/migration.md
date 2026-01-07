@@ -1,4 +1,4 @@
---- 
+---
 title: Migration & QA
 description: Walkthroughs for teams migrating from React, Solid, Vue or Svelte.
 weight: 36
@@ -108,8 +108,7 @@ Svelte precomputes DOM operations; rEFui opts for runtime retention with asynchr
 ## JSX & Renderer Checklist
 
 - **Choose a JSX strategy**: Prefer the classic transform if you want per-component renderers (`(R) => ...`). Use the automatic runtime when tooling cannot inject `R` (MDX, SWC, Deno). Configure `jsxFactory`/`jsxFragment` or `jsxImportSource` accordingly.
-- **Audit expressions**: Any inline computed value (string interpolation, ternaries, etc.) must be a signal. Wrap complex expressions with `$(() => ...)`, `tpl`...
-`` or established derived helpers.
+- **Audit expressions**: Any inline computed value (string interpolation, ternaries, etc.) must be a signal. Wrap complex expressions with `$(() => ...)`, `tpl`...\` or established derived helpers.
 - **Register macros**: Port custom DOM directives (e.g., Vue directives, Solid custom directives) using `renderer.useMacro({ name, handler })` and reference them via `m:name` in JSX.
 - **Lifecycle**: Replace hook lifecycle code with `watch`, `useEffect`, and `onDispose`. Ensure cleanups live inside the component render factory scope.
 

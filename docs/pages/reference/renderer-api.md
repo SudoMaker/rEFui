@@ -1,0 +1,235 @@
+---
+title: Renderer API
+description: Create custom renderers and manage DOM rendering.
+weight: 47
+---
+
+# Renderer API
+
+## Creating a Renderer
+
+### `createRenderer(nodeOps, rendererID?)`
+
+Creates a custom renderer with the specified node operations.
+
+**Parameters:**
+- `nodeOps`: Object containing node manipulation functions
+- `rendererID`: Optional unique identifier for the renderer
+
+**Returns:** Renderer instance
+
+See also: [Custom Renderer guide](../guides/custom-renderer.md) for the full `nodeOps` contract, signal-aware text/prop handling, and platform tips.
+
+```jsx
+import { createRenderer } from 'refui';
+
+const customRenderer = createRenderer({
+	isNode: (node) => /* check if node */,
+	createNode: (tag) => /* create element */,
+	createTextNode: (text) => /* create text node */,
+	createAnchor: (text) => /* create anchor/comment */,
+	createFragment: () => /* create fragment */,
+	removeNode: (node) => /* remove node */,
+	appendNode: (parent, ...children) => /* append children */,
+	insertBefore: (node, ref) => /* insert before reference */,
+	setProps: (node, props) => /* set properties */
+});
+```
+
+### `Fragment` (Symbol)
+
+Symbol used to represent fragments in JSX. Available as `R.f` in classic JSX transform.
+
+```jsx
+// In JSX
+<>
+	<div>First</div>
+	<div>Second</div>
+</>
+
+// Equivalent to
+R.c(Fragment, null,
+	R.c('div', null, 'First'),
+	R.c('div', null, 'Second')
+)
+```
+
+## Renderer Instance Methods
+
+When you create a renderer (DOM, HTML, etc.), it provides these utility methods:
+
+### `renderer.createElement(tag, props?, ...children)`
+
+Creates an element using the renderer. Alias: `renderer.c`
+
+**Parameters:**
+- `tag`: HTML tag string or component function
+- `props`: Properties object
+- `...children`: Child elements
+
+```jsx
+// Available as R.c in JSX
+const element = renderer.createElement('div', { class: 'container' }, 'Hello');
+```
+
+### `renderer.createFragment(name?)`
+
+Creates a fragment for grouping elements.
+
+**Parameters:**
+- `name`: Optional name for debugging
+
+```jsx
+const fragment = renderer.createFragment('MyFragment');
+renderer.appendNode(fragment, element1, element2);
+```
+
+### `renderer.ensureElement(value)`
+
+Ensures a value is a valid element, converting supported inputs into nodes and resolving lazy constructs.
+
+**Behavior:**
+- Functions are called repeatedly with the renderer until they return a non-function value.
+- Promises/thenables are wrapped in an internal `<Async>` boundary and rendered.
+- Arrays are handled as follows:
+	- `[]` → `null` (nothing to render).
+	- `[single]` → normalized as if you passed `single` directly.
+	- `[a, b, ...]` → wrapped in a fragment with each entry normalized.
+- `null`, `undefined`, or existing nodes are returned as-is.
+- All other values are turned into text nodes via `renderer.text`.
+
+**Parameters:**
+- `value`: Value to convert (node, function, promise, array, primitive, etc.)
+
+**Returns:** Element, fragment, or text node
+
+```jsx
+const textNode = renderer.ensureElement('Hello World');
+const fromFn = renderer.ensureElement(() => 'Deferred');
+const unchanged = renderer.ensureElement(existingElement);
+```
+
+### `renderer.text(content)`
+
+Creates a text node from a value or signal. Non-string values are coerced with `String(...)`; `undefined`/`null` become an empty string.
+
+**Parameters:**
+- `content`: Text content; can be a primitive value or a signal of such
+
+```jsx
+import { signal } from 'refui';
+
+const message = signal('Hello');
+const textNode = renderer.text(message); // Reactive text node
+const staticNumber = renderer.text(42);  // Renders `42` as text
+```
+
+### `renderer.normalizeChildren(children)`
+
+Normalizes an array of children, flattening arrays and converting values to elements using the same rules as `renderer.ensureElement`.
+
+**Behavior:**
+- Flattens nested arrays and fragments.
+- Coalesces adjacent primitive values into a single text node.
+- Converts signals into reactive text nodes.
+- Resolves function and promise children into elements.
+- Stringifies plain objects using `JSON.stringify` (falling back to `String` when needed).
+
+**Parameters:**
+- `children`: Array of child elements
+
+**Returns:** Normalized array of elements
+
+```jsx
+const normalized = renderer.normalizeChildren([
+	'text',
+	123,
+	signal('reactive text'),
+	['nested', 'array'],
+	() => 'from function',
+	element
+]);
+```
+
+### `renderer.render(target, component, props?, ...children)`
+
+Renders a component and appends it to a target element.
+
+**Parameters:**
+- `target`: Target element to render into
+- `component`: Component function
+- `props`: Optional props
+- `...children`: Optional children
+
+**Returns:** Component instance
+
+```jsx
+const instance = renderer.render(
+	document.getElementById('app'),
+	MyComponent,
+	{ name: 'World' }
+);
+```
+
+### Node Manipulation Methods
+
+#### `renderer.appendNode(parent, ...children)`
+
+Appends child nodes to a parent element.
+
+```jsx
+renderer.appendNode(parent, child1, child2, child3);
+```
+
+#### `renderer.insertBefore(node, reference)`
+
+Inserts a node before a reference node.
+
+```jsx
+renderer.insertBefore(newNode, existingNode);
+```
+
+#### `renderer.removeNode(node)`
+
+Removes a node from its parent.
+
+```jsx
+renderer.removeNode(nodeToRemove);
+```
+
+### Fragment Utilities
+
+#### `renderer.isFragment(node)`
+
+Checks if a node is a fragment.
+
+**Returns:** Boolean
+
+```jsx
+if (renderer.isFragment(node)) {
+	console.log('This is a fragment');
+}
+```
+
+## DOM Renderer Specifics
+
+### `renderer.macros` (DOM renderer)
+
+When you create a DOM renderer, it exposes a mutable `macros` object. Keys in this object correspond to macro names used by the `m:` directive, and values are handlers with the signature `(node, value) => void`. You can seed this object when calling `createDOMRenderer` or mutate it later.
+
+### `renderer.useMacro({ name, handler })` (DOM renderer)
+
+Registers a macro handler on the DOM renderer. The handler receives the element and the bound value and should take care of subscribing to signals if it needs to react to changes.
+
+```jsx
+renderer.useMacro({
+	name: 'autofocus',
+	handler(node, value) {
+		if (!value) return
+		node.focus()
+	}
+})
+
+// Later in JSX (automatic runtime style)
+const Input = () => <input type="text" m:autofocus />
+```
