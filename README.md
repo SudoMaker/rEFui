@@ -16,6 +16,8 @@ rEFui stays toolchain-agnostic: any JSX-capable transpiler (Babel, esbuild, SWC,
 
 Design philosophy: use accessible tooling while delivering optimized, high-performance UIs.
 
+Full documentation: https://refui.sudomaker.com/
+
 > [!NOTE]
 > **Typing status**
 > 
