@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       methanol:
-        specifier: ^0.0.7
-        version: 0.0.7(rollup@2.79.2)(terser@5.44.1)
+        specifier: ^0.0.8
+        version: 0.0.8(rollup@2.79.2)(terser@5.44.1)
       pagefind:
         specifier: ^1.4.0
         version: 1.4.0
@@ -1687,8 +1687,8 @@ packages:
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
 
-  methanol@0.0.7:
-    resolution: {integrity: sha512-hbQzpLC1zmRamqDSgi0bmYPqGOL44D60OFIvLk4TE4JTZJev3lQ4sHl766d1y1AsdUBQ+G5KZyvhd6PWuBCy/g==}
+  methanol@0.0.8:
+    resolution: {integrity: sha512-ZX7V2mAQ27QBu2arae5SJ0pKGivcHIzt9QpOFYoD8kbeNQz/z989fOVyhlQC63JIvM7Z8G+pk3jejYzpjuYmAQ==}
     hasBin: true
 
   micromark-core-commonmark@2.0.3:
@@ -4302,7 +4302,7 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  methanol@0.0.7(rollup@2.79.2)(terser@5.44.1):
+  methanol@0.0.8(rollup@2.79.2)(terser@5.44.1):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@sindresorhus/fnv1a': 3.1.0

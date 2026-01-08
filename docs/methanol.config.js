@@ -3,7 +3,8 @@ import Sitemap from 'vite-plugin-sitemap'
 
 export default ({ mode }) => ({
 	site: {
-		name: 'rEFui Docs'
+		name: 'rEFui Docs',
+		repoBase: 'https://github.com/SudoMaker/rEFui/tree/main/docs/pages/'
 	},
 	publicDir: './assets',
 	starryNight: true,
