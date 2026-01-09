@@ -60,7 +60,7 @@ The child of a `<For>` component can be a **component** or a **function** that r
 
 Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
 
-**Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](../reference/components/extras.md#unkeyed) component instead.
+**Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](../reference/components/extras.mdx#unkeyed) component instead.
 
 ```jsx
 import { signal, For, $ } from 'refui';
