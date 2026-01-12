@@ -13,8 +13,8 @@ importers:
         version: link:..
     devDependencies:
       methanol:
-        specifier: ^0.0.10
-        version: 0.0.10(rollup@2.79.2)(terser@5.44.1)(workbox-build@7.4.0)(workbox-window@7.4.0)
+        specifier: ^0.0.11
+        version: 0.0.11(rollup@2.79.2)(terser@5.44.1)(workbox-build@7.4.0)(workbox-window@7.4.0)
       pagefind:
         specifier: ^1.4.0
         version: 1.4.0
@@ -1716,8 +1716,8 @@ packages:
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
 
-  methanol@0.0.10:
-    resolution: {integrity: sha512-fERDpgZ4PswWYnw24w1J5P77Nsfi4mgNrxuWcbVMpvhbZ2YunzBTX+URYO7eKUlpGVG58ouiH2yfmM++oiSfow==}
+  methanol@0.0.11:
+    resolution: {integrity: sha512-xwp6V2vAB9OFV+kq1fPna3kivgJ+iukOb6I55/sedEZ39J4HWvcnZgU8W7xcMXwgzb+AvBDigFHeN/q5Z6gdGg==}
     hasBin: true
 
   micromark-core-commonmark@2.0.3:
@@ -4430,7 +4430,7 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  methanol@0.0.10(rollup@2.79.2)(terser@5.44.1)(workbox-build@7.4.0)(workbox-window@7.4.0):
+  methanol@0.0.11(rollup@2.79.2)(terser@5.44.1)(workbox-build@7.4.0)(workbox-window@7.4.0):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@sindresorhus/fnv1a': 3.1.0
