@@ -192,17 +192,20 @@ function createHTMLRenderer({
 
 		return function (propsNode, val) {
 			if (isSignal(val)) {
-				const propNode = [` ${key}="`, '', '"']
+				const propBody = [` ${key}="`, '', '"']
+				const propNode = [propBody]
+				propsNode.push(propNode)
 				val.connect(function () {
 					const newData = peek(val)
 					if (newData === undefined || newData === null) {
-						removeFromArr(propsNode, propNode)
-						propNode[1] = ''
+						propNode[0] = ''
+						propBody[1] = ''
+					} else if (newData === true) {
+						propNode[0] = ` ${key}`
+						propBody[1] = ''
 					} else {
-						if (propsNode.indexOf(propNode) < 0) {
-							propsNode.push(propNode)
-						}
-						propNode[1] = escapeHtml(newData)
+						propBody[1] = escapeHtml(newData)
+						propNode[0] = propBody
 					}
 				})
 			} else if (val === true) {
