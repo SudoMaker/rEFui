@@ -6,7 +6,6 @@ export default ({ mode }) => ({
 		repoBase: 'https://github.com/SudoMaker/rEFui/tree/main/docs/pages/'
 	},
 	publicDir: './assets',
-	starryNight: true,
 	pagefind: true,
 	pwa: true,
 	vite: {
