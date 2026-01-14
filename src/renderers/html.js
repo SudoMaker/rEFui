@@ -23,6 +23,7 @@ import { createRenderer } from 'refui/renderer'
 import { nop, cachedStrKeyNoFalsy, removeFromArr } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 import { markNode, isNode } from 'refui/reflow'
+import { cached } from 'refui/utils'
 
 const FLAG_FRAG = Symbol(isProduction ? '' : 'F_Fragment')
 const FLAG_SELF_CLOSING = Symbol(isProduction ? '' : 'F_SelfClosing')
@@ -42,6 +43,13 @@ function escapeReplacer(match) {
 function escapeHtml(unsafe) {
 	return `${unsafe}`.replace(/[<>"'&]/g, escapeReplacer)
 }
+
+function commentReplacer(match) {
+	return match === '<' ? '[[' : ']]'
+}
+const escapeComment = cached(function(str) {
+	return str.replace(/<|>/g, commentReplacer)
+})
 
 function makeNode(...node) {
 	node.parent = null
@@ -91,7 +99,7 @@ function createHTMLRenderer({
 	}
 	function createAnchor(anchorName, explicit) {
 		if (explicit || (!isProduction && anchorName)) {
-			return makeNode(`<!--${escapeHtml(anchorName)}-->`)
+			return makeNode(`<!${escapeHtml(escapeComment(anchorName))}>`)
 		}
 		return makeNode()
 	}
