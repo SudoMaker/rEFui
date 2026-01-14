@@ -585,7 +585,7 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 			reject = j
 		})
 		_resolve = resolve
-		currentFutureList.push(promise)
+		currentFutureList.push(resolvedFuture, promise)
 		let currentFn = component.peek()
 		let currentRender = null
 
@@ -596,8 +596,14 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 				resolve()
 			},
 			catch(props) {
-				reject(props.error)
-				return catchErr?.(props)
+				const _handler = peek(catchErr)
+				if (_handler) {
+					const handled = _handler(props)
+					resolve()
+					return handled
+				} else {
+					reject(props.error)
+				}
 			}
 		}
 
