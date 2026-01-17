@@ -1,0 +1,60 @@
+---
+title: Agent Skills
+description: Use the bundled agent skill pack to implement rEFui requirements using built-ins first.
+weight: 37
+---
+
+# Agent Skills
+
+This repository includes an AI agent “skill pack” for rEFui at `skills/refui`. It is designed to help you implement requirements using rEFui’s existing primitives first (signals, built-in components, extras, renderers), and only fall back to custom code when rEFui doesn’t already provide a suitable solution.
+
+## Install
+
+The skill lives at `skills/refui` in this repo.
+
+### For Codex CLI
+
+Install it by copying it into your `$CODEX_HOME/skills` folder:
+
+```sh
+mkdir -p "$CODEX_HOME/skills"
+cp -R skills/refui "$CODEX_HOME/skills/refui"
+```
+
+### For Gemini CLI
+
+Install the skill from the project root:
+
+```sh
+mkdir -p ./gemini/skills # for workspace
+mkdir -p ~/.gemini/skills # globally
+cp -R skills/refui ./gemini/skills
+```
+
+Activate the skill:
+- "/skills enable refui" (in interactive mode)
+
+### For other agents
+
+- In the installed folder, treat `SKILL.md` as the entrypoint “playbook”.
+- Load `references/*.md` selectively for the task at hand (async UI, portals, lists/perf, etc.).
+- Optionally run `scripts/refui-audit.mjs` from inside the installed skill folder as a lightweight project scan (Node.js required).
+
+## Use
+
+Mention the skill name (or otherwise enable the pack in your agent) so it loads its workflow + references.
+
+Examples (for Codex CLI):
+
+- “Use the `refui` skill to implement a modal with a portal.”
+- “Use `$refui` and help debug why my UI isn’t updating.”
+
+Examples (for Gemini CLI):
+
+- “Activate the `refui` skill and implement a counter.”
+- “Use the `refui` skill to refactor this component to use signals.”
+- “/skills enable refui” followed by “Help me optimize this list rendering.”
+
+## When you’re unsure
+
+If you’re using rEFui as a dependency and can’t inspect its source, the skill instructs agents to consult MCP documentation sources (Context7 / DeepWiki) before guessing (when MCP is available).

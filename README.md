@@ -236,6 +236,37 @@ render(document.body, App)
 
 You're building your app with a toolchain/compiler/transpiler anyways, so there's no need to provide a prebuilt version.
 
+## Agent Skills
+
+This repo ships an AI agent “skill pack” for rEFui at `skills/refui` (in Codex Skill format: `SKILL.md` + optional `references/` + `scripts/`).
+
+Install / use depends on your agent:
+
+**For Codex CLI**
+
+```sh
+mkdir -p "$CODEX_HOME/skills"
+cp -R skills/refui "$CODEX_HOME/skills/refui"
+```
+
+Then mention it in your prompt so it triggers (e.g. “use the refui skill” or `$refui`).
+
+**For Gemini CLI**
+
+```sh
+mkdir -p ./gemini/skills # for workspace
+mkdir -p ~/.gemini/skills # globally
+cp -R skills/refui ./gemini/skills
+```
+
+Activate the skill:
+- Or use `/skills enable refui` in interactive mode.
+
+**For other agents**
+
+- Reuse the content as a portable “playbook”: in the installed folder, start from `SKILL.md` and selectively import `references/*.md` into your agent’s instruction system.
+- If your agent supports MCP, the skill’s “When Usage Is Unclear” section applies directly; otherwise, consult rEFui docs via your agent’s doc tools.
+
 ## MCP
 
 AI agents may not have full understaings of how rEFui works and how to use it correctly. Luckily, [MCP](https://modelcontextprotocol.io/docs/getting-started/intro)s that provide the latest docs can greatly help on this problem.
