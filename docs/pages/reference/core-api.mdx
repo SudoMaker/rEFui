@@ -93,6 +93,60 @@ const instance = new Component(MyTemplate, props, ...children);
 
 ## Context & Lifecycle APIs
 
+### `createContext(defaultValue, name?)`
+
+Creates a context "Provider" component. Each `createContext` call creates a unique context identity (even if names match).
+
+The returned Provider sets a scoped value for its children. If no Provider is found above the current component, `useContext` returns the `defaultValue`.
+
+**Parameters:**
+- `defaultValue`: Value returned by `useContext` when no Provider is present.
+- `name`: Optional display name used for debugging/dev output.
+
+**Returns:** A Provider component you can render as `<MyContext value={...}>...</MyContext>`.
+
+**Behavior notes:**
+- When *not* using the Reflow renderer (e.g., custom renderer with classic JSX), wrap Provider children in a function so they render under the Provider scope. With Reflow or the default automatic JSX runtime, you can pass children directly.
+
+```jsx
+import { createContext, signal } from 'refui';
+
+// Tip: if consumers should react to changes, provide a signal as the value.
+export const ThemeContext = createContext(signal('light'), 'ThemeContext');
+
+// Non-Reflow/custom renderer: wrap children to inherit context
+(
+	<ThemeContext value={signal('dark')}>
+		{() => <App />}
+	</ThemeContext>
+);
+```
+
+### `useContext(Context)`
+
+Reads the current value for a context Provider created by `createContext`.
+
+Because rEFui is retained-mode (component bodies run once), `useContext` is typically used to retrieve a stable object/signal. If you want updates, pass a `signal(...)` as the Provider value and read that signal reactively in the consumer.
+
+**Parameters:**
+- `Context`: The Provider component returned by `createContext`.
+
+**Returns:** The provided value for the current scope (or the context `defaultValue`).
+
+```jsx
+import { useContext, $ } from 'refui';
+import { ThemeContext } from './theme-context.js';
+
+export const Button = (props, ...children) => {
+	const theme = useContext(ThemeContext); // a signal in this example
+	return (
+		<button class:dark={$(() => theme.value === 'dark')}>
+			{children}
+		</button>
+	);
+};
+```
+
 ### `capture(fn)`
 
 Captures the current rendering context and returns a new function. When this new function is called later (e.g., inside a promise `then`), it executes the original function `fn` within the captured context, ensuring it can interact with signals and other reactive APIs correctly. If the originating component has already been disposed, the captured function runs with an inert context, allowing guards that depend on `getCurrentSelf()` or similar APIs to detect teardown.
