@@ -18,33 +18,53 @@
  * under the License.
  */
 
-import { collectDisposers, nextTick, read, peek, watch, onDispose, freeze, signal, isSignal, contextValid } from 'refui/signal'
+import {
+	collectDisposers,
+	nextTick,
+	read,
+	peek,
+	watch,
+	onDispose,
+	freeze,
+	signal,
+	isSignal,
+	contextValid
+} from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
 import { nop, emptyArr, removeFromArr, isThenable, markStatic, nullRefObject } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
 const KEY_CTX = Symbol(isProduction ? '' : 'K_Ctx')
 
+const rootUserCtx = Object.create(null)
 let currentCtx = null
+let currentUserCtx = rootUserCtx
 
-function _captured({ ctx }, ...args) {
+function _captured({ ctx, user }, ...args) {
 	const prevCtx = currentCtx
+	const prevUserCtx = currentUserCtx
 	currentCtx = ctx
+	currentUserCtx = user
 
 	try {
 		return this(...args)
 	} finally {
+		currentUserCtx = prevUserCtx
 		currentCtx = prevCtx
 	}
 }
 
-const _invalidateCapture = function() {
+const _invalidateCapture = function () {
 	this.ctx = null
+	this.user = rootUserCtx
+}
+function _capture(fn) {
+	const state = { ctx: currentCtx, user: currentUserCtx }
+	onDispose(_invalidateCapture.bind(state))
+	return _captured.bind(fn, state)
 }
 function capture(fn) {
-	const state = { ctx: currentCtx }
-	onDispose(_invalidateCapture.bind(state))
-	return freeze(_captured.bind(fn, state))
+	return freeze(_capture(fn))
 }
 
 function _runInSnapshot(fn, ...args) {
@@ -84,7 +104,7 @@ function getCurrentSelf() {
 async function _lazyLoad(loader, ident, ...args) {
 	const run = snapshot()
 	if (!this.cache) {
-		this.cache = new Promise(async function(resolve, reject) {
+		this.cache = new Promise(async function (resolve, reject) {
 			let result = await loader()
 
 			if (result && !((ident === undefined || ident === null) && typeof result === 'function')) {
@@ -98,8 +118,8 @@ async function _lazyLoad(loader, ident, ...args) {
 
 			if (hotEnabled) {
 				const component = result
-				result = function(...args) {
-					return function(R) {
+				result = function (...args) {
+					return function (R) {
 						return R.c(component, ...args)
 					}
 				}
@@ -118,20 +138,20 @@ function lazy(loader, ident) {
 function memo(fn) {
 	let cached = null
 	const captured = capture(fn)
-	return function(...args) {
+	return function (...args) {
 		if (cached) return cached
 		return (cached = captured(...args))
 	}
 }
 function useMemo(fn) {
-	return function() {
+	return function () {
 		return memo(fn)
 	}
 }
 
 function dummyRun(fn, R) {
 	let result = null
-	const cleanup = collectDisposers([], function() {
+	const cleanup = collectDisposers([], function () {
 		result = R.ensureElement(fn())
 	})
 	return [result, cleanup]
@@ -147,61 +167,63 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 
 	const run = currentCtx?.run ?? dummyRun
 
-	return function(R) {
+	return function (R) {
 		const fragment = R.createFragment(name)
 		let currentRender = null
 		let currentDispose = null
 
-		watch(function() {
-			const newHandler = read(handler)
+		watch(
+			_capture(function () {
+				const newHandler = read(handler)
 
-			if (!newHandler) {
-				currentDispose?.()
-				currentRender = currentDispose = null
-				return
-			}
+				if (!newHandler) {
+					currentDispose?.()
+					currentRender = currentDispose = null
+					return
+				}
 
-			const newRender = newHandler(ctx)
-			if (newRender === currentRender) {
-				return
-			}
+				const newRender = newHandler(ctx)
+				if (newRender === currentRender) {
+					return
+				}
 
-			currentRender = newRender
-			if (newRender !== undefined && newRender !== null) {
-				const prevDispose = currentDispose
-				currentDispose = run(function() {
-					let newResult = null
-					let errored = false
-					try {
-						newResult = R.ensureElement(newRender)
-					} catch (err) {
-						errored = true
-						const errorHandler = peek(catchErr)
-						if (errorHandler) {
-							newResult = R.ensureElement(errorHandler(err, name, ctx))
+				currentRender = newRender
+				if (newRender !== undefined && newRender !== null) {
+					const prevDispose = currentDispose
+					currentDispose = run(function () {
+						let newResult = null
+						let errored = false
+						try {
+							newResult = R.ensureElement(newRender)
+						} catch (err) {
+							errored = true
+							const errorHandler = peek(catchErr)
+							if (errorHandler) {
+								newResult = R.ensureElement(errorHandler(err, name, ctx))
+							} else {
+								throw err
+							}
+						}
+
+						if (!errored && prevDispose) {
+							prevDispose()
+						}
+
+						if (newResult !== undefined && newResult !== null) {
+							R.appendNode(fragment, newResult)
+							onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
 						} else {
-							throw err
+							if (errored && prevDispose) {
+								onDispose(prevDispose)
+							}
 						}
-					}
-
-					if (!errored && prevDispose) {
-						prevDispose()
-					}
-
-					if (newResult !== undefined && newResult !== null) {
-						R.appendNode(fragment, newResult)
-						onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
-					} else {
-						if (errored && prevDispose) {
-							onDispose(prevDispose)
-						}
-					}
-				}, R)[1]
-			} else {
-				currentDispose?.()
-				currentDispose = null
-			}
-		})
+					}, R)[1]
+				} else {
+					currentDispose?.()
+					currentDispose = null
+				}
+			})
+		)
 
 		return fragment
 	}
@@ -245,7 +267,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 	if (expose) {
 		function getItem(itemKey) {
-			return (kv ? kv.get(itemKey) : itemKey)
+			return kv ? kv.get(itemKey) : itemKey
 		}
 		function remove(itemKey) {
 			const itemData = getItem(itemKey)
@@ -260,7 +282,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		})
 	}
 
-	return function(R) {
+	return function (R) {
 		const fragment = R.createFragment(name)
 
 		function getItemNode(itemKey) {
@@ -274,11 +296,11 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 				}
 				const dispose = collectDisposers(
 					[],
-					function() {
+					function () {
 						node = R.c(itemTemplate, { item, index: idxSig })
 						nodeCache.set(itemKey, node)
 					},
-					function(batch) {
+					function (batch) {
 						if (!batch) {
 							nodeCache.delete(itemKey)
 							disposers.delete(itemKey)
@@ -294,147 +316,148 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		}
 
 		// eslint-disable-next-line complexity
-		watch(function() {
-			/* eslint-disable max-depth */
-			const data = read(entries)
-			if (!data || !data.length) return clear()
+		watch(
+			_capture(function () {
+				/* eslint-disable max-depth */
+				const data = read(entries)
+				if (!data || !data.length) return clear()
 
-			let oldData = currentData
-			if (track) {
-				kv = new Map()
-				const key = read(track)
-				currentData = data.map(function(i) {
-					const itemKey = i[key]
-					kv.set(itemKey, i)
-					return itemKey
-				})
-			} else currentData = [...data]
+				let oldData = currentData
+				if (track) {
+					kv = new Map()
+					const key = read(track)
+					currentData = data.map(function (i) {
+						const itemKey = i[key]
+						kv.set(itemKey, i)
+						return itemKey
+					})
+				} else currentData = [...data]
 
-			let newData = null
+				let newData = null
 
-			if (oldData.length) {
-				const currentDataLength = currentData.length
-				const obsoleteDataKeys = [...new Set([...currentData, ...oldData])].slice(currentDataLength)
+				if (oldData.length) {
+					const currentDataLength = currentData.length
+					const obsoleteDataKeys = [...new Set([...currentData, ...oldData])].slice(currentDataLength)
 
-				if (obsoleteDataKeys.length === oldData.length) {
-					_clear()
-					newData = currentData
-				} else {
-					const obsoleteDataKeysLength = obsoleteDataKeys.length
-					if (obsoleteDataKeysLength) {
-						for (let i = 0; i < obsoleteDataKeysLength; i++) {
-							disposers.get(obsoleteDataKeys[i])()
-							removeFromArr(oldData, obsoleteDataKeys[i])
-						}
-					}
-
-					const newDataKeys = [...new Set([...oldData, ...currentData])].slice(oldData.length)
-					const hasNewKeys = !!newDataKeys.length
-
-					let newDataCursor = 0
-
-					while (newDataCursor < currentDataLength) {
-
-						if (!oldData.length) {
-							if (newDataCursor) newData = currentData.slice(newDataCursor)
-							break
+					if (obsoleteDataKeys.length === oldData.length) {
+						_clear()
+						newData = currentData
+					} else {
+						const obsoleteDataKeysLength = obsoleteDataKeys.length
+						if (obsoleteDataKeysLength) {
+							for (let i = 0; i < obsoleteDataKeysLength; i++) {
+								disposers.get(obsoleteDataKeys[i])()
+								removeFromArr(oldData, obsoleteDataKeys[i])
+							}
 						}
 
-						const frontSet = []
-						const backSet = []
+						const newDataKeys = [...new Set([...oldData, ...currentData])].slice(oldData.length)
+						const hasNewKeys = !!newDataKeys.length
 
-						let frontChunk = []
-						let backChunk = []
+						let newDataCursor = 0
 
-						let prevChunk = frontChunk
+						while (newDataCursor < currentDataLength) {
+							if (!oldData.length) {
+								if (newDataCursor) newData = currentData.slice(newDataCursor)
+								break
+							}
 
-						let oldDataCursor = 0
-						let oldItemKey = oldData[0]
+							const frontSet = []
+							const backSet = []
 
-						let newItemKey = currentData[newDataCursor]
+							let frontChunk = []
+							let backChunk = []
 
-						const oldDataLength = oldData.length
-						while (oldDataCursor < oldDataLength) {
-							const isNewKey = hasNewKeys && newDataKeys.includes(newItemKey)
-							if (isNewKey || oldItemKey === newItemKey) {
-								if (prevChunk !== frontChunk) {
-									backSet.push(backChunk)
-									backChunk = []
-									prevChunk = frontChunk
-								}
+							let prevChunk = frontChunk
 
-								frontChunk.push(newItemKey)
+							let oldDataCursor = 0
+							let oldItemKey = oldData[0]
 
-								if (isNewKey) {
-									R.insertBefore(getItemNode(newItemKey), getItemNode(oldItemKey))
+							let newItemKey = currentData[newDataCursor]
+
+							const oldDataLength = oldData.length
+							while (oldDataCursor < oldDataLength) {
+								const isNewKey = hasNewKeys && newDataKeys.includes(newItemKey)
+								if (isNewKey || oldItemKey === newItemKey) {
+									if (prevChunk !== frontChunk) {
+										backSet.push(backChunk)
+										backChunk = []
+										prevChunk = frontChunk
+									}
+
+									frontChunk.push(newItemKey)
+
+									if (isNewKey) {
+										R.insertBefore(getItemNode(newItemKey), getItemNode(oldItemKey))
+									} else {
+										oldDataCursor += 1
+										oldItemKey = oldData[oldDataCursor]
+									}
+									newDataCursor += 1
+									newItemKey = currentData[newDataCursor]
 								} else {
+									if (prevChunk !== backChunk) {
+										frontSet.push(frontChunk)
+										frontChunk = []
+										prevChunk = backChunk
+									}
+									backChunk.push(oldItemKey)
 									oldDataCursor += 1
 									oldItemKey = oldData[oldDataCursor]
 								}
-								newDataCursor += 1
-								newItemKey = currentData[newDataCursor]
-							} else {
-								if (prevChunk !== backChunk) {
-									frontSet.push(frontChunk)
-									frontChunk = []
-									prevChunk = backChunk
-								}
-								backChunk.push(oldItemKey)
-								oldDataCursor += 1
-								oldItemKey = oldData[oldDataCursor]
 							}
-						}
 
-						if (prevChunk === frontChunk) {
-							frontSet.push(frontChunk)
-						}
-
-						backSet.push(backChunk)
-						frontSet.shift()
-
-						const frontSetLength = frontSet.length
-						for (let i = 0; i < frontSetLength; i++) {
-							const fChunk = frontSet[i]
-							const bChunk = backSet[i]
-
-							if (fChunk.length <= bChunk.length) {
-								const beforeAnchor = getItemNode(bChunk[0])
-								backSet[i + 1] = bChunk.concat(backSet[i + 1])
-								bChunk.length = 0
-
-								const fChunkLength = fChunk.length
-								for (let j = 0; j < fChunkLength; j++) {
-									R.insertBefore(getItemNode(fChunk[j]), beforeAnchor)
-								}
-							} else if (backSet[i + 1].length) {
-								const beforeAnchor = getItemNode(backSet[i + 1][0])
-
-								const bChunkLength = bChunk.length
-								for (let j = 0; j < bChunkLength; j++) {
-									R.insertBefore(getItemNode(bChunk[j]), beforeAnchor)
-								}
-							} else {
-								R.appendNode(fragment, ...bChunk.map(getItemNode))
+							if (prevChunk === frontChunk) {
+								frontSet.push(frontChunk)
 							}
-						}
 
-						oldData = [].concat(...backSet)
+							backSet.push(backChunk)
+							frontSet.shift()
+
+							const frontSetLength = frontSet.length
+							for (let i = 0; i < frontSetLength; i++) {
+								const fChunk = frontSet[i]
+								const bChunk = backSet[i]
+
+								if (fChunk.length <= bChunk.length) {
+									const beforeAnchor = getItemNode(bChunk[0])
+									backSet[i + 1] = bChunk.concat(backSet[i + 1])
+									bChunk.length = 0
+
+									const fChunkLength = fChunk.length
+									for (let j = 0; j < fChunkLength; j++) {
+										R.insertBefore(getItemNode(fChunk[j]), beforeAnchor)
+									}
+								} else if (backSet[i + 1].length) {
+									const beforeAnchor = getItemNode(backSet[i + 1][0])
+
+									const bChunkLength = bChunk.length
+									for (let j = 0; j < bChunkLength; j++) {
+										R.insertBefore(getItemNode(bChunk[j]), beforeAnchor)
+									}
+								} else {
+									R.appendNode(fragment, ...bChunk.map(getItemNode))
+								}
+							}
+
+							oldData = [].concat(...backSet)
+						}
+					}
+				} else {
+					newData = currentData
+				}
+
+				if (newData) {
+					const newDataLength = newData.length
+					for (let i = 0; i < newDataLength; i++) {
+						const node = getItemNode(newData[i])
+						if (node) R.appendNode(fragment, node)
 					}
 				}
-			} else {
-				newData = currentData
-			}
 
-			if (newData) {
-				const newDataLength = newData.length
-				for (let i = 0; i < newDataLength; i++) {
-					const node = getItemNode(newData[i])
-					if (node) R.appendNode(fragment, node)
-				}
-			}
-
-			flushKS()
-		})
+				flushKS()
+			})
+		)
 
 		return fragment
 	}
@@ -454,7 +477,7 @@ function If({ condition, true: trueCondition, else: otherwise }, trueBranch, fal
 	}
 
 	if (typeof condition === 'function') {
-		return Fn({ name: 'If' }, function() {
+		return Fn({ name: 'If' }, function () {
 			if (condition()) {
 				return trueBranch
 			} else {
@@ -472,23 +495,27 @@ function _dynContainer(name, catchErr, ctx, props, ...children) {
 	let current = null
 	let renderFn = null
 
-	return Fn({ name, ctx }, () => {
-		const component = read(this)
-		if (current === component) {
+	return Fn(
+		{ name, ctx },
+		() => {
+			const component = read(this)
+			if (current === component) {
+				return renderFn
+			}
+
+			if (component === undefined || component === null) {
+				return (current = renderFn = null)
+			}
+
+			current = component
+			renderFn = function (R) {
+				return R.c(component, props, ...children)
+			}
+
 			return renderFn
-		}
-
-		if (component === undefined || component === null) {
-			return (current = renderFn = null)
-		}
-
-		current = component
-		renderFn = function(R) {
-			return R.c(component, props, ...children)
-		}
-
-		return renderFn
-	}, catchErr)
+		},
+		catchErr
+	)
 }
 function Dynamic({ is, current, ...props }, ...children) {
 	if (current) {
@@ -508,14 +535,14 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 	let disposed = false
 	let _resolve = null
 
-	onDispose(function() {
+	onDispose(function () {
 		disposed = true
 	})
 
 	// `this` should and is guaranteed to be a Promise
 	let resolvedFuture = this
 	if (onLoad) {
-		resolvedFuture = resolvedFuture.then(async function(val) {
+		resolvedFuture = resolvedFuture.then(async function (val) {
 			if (disposed) {
 				return
 			}
@@ -524,63 +551,69 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 		})
 	}
 
-	resolvedFuture = resolvedFuture.then(capture(function(result) {
-		if (disposed) {
-			_resolve?.()
-			return
-		}
-		currentDispose?.()
-		currentDispose = watch(function() {
-			component.set(read(result))
-		})
-	}))
-
-	if (catchErr) {
-		resolvedFuture = resolvedFuture.catch(capture(function(error) {
+	resolvedFuture = resolvedFuture.then(
+		capture(function (result) {
 			if (disposed) {
 				_resolve?.()
 				return
 			}
 			currentDispose?.()
 			currentDispose = watch(function () {
-				const handler = read(catchErr)
-				if (handler) {
-					if (typeof handler === 'function') {
-						component.set(handler({ ...props, error }, ...children))
-					} else {
-						component.set(handler)
-					}
-				}
+				component.set(read(result))
 			})
-		}))
+		})
+	)
+
+	if (catchErr) {
+		resolvedFuture = resolvedFuture.catch(
+			capture(function (error) {
+				if (disposed) {
+					_resolve?.()
+					return
+				}
+				currentDispose?.()
+				currentDispose = watch(function () {
+					const handler = read(catchErr)
+					if (handler) {
+						if (typeof handler === 'function') {
+							component.set(handler({ ...props, error }, ...children))
+						} else {
+							component.set(handler)
+						}
+					}
+				})
+			})
+		)
 	}
 
 	if (fallback) {
-		nextTick(capture(function() {
-			if (disposed || component.peek()) {
-				_resolve?.()
-				return
-			}
-			currentDispose?.()
-			currentDispose = watch(function () {
-				const handler = read(fallback)
-				if (handler) {
-					if (typeof handler === 'function') {
-						component.set(function() {
-							return handler({ ...props }, ...children)
-						})
-					} else {
-						component.set(handler)
-					}
+		nextTick(
+			capture(function () {
+				if (disposed || component.peek()) {
+					_resolve?.()
+					return
 				}
+				currentDispose?.()
+				currentDispose = watch(function () {
+					const handler = read(fallback)
+					if (handler) {
+						if (typeof handler === 'function') {
+							component.set(function () {
+								return handler({ ...props }, ...children)
+							})
+						} else {
+							component.set(handler)
+						}
+					}
+				})
 			})
-		}))
+		)
 	}
 
 	if (!fallback && suspensed && currentFutureList) {
 		let resolve = null
 		let reject = null
-		const promise = new Promise(function(r, j) {
+		const promise = new Promise(function (r, j) {
 			resolve = r
 			reject = j
 		})
@@ -607,7 +640,7 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 			}
 		}
 
-		return Fn({ name: isProduction ? null : `${name}(suspensed)` }, function() {
+		return Fn({ name: isProduction ? null : `${name}(suspensed)` }, function () {
 			const renderFn = component.get()
 			if (currentFn === renderFn) {
 				return currentRender
@@ -620,25 +653,32 @@ function _asyncContainer(name, fallback, catchErr, onLoad, suspensed, props, chi
 	return Fn({ name }, component.get.bind(component))
 }
 
-function Async({ name = 'Async', future, fallback, catch: catchErr, onLoad, suspensed = true, ...props }, then, now, handleErr) {
+function Async(
+	{ name = 'Async', future, fallback, catch: catchErr, onLoad, suspensed = true, ...props },
+	then,
+	now,
+	handleErr
+) {
 	while (typeof future === 'function') {
 		future = future()
 	}
-	future = (isThenable(future) ? future : Promise.resolve(future)).then(capture(function(result) {
-		let lastResult = null
-		let lastHandler = null
-		return Fn({ name: 'Then' }, function() {
-			if (!contextValid) {
-				return
-			}
-			const handler = read(then)
-			if (handler === lastHandler) {
-				return lastResult
-			}
-			lastHandler = handler
-			return (lastResult = handler?.({ ...props, result }))
+	future = (isThenable(future) ? future : Promise.resolve(future)).then(
+		capture(function (result) {
+			let lastResult = null
+			let lastHandler = null
+			return Fn({ name: 'Then' }, function () {
+				if (!contextValid) {
+					return
+				}
+				const handler = read(then)
+				if (handler === lastHandler) {
+					return lastResult
+				}
+				lastHandler = handler
+				return (lastResult = handler?.({ ...props, result }))
+			})
 		})
-	}))
+	)
 	return _asyncContainer.bind(future, name, fallback ?? now, catchErr ?? handleErr, onLoad, suspensed, props, emptyArr)
 }
 markStatic(Async)
@@ -648,17 +688,19 @@ function Suspense({ name = 'Suspense', fallback, catch: catchErr, onLoad, ...pro
 		return
 	}
 
-	return function(R) {
+	return function (R) {
 		const prevFutureList = currentFutureList
 		currentFutureList = []
 
-		const future = new Promise(function(resolve) {
+		const future = new Promise(function (resolve) {
 			resolve(children.map(R.ensureElement))
 		})
 
-		const _future = currentFutureList.length ? Promise.all(currentFutureList).then(function() {
-			return future
-		}) : future
+		const _future = currentFutureList.length
+			? Promise.all(currentFutureList).then(function () {
+					return future
+				})
+			: future
 
 		const result = _asyncContainer.call(_future, name, fallback, catchErr, onLoad, false, props, children)(R)
 
@@ -668,8 +710,21 @@ function Suspense({ name = 'Suspense', fallback, catch: catchErr, onLoad, ...pro
 }
 markStatic(Suspense)
 
-function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, loading: userLoading, pending: userPending, catch: catchErr }, then, now, handleErr) {
-	return function(R) {
+function Transition(
+	{
+		name = 'Transition',
+		data,
+		onLoad: userOnLoad,
+		fallback,
+		loading: userLoading,
+		pending: userPending,
+		catch: catchErr
+	},
+	then,
+	now,
+	handleErr
+) {
+	return function (R) {
 		const loading = isSignal(userLoading) ? userLoading : signal(false)
 		const pending = isSignal(userPending) ? userPending : signal(false)
 		const currentElement = signal()
@@ -682,7 +737,7 @@ function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, l
 		let pendingDispose = null
 		let pendingElement = null
 
-		onDispose(function() {
+		onDispose(function () {
 			disposed = true
 			if (pendingDispose) {
 				pendingDispose()
@@ -741,10 +796,10 @@ function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, l
 			currentElement.set(_pendingElement)
 		}
 
-		watch(function() {
+		watch(function () {
 			const state = createState()
 
-			const future = new Promise(function(resolve) {
+			const future = new Promise(function (resolve) {
 				resolve(then(state))
 			})
 
@@ -778,10 +833,13 @@ function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, l
 				pendingElement = null
 			}
 
-			pendingDispose = _dispose = collectDisposers([], function() {
-				pendingElement = _element = Suspense({ name: 'TransitionContainer', onLoad, catch: catchErr ?? handleErr, state }, function() {
-					return future
-				})(R)
+			pendingDispose = _dispose = collectDisposers([], function () {
+				pendingElement = _element = Suspense(
+					{ name: 'TransitionContainer', onLoad, catch: catchErr ?? handleErr, state },
+					function () {
+						return future
+					}
+				)(R)
 			})
 
 			loading.set(true)
@@ -789,22 +847,24 @@ function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, l
 		})
 
 		if (fallback) {
-			nextTick(capture(function() {
-				if (disposed || currentElement.peek()) {
-					return
-				}
-				currentDispose = watch(function() {
-					const handler = read(fallback)
-					if (handler) {
-						const state = createState()
-						if (typeof handler === 'function') {
-							_onLoad(handler.bind(null, state), state)
-						} else {
-							_onLoad(handler, state)
-						}
+			nextTick(
+				capture(function () {
+					if (disposed || currentElement.peek()) {
+						return
 					}
+					currentDispose = watch(function () {
+						const handler = read(fallback)
+						if (handler) {
+							const state = createState()
+							if (typeof handler === 'function') {
+								_onLoad(handler.bind(null, state), state)
+							} else {
+								_onLoad(handler, state)
+							}
+						}
+					})
 				})
-			}))
+			)
 		}
 
 		return Fn({ name }, currentElement.get.bind(currentElement))
@@ -813,7 +873,7 @@ function Transition({ name = 'Transition', data, onLoad: userOnLoad, fallback, l
 markStatic(Transition)
 
 function Render({ from }) {
-	return Fn({ name: 'Render' }, function() {
+	return Fn({ name: 'Render' }, function () {
 		const instance = read(from)
 		if (instance !== null && instance !== undefined) return render(instance, R)
 	})
@@ -834,33 +894,41 @@ class Component {
 
 		const disposers = []
 
-		ctx.run = capture(function(fn, R) {
+		ctx.run = capture(function (fn, R) {
 			let result = null
-			const cleanup = collectDisposers([], function() {
-				result = R.ensureElement(fn(R))
-			}, function(batch) {
-				if (!batch) {
-					removeFromArr(disposers, cleanup)
+			const cleanup = collectDisposers(
+				[],
+				function () {
+					result = R.ensureElement(fn(R))
+				},
+				function (batch) {
+					if (!batch) {
+						removeFromArr(disposers, cleanup)
+					}
 				}
-			})
+			)
 			disposers.push(cleanup)
 			return [result, cleanup]
 		})
 
 		try {
-			ctx.dispose = collectDisposers(disposers, function() {
-				let renderFn = tpl(props, ...children)
-				if (isThenable(renderFn)) {
-					const { fallback, catch: catchErr, onLoad, suspensed = true, ..._props } = props
-					renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, suspensed, _props, children)
+			ctx.dispose = collectDisposers(
+				disposers,
+				function () {
+					let renderFn = tpl(props, ...children)
+					if (isThenable(renderFn)) {
+						const { fallback, catch: catchErr, onLoad, suspensed = true, ..._props } = props
+						renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, suspensed, _props, children)
+					}
+					ctx.render = renderFn
+				},
+				() => {
+					Object.defineProperty(this, KEY_CTX, {
+						value: null,
+						enumerable: false
+					})
 				}
-				ctx.render = renderFn
-			}, () => {
-				Object.defineProperty(this, KEY_CTX, {
-					value: null,
-					enumerable: false
-				})
-			})
+			)
 		} catch (error) {
 			for (let i of disposers) i(true)
 			throw error
@@ -877,12 +945,16 @@ class Component {
 }
 markStatic(Component)
 
-const createComponent = (function() {
+const createComponent = (function () {
 	function createComponentRaw(tpl, props, ...children) {
 		if (isSignal(tpl)) {
-			return new Component(_dynContainer.bind(tpl, 'Dynamic(signal)', null, null), props ?? Object.create(null), ...children)
+			return new Component(
+				_dynContainer.bind(tpl, 'Dynamic(signal)', null, null),
+				props ?? Object.create(null),
+				...children
+			)
 		}
-		const { $ref, ..._props } = (props ?? nullRefObject)
+		const { $ref, ..._props } = props ?? nullRefObject
 		const component = new Component(tpl, _props, ...children)
 		if ($ref) {
 			if (isSignal($ref)) {
@@ -906,6 +978,42 @@ const createComponent = (function() {
 	return createComponentRaw
 })()
 
+const contextSymbolMap = new WeakMap()
+function createContext(defaultVal, name = 'Context') {
+	const contextSymbol = Symbol(name)
+	currentUserCtx[contextSymbol] = defaultVal
+	function Context({ value }, ...children) {
+		return function (R) {
+			const prevCtx = currentUserCtx
+			const shadowCtx = Object.create(prevCtx)
+
+			shadowCtx[contextSymbol] = value
+			currentUserCtx = shadowCtx
+
+			try {
+				if (isProduction) {
+					return R.ensureElement(children)
+				} else {
+					const wrapper = R.createFragment(name)
+					R.appendNode(wrapper, ...children.map(R.ensureElement))
+					return wrapper
+				}
+			} finally {
+				currentUserCtx = prevCtx
+			}
+		}
+	}
+	contextSymbolMap.set(Context, contextSymbol)
+	markStatic(Context)
+	return Context
+}
+function useContext(Context) {
+	const contextSymbol = contextSymbolMap.get(Context)
+	if (contextSymbol) {
+		return currentUserCtx[contextSymbol]
+	}
+}
+
 export {
 	capture,
 	snapshot,
@@ -925,5 +1033,7 @@ export {
 	Render,
 	Component,
 	createComponent,
+	createContext,
+	useContext,
 	_asyncContainer
 }

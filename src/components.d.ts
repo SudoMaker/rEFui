@@ -40,6 +40,15 @@ export function render(instance: Component<any>, renderer: Renderer): unknown
 export function dispose(instance: Component<any>): void
 export function getCurrentSelf<T extends Component<any> = Component<any>>(): T | undefined
 
+export interface ContextProps<T = unknown> {
+	value: T
+}
+
+export type ContextProvider<T = unknown> = (props: ContextProps<T>, ...children: any[]) => RenderFunction
+
+export function createContext<T = unknown>(defaultValue: T, name?: string): ContextProvider<T>
+export function useContext<T = unknown>(Context: ContextProvider<T>): T
+
 export function lazy<T = any>(loader: () => PromiseLike<T> | T, symbol?: string | null): ComponentTemplate<any>
 
 export function memo<T extends (...args: any[]) => any>(fn: T): (...args: Parameters<T>) => ReturnType<T>
