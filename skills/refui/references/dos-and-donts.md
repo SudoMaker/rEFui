@@ -59,6 +59,19 @@ Use this file whenever you are about to write or refactor rEFui code. It is inte
 - Don’t create effects outside a component scope unless you intentionally want process-lifetime behavior.
 - Don’t use “dependency arrays”; rEFui tracks signals automatically.
 
+## `createContext` / `useContext` (context)
+
+Use context to provide shared values to a subtree without threading props everywhere.
+
+### Do
+- Prefer providing **stable objects or signals**; consumers can read signals reactively.
+- For “reactive context”, pass a `signal(...)` as the Provider value and derive UI via `$(() => ...)` / directives.
+- Non-Reflow/custom renderer: wrap Provider children in a function so they inherit the correct context scope (see `jsx-and-renderers.md`).
+
+### Don’t
+- Don’t expect `useContext` to “re-run” a component; retained-mode component bodies run once.
+- Don’t call `useContext` outside a component scope.
+
 ## `useAction` (push-style events)
 
 Use `useAction` when you need a lightweight event channel (fire-and-forget notifications) without sharing mutable state across modules.
