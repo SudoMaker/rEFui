@@ -19,6 +19,7 @@ Mount like:
 
 Notes:
 - Since rEFui v0.8.0+, the automatic runtime binds to Reflow by default; you usually do not need to call `wrap()` unless you need to override the global renderer.
+- Context/provider gotcha: when *not* using the Reflow renderer (e.g., custom host renderer with classic JSX), children passed as JSX may be evaluated before the Provider establishes scope. Wrap Provider children in a function to defer evaluation so they inherit the correct context (e.g., `<Ctx value={x}>{() => <Child />}</Ctx>`).
 
 ### Classic transform (preferred when you want per-file renderer swapping)
 
@@ -61,4 +62,3 @@ Common patterns:
 
 Interop note:
 - If you manually construct host nodes (or pass through nodes from another renderer), mark them with `markNode` from `refui/reflow` so the runtime doesn’t treat arrays as child lists.
-
