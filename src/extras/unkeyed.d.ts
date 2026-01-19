@@ -19,14 +19,10 @@
  */
 
 import type { MaybeSignal } from '../signal.js'
-import type { RenderFunction, ForTemplate } from '../components.js'
+import type { RenderFunction, ForProps, ForTemplate } from '../components.js'
 
-export interface UnKeyedProps<T = unknown> {
-	entries: MaybeSignal<Iterable<T>>
-	name?: string
-	indexed?: boolean
-	fallback?: RenderFunction | null | undefined
-	[key: string]: any
+export type UnKeyedProps<T = unknown> = Omit<ForProps<T>, 'entries'> & {
+	entries: MaybeSignal<T[]>
 }
 
 export function UnKeyed<T = unknown>(props: UnKeyedProps<T>, template: ForTemplate<T>): RenderFunction

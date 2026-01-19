@@ -40,6 +40,15 @@ export function render(instance: Component<any>, renderer: Renderer): unknown
 export function dispose(instance: Component<any>): void
 export function getCurrentSelf<T extends Component<any> = Component<any>>(): T | undefined
 
+export interface ContextProps<T = unknown> {
+	value: T
+}
+
+export type ContextProvider<T = unknown> = (props: ContextProps<T>, ...children: any[]) => RenderFunction
+
+export function createContext<T = unknown>(defaultValue: T, name?: string): ContextProvider<T>
+export function useContext<T = unknown>(Context: ContextProvider<T>): T
+
 export function lazy<T = any>(loader: () => PromiseLike<T> | T, symbol?: string | null): ComponentTemplate<any>
 
 export function memo<T extends (...args: any[]) => any>(fn: T): (...args: Parameters<T>) => ReturnType<T>
@@ -64,10 +73,9 @@ export interface ForExpose<T = unknown> {
 }
 
 export interface ForProps<T = unknown> {
-	entries: MaybeSignal<Iterable<T>>
-	track?: keyof T | ((item: T) => unknown)
+	entries: MaybeSignal<T[]>
+	track?: MaybeSignal<keyof T>
 	indexed?: boolean
-	fallback?: PossibleRender
 	name?: string
 	expose?: (api: ForExpose<T>) => void
 }
@@ -92,7 +100,7 @@ export interface DynamicExpose {
 
 export interface DynamicProps {
 	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
-	expose?: (api: DynamicExpose) => void
+	current?: Signal<unknown> | ((value: unknown) => void)
 	[key: string]: any
 }
 
@@ -100,27 +108,27 @@ export function Dynamic(props: DynamicProps, ...children: any[]): RenderFunction
 
 export interface AsyncProps<T = unknown, E = unknown> {
 	future: PromiseLike<T> | T
-	fallback?: MaybeSignal<PossibleRender>
-	catch?: MaybeSignal<(error: E) => PossibleRender>
+	fallback?: MaybeSignal<PossibleRender | ((props: Record<string, unknown>, ...children: any[]) => PossibleRender)>
+	catch?: MaybeSignal<PossibleRender | ((props: Record<string, unknown> & { error: E }, ...children: any[]) => PossibleRender)>
 	suspensed?: boolean
-	onLoad?: (value: T) => void | Promise<void>
+	onLoad?: () => void | Promise<void>
 	[key: string]: any
 }
 
 export function Async<T = unknown, E = unknown>(
 	props: AsyncProps<T, E>,
-	then?: (payload: AsyncProps<T, E> & { result: T }) => PossibleRender,
+	then?: (payload: Record<string, unknown> & { result: T }) => PossibleRender,
 	now?: PossibleRender,
-	catchHandler?: (error: E) => PossibleRender
+	catchHandler?: (payload: Record<string, unknown> & { error: E }) => PossibleRender
 ): RenderFunction
 
 export interface TransitionProps {
 	name?: string
 	data?: Record<string, unknown>
-	fallback?: MaybeSignal<PossibleRender>
-	loading?: MaybeSignal<Signal<boolean>>
-	pending?: MaybeSignal<Signal<boolean>>
-	catch?: MaybeSignal<(error: unknown) => PossibleRender>
+	fallback?: MaybeSignal<PossibleRender | ((state: TransitionState) => PossibleRender)>
+	loading?: Signal<boolean>
+	pending?: Signal<boolean>
+	catch?: MaybeSignal<PossibleRender | ((props: { error: unknown; state: TransitionState }) => PossibleRender)>
 	onLoad?: (state: TransitionState, hasCurrent: boolean, swap: () => Promise<void>) => void | Promise<void>
 }
 
@@ -141,9 +149,9 @@ export function Transition(
 ): RenderFunction
 
 export interface SuspenseProps<E = unknown> {
-	fallback?: MaybeSignal<PossibleRender>
-	catch?: MaybeSignal<(error: E) => PossibleRender>
-	onLoad?: (value: unknown) => void | Promise<void>
+	fallback?: MaybeSignal<PossibleRender | ((props: Record<string, unknown>, ...children: any[]) => PossibleRender)>
+	catch?: MaybeSignal<PossibleRender | ((props: Record<string, unknown> & { error: E }, ...children: any[]) => PossibleRender)>
+	onLoad?: () => void | Promise<void>
 	[key: string]: any
 }
 
@@ -165,3 +173,19 @@ export class Component<P = any> {
 export function createComponent<P = any>(template: ComponentTemplate<P>, props?: P, ...children: any[]): Component<P>
 
 export type ComponentInstance<P = any> = Component<P>
+
+/** @internal */
+export function _asyncContainer(
+	this: PromiseLike<unknown>,
+	name: string | null,
+	fallback:
+		| MaybeSignal<PossibleRender | ((props: Record<string, unknown>, ...children: any[]) => PossibleRender)>
+		| undefined,
+	catchErr:
+		| MaybeSignal<PossibleRender | ((props: Record<string, unknown> & { error: unknown }, ...children: any[]) => PossibleRender)>
+		| undefined,
+	onLoad: (() => void | Promise<void>) | undefined,
+	suspensed: boolean,
+	props: Record<string, unknown>,
+	children: any[]
+): RenderFunction
