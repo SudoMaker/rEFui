@@ -9,6 +9,17 @@ description: "Use when working with rEFui (refui) applications where you cannot 
 
 Apply rEFui’s retained-mode + signals model correctly, choose the right JSX mode/renderer, and fix reactivity/lifecycle issues without importing patterns from other UI frameworks.
 
+## Read This First
+
+Before making any change, skim `references/reactivity-pitfalls.md`. It prevents most retained-mode mistakes.
+
+## Core Pitfalls (skim)
+
+- JSX is evaluated once; `{signal.value}` in JSX is static. Use `{signal}` or a derived `$(() => ...)`.
+- In-place array/object mutation requires `sig.trigger()` (or replace with a new value).
+- Effects re-run when any read signal changes; avoid writing to those signals without guards.
+- Context values are stable; provide signals in context if consumers must react.
+
 ## General guide
 
 ### Mental model (retained mode)
@@ -162,15 +173,6 @@ Use these references when choosing a built-in solution:
 	- ❌ Avoid inline `.value` in JSX: `<div>{count.value}</div>` (evaluates once, won’t update)
 - Remember scheduling: signal effects/computed flush at the end of the tick; use `await nextTick()` when you must observe derived updates.
 
-## Hard Rules (idiot-proof guardrails)
-
-- This is **not React**. Component bodies run once; JSX does not re-run. Do not expect re-renders.
-- Do not invent props. If the API is unclear, open the .d.ts or use MCP. Example: `For` has **no** `fallback` prop.
-- `If` / `For` / templates accept a **single** renderable. If you need multiple nodes, wrap them in a container or fragment.
-- `For` empty state: wrap it in `If` and provide a false branch. Example:
-	- `<If condition={$(() => items.value.length)}><For entries={items} track="id">{({ item }) => <Row item={item} />}</For><Empty /></If>`
-- Use `.value` inside `computed` / `$(() => ...)` / `watch` / event handlers, not directly in JSX text/attrs.
-
 ## Default Patterns (copy these mentally)
 
 - State: `const x = signal(initial)`
@@ -195,15 +197,6 @@ Use these references when choosing a built-in solution:
 	- Prefer `expose` prop for imperative child handles (v0.8.0+).
 
 ## Workflows
-
-### Fix “UI not updating”
-
-1. Search for JSX `{something.value}` and decide if it must be reactive:
-	 - Replace with `{something}` when `something` is already a signal.
-	 - Wrap derived text/attrs with `$(() => ...)` / `computed(() => ...)` / `t\`...\``.
-2. If you mutated an object/array held by a signal in-place, add `sig.trigger()` (or replace with a new object/array).
-3. If you read derived values immediately after writes, insert `await nextTick()` before reading computed/DOM-dependent values.
-4. If an effect runs “forever”, ensure it’s created inside a component scope and cleaned up via `useEffect`/`onDispose`.
 
 ### Add a feature safely
 

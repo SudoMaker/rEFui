@@ -67,6 +67,11 @@ Smell:
 - Global `addEventListener` without matching cleanup.
 - Effects created outside a component scope (no automatic disposal).
 
+Loop traps:
+- Avoid writing to signals that you read in the same `watch`/`useEffect` without guards; it can re-run indefinitely.
+- `useEffect` cleanup runs before re-run and on dispose; don't treat cleanup as "unmount" if the effect depends on signals.
+- Creating an `AbortController` inside a reactive effect ties it to that dependency; aborts fire whenever the effect re-runs.
+
 ## 6) DOM props vs attributes (SVG gotchas)
 
 If a prop seems ignored or throws (common with SVG):
@@ -78,6 +83,7 @@ If you must force a property write:
 ## 7) Lists and identity
 
 - Use `<For entries={items} track="id">` for stable identity.
+- If your app wires a **custom** list refresh signal (e.g., `const [whenRefresh, refresh] = useAction()` where each list item subscribes via `whenRefresh(fn)`), calling `refresh()` immediately after swapping the list can re-trigger fetches on *old* instances before `<For>` disposes them; defer with `nextTick` or guard by section to avoid duplicate requests.
 - If you reorder with in-place mutations, remember `items.trigger()`.
 - For perf experiments and reorder-heavy scenarios, consider `UnKeyed` from `refui/extras/unkeyed.js` (but treat it as a deliberate choice).
 - For large lists with selection/highlight, prefer `onCondition(selectedId)` to create per-row match signals instead of repeating `computed(() => selectedId.value === rowId)` everywhere.
@@ -96,6 +102,7 @@ Also:
 
 ## 9) Common mistakes to avoid (generic)
 
+- Do not invent props or component APIs. If unsure, check docs or .d.ts. Example: `For` has no `fallback` prop.
 - Mixing two modes as multiple children of a single `If`:
   - `If` only takes **two** children (true branch, false branch). Extra siblings are ignored.
   - Wrap each branch in a single container if it needs multiple nodes.
@@ -106,6 +113,15 @@ Also:
   - For lookups by id, rebuild the map from the latest `signal` each time (or compute it with `$(() => new Map(...))`).
   - For ordering logic, always read from the current array signal, not a cached copy.
 - Applying state snapshots while also updating indices in the same tick; schedule with `nextTick()` to avoid races.
+
+## Quick triage: UI not updating
+
+1. Search for JSX `{something.value}` and decide if it must be reactive:
+	- Replace with `{something}` when `something` is already a signal.
+	- Wrap derived text/attrs with `$(() => ...)` / `computed(() => ...)` / ``t`...``.
+2. If you mutated an object/array held by a signal in-place, add `sig.trigger()` (or replace with a new object/array).
+3. If you read derived values immediately after writes, insert `await nextTick()` before reading computed/DOM-dependent values.
+4. If an effect runs “forever”, ensure it’s created inside a component scope and cleaned up via `useEffect`/`onDispose`.
 
 ## 10) Time‑travel / history sliders (generic fix notes)
 
