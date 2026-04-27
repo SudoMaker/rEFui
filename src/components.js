@@ -297,7 +297,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 				const dispose = collectDisposers(
 					[],
 					function () {
-						node = R.c(itemTemplate, { item, index: idxSig })
+						node = R.c(itemTemplate, { item, index: idxSig }) || R.createAnchor()
 						nodeCache.set(itemKey, node)
 					},
 					function (batch) {
@@ -307,7 +307,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 							if (ks) ks.delete(itemKey)
 							if (kv) kv.delete(itemKey)
 						}
-						if (node) R.removeNode(node)
+						R.removeNode(node)
 					}
 				)
 				disposers.set(itemKey, dispose)
