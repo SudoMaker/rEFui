@@ -19,6 +19,7 @@ Before making any change, skim `references/reactivity-pitfalls.md`. It prevents 
 - In-place array/object mutation requires `sig.trigger()` (or replace with a new value).
 - Effects re-run when any read signal changes; avoid writing to those signals without guards.
 - Context values are stable; provide signals in context if consumers must react.
+- Passing a signal/computed directly to rEFui control-flow is correct: `<If condition={sig}>` and `<If condition={computed}>` are intended usage. The pitfall is conditional `.value` reads inside JS/derived code that skip later dependencies.
 
 ## General guide
 
@@ -61,6 +62,7 @@ const Counter = () => {
 - Lists: `<For entries={items} track="id">{({ item, index }) => ...}</For>`
 - Inline dynamic subtree with lifecycle: `<Fn ctx={something}>{(ctx) => ...}</Fn>`
 - `For` has **no** `fallback`; for empty states, wrap with `<If>`.
+- If the condition already exists as a signal/computed, pass it directly. Do not “fix” `<If condition={someSignal}>` into extra `.value` plumbing.
 
 ```jsx
 import { signal, $, If, For } from 'refui'
@@ -144,7 +146,7 @@ If you want an automated scan for JSX mode + common pitfalls, run `node scripts/
 
 ## When Usage Is Unclear (consult MCP docs)
 
-If you are unsure about a rEFui API, behavior, or best practice and cannot inspect the library source:
+If you are unsure about a rEFui API, behavior, or best practice and cannot inspect the library source or the docs:
 
 - Use **Context7 MCP** to pull authoritative, up-to-date library docs/snippets:
 	- First resolve the library: `mcp__context7__resolve-library-id` with `libraryName: "refui"`.
@@ -171,6 +173,10 @@ Use these references when choosing a built-in solution:
 	- ✅ Use a signal directly: `<div>{count}</div>`
 	- ✅ Wrap derived expressions: `<div>{$(() => `Count: ${count.value}`)}</div>` or `<div>{computed(() => ...)}</div>`
 	- ❌ Avoid inline `.value` in JSX: `<div>{count.value}</div>` (evaluates once, won’t update)
+- Control-flow note:
+	- ✅ `<If condition={flag}>` when `flag` is already a signal/computed
+	- ✅ `<If condition={$(() => count.value > 0)}>` for a derived condition
+	- ❌ Treating `<If condition={flag}>` as a reactivity smell by itself
 - Remember scheduling: signal effects/computed flush at the end of the tick; use `await nextTick()` when you must observe derived updates.
 
 ## Default Patterns (copy these mentally)
@@ -238,3 +244,6 @@ Read these files when you need deeper details:
 - `references/portals-parse-custom-elements.md`
 - `references/lists-cache-memo.md`
 - `references/project-setup.md`
+
+### `docs/`
+All documents live in this directory. Check detailed usages of a certain API before you implement anything with them.
