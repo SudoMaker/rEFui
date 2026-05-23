@@ -148,8 +148,7 @@ function createDOMRenderer({
 	}
 
 	function removeNode(node) {
-		if (!node.parentNode) return
-		node.parentNode.removeChild(node)
+		node.parentNode?.removeChild(node)
 	}
 	function appendNode(parent, ...nodes) {
 		const nodeCount = nodes.length
@@ -158,7 +157,7 @@ function createDOMRenderer({
 		}
 	}
 	function insertBefore(node, ref) {
-		ref.parentNode.insertBefore(node, ref)
+		ref.parentNode?.insertBefore(node, ref)
 	}
 
 	const getListenerAdder = cachedStrKeyNoFalsy(function(event) {
