@@ -160,7 +160,7 @@ function createHTMLRenderer({
 	function insertBefore(node, ref) {
 		const parent = ref.parent
 		if (!parent) {
-			throw new ReferenceError('InsertBefore: Ref does not have a parent!')
+			return
 		}
 
 		const index = parent.indexOf(ref)
