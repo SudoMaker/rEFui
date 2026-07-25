@@ -435,6 +435,9 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 									for (let j = 0; j < bChunkLength; j++) {
 										R.insertBefore(getItemNode(bChunk[j]), beforeAnchor)
 									}
+
+									backSet[i + 1] = bChunk.concat(backSet[i + 1])
+									bChunk.length = 0
 								} else {
 									R.appendNode(fragment, ...bChunk.map(getItemNode))
 								}
