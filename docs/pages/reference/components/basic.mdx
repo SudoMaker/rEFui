@@ -53,20 +53,26 @@ const AppAlternative = ({ value }) => {
 
 Renders a list of items from a signal that resolves to an array (or any value exposing the signal interface like `.value` and `.trigger()`). `For` is reactive to the list change itself, with a highly optimized reconcile algorithm that only executes the least necessary steps to update the list. Passing a plain array renders a static snapshot; updates and the imperative helpers require a reactive signal.
 
-The child of a `<For>` component can be a **component** or a **function** that returns a renderable node.
+The child of `<For>` must be an **item method** that accepts `{ item, index }` and returns a renderable value. It can be declared inline or as a separate function, but it is not constructed as a component.
 
--   **Component:** Pass a component function directly. It will receive `item` and `index` as props. This is the recommended approach for better code organization.
--   **Function:** Pass a function that takes `item` and `index` as arguments (destructured from a props object) and returns a node.
+`For` calls each item method directly inside that item's retained disposal scope. Signals, effects, and `onDispose` created by the method still belong to the item and are released when it leaves the list. The method itself does not receive a component `$ref`, a separate `getCurrentSelf()` identity, or its own HMR boundary. When a row needs those component features, invoke that component from the item method and request its boundary with a truthy `$ref`.
 
-Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. You can also set `indexed={true}` to receive a signal containing the item's current index as the second argument to the render function.
+TypeScript users can import `ForMethod<T>` when declaring a reusable item method.
 
-**Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](../reference/components/extras.mdx#unkeyed) component instead.
+When a cleared list owns its parent’s complete child range and the host renderer
+supports guarded bulk clearing, `For` clears that range once while still
+running every item cleanup. Lists with siblings, and renderers without the
+optional capability, use ordinary individual removal.
+
+Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. Keys must be unique within the list. You can also set `indexed={true}` to receive a signal containing the item's current index in the child props object: `({ item, index })`.
+
+**Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](extras.mdx#unkeyed) component instead.
 
 ```jsx
 import { signal, For, $ } from 'refui';
 
-// Define a separate component for list items
-const TodoItem = ({ item, index }) => {
+// Define a separate item method for better organization
+const renderTodoItem = ({ item, index }) => {
 	const toggleTodo = () => {
 		item.completed.value = !item.completed.value;
 	};
@@ -108,7 +114,7 @@ export const TodoList = () => {
 			<button on:click={addTodo}>Add Todo</button>
 			<ul>
 				<For entries={todos} indexed={true}>
-					{TodoItem}
+					{renderTodoItem}
 				</For>
 			</ul>
 		</div>
@@ -135,7 +141,8 @@ const SimpleTodoList = () => {
 ### Optimization Tip: Keep Updates Local
 
 For large lists, avoid global state that triggers a full list re-render. Instead:
-- **Track by Key**: Use the `track` prop so only changed items are reconciled when the full list is recreated(e.g. updated from a request).
+
+- **Track by Key**: Use a stable, unique `track` prop so only changed items are reconciled when the full list is recreated (for example, after a request).
 - **Localized State**: Use `onCondition` or class toggles within individual list items to handle per-row selection or visibility states. This ensures that changing the state of one row doesn't affect the entire list.
 
 ### Exposed Methods
@@ -277,6 +284,10 @@ const App = () => {
 ## Dynamic
 
 Renders a component that can change over time. The component can be specified as a string (for HTML tags) or a component function, which can be wrapped in a signal for dynamic updates.
+
+When the selected value is a function, HMR is inactive, and neither `current` nor `$ref` contains a truthy ref, `Dynamic` invokes the function directly inside its existing replacement scope. Its signals, effects, and cleanup still follow the selected view's lifetime without allocating a second component wrapper.
+
+Supplying a truthy `current`/`$ref` keeps the renderer's full component-construction path so the ref receives the selected component instance. HMR builds also retain that path so selected components remain replaceable. String tag names always go through the renderer.
 
 **Advanced Usage - Dynamic Components with Props:**
 

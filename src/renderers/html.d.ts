@@ -21,7 +21,7 @@
 import type { BaseNodeOps, RendererFromOps } from '../renderer.js'
 
 export interface HTMLRendererOptions {
-	rendererID?: string
+	rendererID?: string | symbol
 	selfClosingTags?: Record<string, boolean>
 }
 

@@ -20,7 +20,7 @@ Effects are functions that automatically re-run when their dependencies (signals
 Computed signals derive their value from other signals and automatically update when dependencies change.
 
 ## Important notice
-Signal effects are semi-lazily computed, that means, no matter how many times you changed the value of a signal, its effects will only be executed once at the end of this tick. So if you modifred a signal's value and want to retrieve its updated derived signals value, you'll need to use `nextTick(cb)` or `await nextTick()` to get the new value. The lower-level `tick()` API exists to manually trigger a flush; prefer `nextTick` when you need to await the scheduler rather than calling `tick()` directly.
+Signal effects are semi-lazily computed: no matter how many times you change a signal during one tick, its effects execute once at the end of that tick. If you modify a signal and need its updated derived value, use `nextTick(cb)` or `await nextTick()`. The lower-level `tick()` API manually triggers a flush; prefer `nextTick` when you need to await the scheduler.
 
 ### Avoiding Stale Values
 Effects and computed signals flush at the end of the tick. If you need to read a fresh derived value immediately after a write, always use `await nextTick()`.

@@ -22,6 +22,9 @@ export type BatchDisposer = (batch?: boolean) => void
 export type EffectCallback = () => void
 
 export type MaybeSignal<T> = T | Signal<T>
+export type SignalsOf<T extends readonly unknown[]> = {
+	[K in keyof T]: Signal<T[K] extends Signal<infer U> ? U : T[K]>
+}
 
 export interface Signal<T> {
 	value: T
@@ -61,20 +64,24 @@ export interface Signal<T> {
 }
 
 export interface SignalConstructor {
-	new <T>(value: T, compute?: (value: T) => T): Signal<T>
+	new (): Signal<undefined>
+	new <T = never>(): Signal<T | undefined>
+	new <T>(value: MaybeSignal<T>, compute?: undefined): Signal<T>
+	new <T, R>(value: MaybeSignal<T>, compute: (value: T) => R): Signal<R>
 	readonly prototype: Signal<unknown>
 	ensure<T>(value: MaybeSignal<T>): Signal<T>
-	ensureAll<T extends readonly unknown[]>(...values: T): Signal<unknown>[]
+	ensureAll<T extends readonly unknown[]>(...values: T): SignalsOf<T>
 }
 
 export const Signal: SignalConstructor
 
 export interface SignalFactory {
-	<T>(value: T): Signal<T>
-	<T>(value: MaybeSignal<T>): Signal<T>
+	(): Signal<undefined>
+	<T = never>(): Signal<T | undefined>
+	<T>(value: MaybeSignal<T>, compute?: undefined): Signal<T>
 	<T, R>(value: MaybeSignal<T>, compute: (value: T) => R): Signal<R>
 	ensure<T>(value: MaybeSignal<T>): Signal<T>
-	ensureAll<T extends readonly unknown[]>(...values: T): Signal<unknown>[]
+	ensureAll<T extends readonly unknown[]>(...values: T): SignalsOf<T>
 }
 
 export const signal: SignalFactory
@@ -89,7 +96,7 @@ export function tpl(strings: TemplateStringsArray, ...exprs: unknown[]): Signal<
 export function tpl(strings: readonly string[], ...exprs: unknown[]): Signal<string>
 export function tpl(strings: string, ...exprs: unknown[]): Signal<string>
 
-export type Deferrer = (callback: () => void) => BatchDisposer | void
+export type Deferrer = (callback: () => void) => BatchDisposer
 
 export function createDefer<T = unknown>(deferrer?: Deferrer): (
 	fn: (commit: (value: MaybeSignal<T>) => void) => BatchDisposer | void,
@@ -107,7 +114,7 @@ export function createSchedule<T = unknown>(
 		| ((commit: (value: MaybeSignal<T>) => void) => BatchDisposer | void)
 ) => Signal<T | undefined>
 
-export function connect(signals: Iterable<Signal<unknown>>, effect: EffectCallback, runImmediate?: boolean): void
+export function connect(signals: readonly Signal<unknown>[], effect: EffectCallback, runImmediate?: boolean): void
 export function bind(handler: (value: unknown) => void, value: MaybeSignal<unknown> | (() => unknown)): void
 export function useAction<T>(
 	initial?: T,
@@ -118,7 +125,13 @@ export function useAction<T>(
 	() => void
 ]
 
-export function derive<T extends Record<string, any>, K extends keyof T, R = T[K]>(source: MaybeSignal<T>, key: K, compute?: (value: T[K]) => R): Signal<R>
+export function derive<T extends Record<string, any>, K extends keyof T, R = T[K]>(source: T, key: K, compute?: (value: T[K]) => R): Signal<R>
+export function derive<T extends Record<string, any>, K extends keyof T, R = T[K]>(source: Signal<T>, key: K, compute?: (value: T[K]) => R): Signal<R>
+export function derive<T extends Record<string, any>, K extends keyof T, R = T[K]>(
+	source: Signal<T | null | undefined>,
+	key: K,
+	compute?: (value: T[K]) => R
+): Signal<R | undefined>
 export function extract<T extends Record<string, any>>(source: MaybeSignal<T>): { [K in keyof T]: Signal<T[K]> }
 export function extract<T extends Record<string, any>, Keys extends readonly (keyof T)[]>(source: MaybeSignal<T>, ...keys: Keys): { [K in Keys[number]]: Signal<T[K]> }
 export function derivedExtract<T extends Record<string, any>>(source: MaybeSignal<T>): { [K in keyof T]: Signal<T[K]> }
@@ -126,14 +139,16 @@ export function derivedExtract<T extends Record<string, any>, Keys extends reado
 export function makeReactive<T extends Record<string, any>>(object: T): { [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K] }
 
 export function peek<T>(value: MaybeSignal<T>): T
-export function poke<T>(target: MaybeSignal<T>, value: T): T
+export function poke<T>(target: Signal<T>, value: T): void
+export function poke<T>(target: T, value: T): T
 export function touch(...values: MaybeSignal<unknown>[]): void
 export function read<T>(value: MaybeSignal<T>): T
 export function readAll<T extends readonly unknown[]>(...values: T): { [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K] }
 export function write<T>(target: MaybeSignal<T>, value: T | ((previous: T) => T)): T
-export function listen(signals: Iterable<MaybeSignal<unknown>>, callback: EffectCallback): void
+export function listen(signals: readonly MaybeSignal<unknown>[], callback: EffectCallback): void
 
-export function schedule(effects: Iterable<EffectCallback>): number
+export type EffectStore = [number, number, ...Array<[EffectCallback | null]>]
+export function schedule(effects: EffectStore): number | undefined
 export function tick(): Promise<void>
 export function nextTick(callback?: (...args: unknown[]) => void, ...args: unknown[]): Promise<void>
 
@@ -146,6 +161,6 @@ export function freeze<T extends (...args: any[]) => any>(fn: T): T
 
 export const contextValid: boolean
 
-export function onCondition<T>(signal: MaybeSignal<T>, compute?: (value: boolean) => boolean): (match: MaybeSignal<T>) => Signal<boolean>
+export function onCondition<T>(signal: Signal<T>, compute?: (value: boolean) => boolean): (match: MaybeSignal<T>) => Signal<boolean>
 
 export type Disposer = BatchDisposer

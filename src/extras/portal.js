@@ -41,7 +41,10 @@ function createPortal() {
 			nodes.trigger()
 		})
 	}
-	function Outlet({ itemRenderer } = {}, fallback) {
+	function Outlet({ itemRenderer, fallback } = {}, fallbackChild) {
+		if (fallback === undefined) {
+			fallback = fallbackChild
+		}
 		let currentRenderer = null
 		let currentViewRenderer = null
 		return Fn(outletProps, function() {

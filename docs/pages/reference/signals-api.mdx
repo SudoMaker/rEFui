@@ -198,8 +198,8 @@ username.value = undefined
 ### `.choose(trueValue, falseValue)`
 Creates a derived signal that resolves to `trueValue` when the source signal is truthy and `falseValue` otherwise.
 
-- `trueValue` and `falseValue` can be plain values, signals, or functions.
-- The chosen branch is evaluated lazily when the derived signal is read, so expensive computations only run for the active branch.
+- `trueValue` and `falseValue` can be plain values or signals. Functions are returned as values; they are not invoked.
+- Signal arguments are both subscribed up front so either branch remains reactive after the condition changes.
 
 ```javascript
 const isDarkMode = signal(false)
@@ -243,11 +243,11 @@ const isValidOrNotDisabled = isValid.orNot(isDisabled) // isValid || !isDisabled
 ```
 
 ### `.andOr(andValue, orValue)`
-Combines logical AND and OR in a single helper.
+Combines logical AND and OR in a single helper, equivalent to `(source && andValue) || orValue`.
 
-- When the source signal resolves to a truthy value, the derived signal resolves to `andValue`.
-- When the source signal is falsy, the derived signal resolves to `orValue`.
-- Both arguments can be plain values or signals. They are only read when their branch is chosen.
+- A falsy source resolves to `orValue`.
+- A truthy source resolves to `andValue` when `andValue` is truthy, otherwise it falls through to `orValue`.
+- Signal arguments are both subscribed up front.
 
 ```javascript
 const isAuthenticated = signal(false)
@@ -281,10 +281,10 @@ const isInactiveOrHidden = isActive.inverseOrNot(isVisible) // !isActive || !isV
 ```
 
 ### `.inverseAndOr(andValue, orValue)`
-Variant of `.andOr` that negates the base signal before evaluating branches.
+Variant of `.andOr` that negates the base signal first, equivalent to `(!source && andValue) || orValue`.
 
-- When the source signal is falsy, the derived signal resolves to `andValue`.
-- When the source signal is truthy, the derived signal resolves to `orValue`.
+- A truthy source resolves to `orValue`.
+- A falsy source resolves to `andValue` when `andValue` is truthy, otherwise it falls through to `orValue`.
 
 ```javascript
 const isOffline = signal(true)
@@ -500,14 +500,14 @@ const message = tpl`Hello ${name}, you have ${count} items`
 ```
 
 ### `derive(signal, key, compute?)`
-Creates a derived signal from an object property. The derieved signal's content will be updated when the original signal changes, or when the original signal's corresponding property is a signal, when the specific signal changes. Writing the derived signal will not update the original signal's property.
+Creates a derived signal from an object property. The derived signal's content updates when the original signal changes, or when the corresponding property is itself a signal. A nullish source clears the derived value to `undefined`. Writing the derived signal does not update the original signal's property.
 
 ```javascript
 const name = derive(user, 'name')
 ```
 
 ### `extract(signal, ...keys)`
-Extracts properties from a signal into separate signals. The extracted signals' content will be updated only when the original signal changes. Writing the exteracted signals will not update the original signal's properties.
+Extracts properties from a signal into separate signals. The extracted signals update only when the original signal changes. Writing the extracted signals does not update the original signal's properties.
 
 ```javascript
 const { name, age } = extract(user, 'name', 'age')
@@ -521,7 +521,7 @@ const { name, age } = derivedExtract(user, 'name', 'age')
 ```
 
 ### `makeReactive(object)`
-Creates a reactive proxy of an object.
+Creates a new accessor-backed object. Properties whose input values are signals become getters and setters that read and write those signals; non-signal properties are copied as plain values. This helper does not create a JavaScript `Proxy` and does not make nested plain objects reactive.
 
 ```javascript
 const reactive = makeReactive({
@@ -638,7 +638,7 @@ setTimeout(() => {
 ```
 
 ### `contextValid`
-Boolean flag that reflects whether the current reactive context (component, effect, or memoized scope) is still alive. It flips to `false` once the owner disposes, so deferred callbacks can bail out gracefully. Runtime features like async component boundaries check `contextValid` to avoid rendering after unmount.
+Boolean flag for the context currently executing. A frozen or captured callback runs with `contextValid === false` after its owner has disposed, then the previous ambient value is restored when that callback returns. Runtime features such as async boundaries use it to avoid rendering into a disposed scope.
 
 ## Scheduling
 

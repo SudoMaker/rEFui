@@ -31,26 +31,44 @@ export interface DOMDirectiveFactory<Node extends Element = Element> {
 	(node: Node, value: unknown): void
 }
 
-export interface DOMNodeOps<Node extends Element = Element, Fragment = DocumentFragment> extends BaseNodeOps<Node, Fragment> {
-	macros: Record<string, DOMMacroHandler<Node>>
-	useMacro(descriptor: DOMMacroDescriptor<Node>): void
+export interface DOMNodeOps<
+	Node = globalThis.Node,
+	Fragment = DocumentFragment,
+	MacroNode extends Element = Element
+> extends BaseNodeOps<Node, Fragment> {
+	macros: Record<string, DOMMacroHandler<MacroNode>>
+	useMacro(descriptor: DOMMacroDescriptor<MacroNode>): void
 }
 
-export interface DOMRendererOptions<Node extends Element = Element, Fragment = DocumentFragment, Doc extends Document = Document> {
-	rendererID?: string
+export interface DOMRendererOptions<
+	Node = globalThis.Node,
+	Fragment = DocumentFragment,
+	Doc extends Document = Document,
+	MacroNode extends Element = Element
+> {
+	rendererID?: string | symbol
 	doc?: Doc
 	namespaces?: Record<string, string>
 	tagNamespaceMap?: Record<string, string>
 	tagAliases?: Record<string, string>
 	propAliases?: Record<string, string>
-	onDirective?: (prefix: string, key: string, prop: string) => DOMDirectiveFactory<Node> | void
-	macros?: Record<string, DOMMacroHandler<Node>>
+	onDirective?: (prefix: string, key: string, prop: string) => DOMDirectiveFactory<MacroNode> | void
+	macros?: Record<string, DOMMacroHandler<MacroNode>>
 }
 
-export type DOMRenderer<Node extends Element = Element, Fragment = DocumentFragment> = RendererFromOps<DOMNodeOps<Node, Fragment>>
+export type DOMRenderer<
+	Node = globalThis.Node,
+	Fragment = DocumentFragment,
+	MacroNode extends Element = Element
+> = RendererFromOps<DOMNodeOps<Node, Fragment, MacroNode>>
 
 export const defaultRendererID: string
 
-export function createDOMRenderer<Node extends Element = Element, Fragment = DocumentFragment, Doc extends Document = Document>(
-	options?: DOMRendererOptions<Node, Fragment, Doc>
-): DOMRenderer<Node, Fragment>
+export function createDOMRenderer<
+	Node = globalThis.Node,
+	Fragment = DocumentFragment,
+	Doc extends Document = Document,
+	MacroNode extends Element = Element
+>(
+	options?: DOMRendererOptions<Node, Fragment, Doc, MacroNode>
+): DOMRenderer<Node, Fragment, MacroNode>

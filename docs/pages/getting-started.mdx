@@ -168,7 +168,7 @@ const LoginStatus = () => {
 
 ### Rendering Lists with `For`
 
-The `<For>` component efficiently renders and updates lists of items. You can provide a function as a child that receives the `item` and returns a renderable node.
+The `<For>` component efficiently renders and updates lists of items. Its child is an item method that receives the `item` and returns a renderable node; the method runs directly in the retained scope for that item rather than as a separate component.
 
 For a more dynamic example, checkout [For](reference/components/basic.mdx#for).
 

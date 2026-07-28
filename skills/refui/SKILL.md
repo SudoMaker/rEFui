@@ -59,7 +59,7 @@ const Counter = () => {
 ### Control flow components
 
 - Conditional UI: `<If condition={cond}>{() => <Then />}{() => <Else />}</If>`
-- Lists: `<For entries={items} track="id">{({ item, index }) => ...}</For>`
+- Lists: `<For entries={items} track="id">{({ item, index }) => ...}</For>`; its child is an item method, not a component boundary.
 - Inline dynamic subtree with lifecycle: `<Fn ctx={something}>{(ctx) => ...}</Fn>`
 - `For` has **no** `fallback`; for empty states, wrap with `<If>`.
 - If the condition already exists as a signal/computed, pass it directly. Do not “fix” `<If condition={someSignal}>` into extra `.value` plumbing.

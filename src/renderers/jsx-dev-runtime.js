@@ -31,13 +31,13 @@ function jsxDEV(tag, props, key, ...args) {
 		}
 		if (Object.hasOwn(props, 'children')) {
 			const { children } = props
-			if (Array.isArray(children) && !R.isNode(children)) {
-				return R.c(tag, props, ...children)
+			if (Array.isArray(children) && !renderer.isNode(children)) {
+				return renderer.c(tag, props, ...children)
 			} else {
-				return R.c(tag, props, children)
+				return renderer.c(tag, props, children)
 			}
 		} else {
-			return R.c(tag, props)
+			return renderer.c(tag, props)
 		}
 	} catch (e) {
 		if (typeof tag === 'function') {
@@ -58,7 +58,7 @@ function jsxDEV(tag, props, key, ...args) {
 
 function wrap(newRenderer) {
 	renderer = newRenderer
-	Fragment = R.f
+	Fragment = newRenderer.f
 
 	return {
 		jsxDEV,

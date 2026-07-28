@@ -28,11 +28,20 @@ Implement these methods and pass them to `createRenderer(nodeOps)`:
 - `isFragment(value): boolean`
 - `expandFragment(fragment): Array<Node | Fragment>` flatten a connected fragment into anchor + children + anchor; see built-in renderer for behavior
 - `removeNode(node|fragment)`
+- `clearChildren(parent, first, last): boolean` (optional) clears all children only when `first` and `last` prove that the requested fragment owns the complete child range
 - `appendNode(parent, ...children)`
 - `insertBefore(node, ref)`
 - `setProps(node|fragment, props: Record<string, unknown>)`
 
 `setProps` is called with the full props object; make it idempotent. Normalize events, styles, and platform-specific attributes here. Clean up in `removeNode` when needed. When a prop value is a signal, subscribe and update the native prop/handler on change (see DOM/HTML renderers).
+
+`clearChildren` is an optional performance capability, not a required tree
+operation. Return `false` without changing the tree when the parent contains
+anything before `first` or after `last`. When it returns `true`, the renderer
+core restores the fragment anchors; the caller can then dispose the former
+children normally. The DOM renderer implements this with `textContent = ''`;
+tree renderers can clear their child collection. Renderers that omit it
+automatically keep the individual-removal fallback.
 
 ## Rendering flow
 1) `const R = createRenderer(nodeOps)`  
@@ -67,6 +76,11 @@ const nodeOps = {
 	createAnchor: () => platformCreateComment(''),
 	createFragment: () => platformCreateFragment(),
 	removeNode: platformRemove,
+	clearChildren(parent, first, last) {
+		if (!platformOwnsCompleteRange(parent, first, last)) return false
+		platformClearChildren(parent)
+		return true
+	},
 	appendNode(parent, ...kids) { kids.forEach(k => platformAppend(parent, k)) },
 	insertBefore(node, ref) { platformInsertBefore(node, ref) },
 	setProps(node, props) { platformSetProps(node, props) },

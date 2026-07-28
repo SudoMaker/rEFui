@@ -137,10 +137,14 @@ function lazy(loader, ident) {
 
 function memo(fn) {
 	let cached = null
+	let initialized = false
 	const captured = capture(fn)
 	return function (...args) {
-		if (cached) return cached
-		return (cached = captured(...args))
+		if (!initialized) {
+			cached = captured(...args)
+			initialized = true
+		}
+		return cached
 	}
 }
 function useMemo(fn) {
@@ -237,9 +241,14 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 	let ks = indexed && new Map()
 	let nodeCache = new Map()
 	let disposers = new Map()
+	let renderedFragment = null
+	let renderedRenderer = null
 
-	function _clear() {
-		for (let [, _dispose] of disposers) _dispose(true)
+	function _clear(batch) {
+		if (disposers.size && renderedFragment) {
+			renderedRenderer.clearFragment(renderedFragment)
+		}
+		for (const _dispose of disposers.values()) _dispose(batch)
 		nodeCache = new Map()
 		disposers = new Map()
 		if (ks) ks = new Map()
@@ -284,6 +293,8 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 	return function (R) {
 		const fragment = R.createFragment(name)
+		renderedFragment = fragment
+		renderedRenderer = R
 
 		function getItemNode(itemKey) {
 			let node = nodeCache.get(itemKey)
@@ -297,7 +308,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 				const dispose = collectDisposers(
 					[],
 					function () {
-						node = R.c(itemTemplate, { item, index: idxSig }) || R.createAnchor()
+						node = R.ensureElement(itemTemplate({ item, index: idxSig })) || R.createAnchor()
 						nodeCache.set(itemKey, node)
 					},
 					function (batch) {
@@ -351,8 +362,10 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 							}
 						}
 
-						const newDataKeys = [...new Set([...oldData, ...currentData])].slice(oldData.length)
-						const hasNewKeys = !!newDataKeys.length
+						const newDataKeys = new Set(
+							[...new Set([...oldData, ...currentData])].slice(oldData.length)
+						)
+						const hasNewKeys = !!newDataKeys.size
 
 						let newDataCursor = 0
 
@@ -377,7 +390,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 							const oldDataLength = oldData.length
 							while (oldDataCursor < oldDataLength) {
-								const isNewKey = hasNewKeys && newDataKeys.includes(newItemKey)
+								const isNewKey = hasNewKeys && newDataKeys.has(newItemKey)
 								if (isNewKey || oldItemKey === newItemKey) {
 									if (prevChunk !== frontChunk) {
 										backSet.push(backChunk)
@@ -452,10 +465,11 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 				if (newData) {
 					const newDataLength = newData.length
+					const newNodes = new Array(newDataLength)
 					for (let i = 0; i < newDataLength; i++) {
-						const node = getItemNode(newData[i])
-						if (node) R.appendNode(fragment, node)
+						newNodes[i] = getItemNode(newData[i])
 					}
+					R.appendNode(fragment, ...newNodes)
 				}
 
 				flushKS()
@@ -467,12 +481,13 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 }
 markStatic(For)
 
-function If({ condition, true: trueCondition, else: otherwise }, trueBranch, falseBranch) {
-	if (otherwise) {
-		falseBranch = otherwise
+function If(props, trueBranch, falseBranch) {
+	let { condition } = props
+	if (Object.hasOwn(props, 'else')) {
+		falseBranch = props.else
 	}
-	if (trueCondition) {
-		condition = trueCondition
+	if (Object.hasOwn(props, 'true')) {
+		condition = props.true
 	}
 
 	if (isSignal(condition)) {
@@ -512,6 +527,9 @@ function _dynContainer(name, catchErr, ctx, props, ...children) {
 
 			current = component
 			renderFn = function (R) {
+				if (!hotEnabled && typeof component === 'function' && !props.$ref) {
+					return R.ensureElement(component(props, ...children))
+				}
 				return R.c(component, props, ...children)
 			}
 
@@ -878,7 +896,11 @@ markStatic(Transition)
 function Render({ from }) {
 	return Fn({ name: 'Render' }, function () {
 		const instance = read(from)
-		if (instance !== null && instance !== undefined) return render(instance, R)
+		if (instance !== null && instance !== undefined) {
+			return function (R) {
+				return render(instance, R)
+			}
+		}
 	})
 }
 markStatic(Render)

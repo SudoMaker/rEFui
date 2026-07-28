@@ -36,13 +36,13 @@ let effectQueue = []
 // Scheduler part
 
 function scheduleSignal(signalEffects) {
-	if (signalEffects.length <= 2) {
+	if (!signalEffects || signalEffects.length <= 2) {
 		return
 	}
 	return signalQueue.push(signalEffects)
 }
 function scheduleEffect(effects) {
-	if (effects.length <= 2) {
+	if (!effects || effects.length <= 2) {
 		return
 	}
 	return effectQueue.push(effects)
@@ -147,29 +147,22 @@ function _dispose_raw() {
 	for (let i = 0; i < count; i++) this[i](true)
 	this.length = 0
 }
-function _dispose_with_callback(dispose_raw, batch) {
-	this(batch)
-	dispose_raw(batch)
-}
-function _dispose_with_upstream(prevDisposers, batch) {
-	if (!batch) {
-		removeFromArr(prevDisposers, this)
-	}
-	this(batch)
-}
 function createDisposer(disposers, prevDisposers, cleanup) {
-	let _cleanup = _dispose_raw.bind(disposers)
-
-	if (cleanup) {
-		_cleanup = _dispose_with_callback.bind(cleanup, _cleanup)
+	function dispose(batch) {
+		if (!batch && prevDisposers) {
+			removeFromArr(prevDisposers, dispose)
+		}
+		if (cleanup) {
+			cleanup(batch)
+		}
+		_dispose_raw.call(disposers)
 	}
 
 	if (prevDisposers) {
-		_cleanup = _dispose_with_upstream.bind(_cleanup, prevDisposers)
-		prevDisposers.push(_cleanup)
+		prevDisposers.push(dispose)
 	}
 
-	return _cleanup
+	return dispose
 }
 
 function collectDisposers(disposers, fn, cleanup) {
@@ -178,6 +171,20 @@ function collectDisposers(disposers, fn, cleanup) {
 	currentDisposers = disposers
 	try {
 		fn()
+	} catch (error) {
+		currentDisposers = prevDisposers
+		if (prevDisposers) {
+			removeFromArr(prevDisposers, _dispose)
+		}
+		try {
+			_dispose_raw.call(disposers)
+		} catch (cleanupError) {
+			throw new AggregateError(
+				[error, cleanupError],
+				'Failed to clean up a disposer scope after setup failed'
+			)
+		}
+		throw error
 	} finally {
 		currentDisposers = prevDisposers
 	}
@@ -259,7 +266,7 @@ function freeze(
 	}
 ) {
 	if (currentDisposers) {
-		_onDispose(_invalidateFrozenState.bind(state))
+		currentDisposers.push(_invalidateFrozenState.bind(state))
 	}
 	return _frozen.bind(fn, state)
 }
@@ -322,8 +329,6 @@ const Signal = class {
 		// effectStore: [id, delCount, ...effects]
 		// eslint-disable-next-line no-plusplus
 		const id = sigID++
-		const userEffects = [id, 0]
-		const signalEffects = [id, 0]
 		const disposeCtx = currentDisposers
 
 		const internals = {
@@ -331,8 +336,8 @@ const Signal = class {
 			value,
 			compute,
 			disposeCtx,
-			userEffects,
-			signalEffects
+			userEffects: null,
+			signalEffects: null
 		}
 
 		Object.defineProperty(this, '_', {
@@ -370,7 +375,10 @@ const Signal = class {
 
 	get connected() {
 		const { userEffects, signalEffects } = this._
-		return !!(userEffects.length || signalEffects.length)
+		return (
+			(userEffects !== null && userEffects.length - userEffects[1] > 2)
+			|| (signalEffects !== null && signalEffects.length - signalEffects[1] > 2)
+		)
 	}
 
 	touch() {
@@ -422,13 +430,21 @@ const Signal = class {
 		if (!effect) {
 			return
 		}
-		const { userEffects, signalEffects, disposeCtx } = this._
-		const effects = isPure(effect) ? signalEffects : userEffects
+		const internals = this._
+		const { disposeCtx } = internals
 		if (contextValid) {
+			let effects
+			if (isPure(effect)) {
+				effects = internals.signalEffects
+					?? (internals.signalEffects = [internals.id, 0])
+			} else {
+				effects = internals.userEffects
+					?? (internals.userEffects = [internals.id, 0])
+			}
 			const container = [effect]
 			effects.push(container)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
-				_onDispose(function() {
+				currentDisposers.push(function() {
 					container[0] = null
 					if (!--effect.__refui_scheduled && effect.__refui_pending) {
 						effect.__refui_pending = false
@@ -642,10 +658,12 @@ function isSignal(val) {
 function watch(effect) {
 	const prevEffect = currentEffect
 	currentEffect = effect
-	const _dispose = collectDisposers([], effect)
-	currentEffect = prevEffect
 
-	return _dispose
+	try {
+		return collectDisposers([], effect)
+	} finally {
+		currentEffect = prevEffect
+	}
 }
 
 
@@ -921,7 +939,7 @@ function useAction(val, compute) {
 
 function derive(sig, key, compute) {
 	if (isSignal(sig)) {
-		const derivedSig = signal(null, compute)
+		const derivedSig = signal()
 		let disposer = null
 
 		const _dispose = function() {
@@ -931,13 +949,15 @@ function derive(sig, key, compute) {
 		sig.connect(pure(function() {
 			_dispose()
 			const newVal = peek(sig)
-			if (!newVal) {
+			if (newVal === undefined || newVal === null) {
+				derivedSig.value = undefined
 				return
 			}
 
 			untrack(function() {
 				disposer = watch(function() {
-					derivedSig.value = read(newVal[key])
+					const value = read(newVal[key])
+					derivedSig.value = compute ? peek(compute(value)) : value
 				})
 			})
 		}))
@@ -997,6 +1017,77 @@ function onCondition(sig, compute) {
 	let currentVal = null
 	let conditionMap = new Map()
 	let conditionValMap = new Map()
+
+	function getMatchSet(conditionVal) {
+		let matchSet = conditionMap.get(conditionVal)
+		if (!matchSet) {
+			matchSet = []
+			conditionMap.set(conditionVal, matchSet)
+		}
+		return matchSet
+	}
+
+	function removeEntry(key, entry) {
+		if (conditionValMap.get(key) !== entry) {
+			return
+		}
+		conditionValMap.delete(key)
+		removeFromArr(entry.matchSet, entry.matchSig)
+		if (!entry.matchSet.length) {
+			conditionMap.delete(entry.currentCondition)
+		}
+		entry.dispose()
+	}
+
+	function retainEntry(key, entry) {
+		if (!currentDisposers) {
+			entry.persistent = true
+			return
+		}
+
+		entry.refs += 1
+		currentDisposers.push(function () {
+			entry.refs -= 1
+			if (!entry.refs && !entry.persistent) {
+				removeEntry(key, entry)
+			}
+		})
+	}
+
+	function createEntry(key, condition, currentCondition) {
+		const entry = {
+			currentCondition,
+			dispose: null,
+			matchSet: getMatchSet(currentCondition),
+			matchSig: null,
+			persistent: false,
+			refs: 0
+		}
+
+		entry.dispose = untrack(function () {
+			return collectDisposers([], function () {
+				entry.matchSig = signal(currentCondition === currentVal, compute)
+				if (isSignal(condition)) {
+					condition.connect(function () {
+						removeFromArr(entry.matchSet, entry.matchSig)
+						if (!entry.matchSet.length) {
+							conditionMap.delete(entry.currentCondition)
+						}
+
+						entry.currentCondition = peek(condition)
+						entry.matchSet = getMatchSet(entry.currentCondition)
+						entry.matchSet.push(entry.matchSig)
+						entry.matchSig.value = entry.currentCondition === currentVal
+					}, false)
+				}
+			})
+		})
+
+		entry.matchSet.push(entry.matchSig)
+		conditionValMap.set(key, entry)
+		return entry
+	}
+
 	sig.connect(
 		pure(function() {
 			const newVal = peek(sig)
@@ -1019,68 +1110,22 @@ function onCondition(sig, compute) {
 	)
 
 	if (currentDisposers) {
-		_onDispose(function() {
+		currentDisposers.push(function() {
+			for (const entry of conditionValMap.values()) {
+				entry.dispose()
+			}
 			conditionMap = new Map()
 			conditionValMap = new Map()
 		})
 	}
 
 	function match(condition) {
-		let currentCondition = peek(condition)
-		let matchSet = conditionMap.get(currentCondition)
-		if (isSignal(condition)) {
-			let matchSig = conditionValMap.get(condition)
-			if (!matchSig) {
-				matchSig = signal(currentCondition === currentVal, compute)
-				conditionValMap.set(condition, matchSig)
-
-				condition.connect(function() {
-					currentCondition = peek(condition)
-					if (matchSet) {
-						removeFromArr(matchSet, matchSig)
-					}
-					matchSet = conditionMap.get(currentCondition)
-					if (!matchSet) {
-						matchSet = []
-						conditionMap.set(currentCondition, matchSet)
-					}
-					matchSet.push(matchSig)
-					matchSig.value = currentCondition === currentVal
-				})
-
-				if (currentDisposers) {
-					_onDispose(function() {
-						conditionValMap.delete(condition)
-						if (matchSet.length === 1) conditionMap.delete(currentCondition)
-						else removeFromArr(matchSet, matchSig)
-					})
-				}
-			}
-			return matchSig
-		} else {
-			if (!matchSet) {
-				matchSet = []
-				conditionMap.set(currentCondition, matchSet)
-			}
-			let matchSig = conditionValMap.get(currentCondition)
-			if (!matchSig) {
-				matchSig = signal(currentCondition === currentVal, compute)
-				conditionValMap.set(currentCondition, matchSig)
-				matchSet.push(matchSig)
-
-				if (currentDisposers) {
-					_onDispose(function() {
-						conditionValMap.delete(currentCondition)
-						if (matchSet.length === 1) {
-							conditionMap.delete(currentCondition)
-						} else {
-							removeFromArr(matchSet, matchSig)
-						}
-					})
-				}
-			}
-			return matchSig
-		}
+		const conditionIsSignal = isSignal(condition)
+		const currentCondition = peek(condition)
+		const key = conditionIsSignal ? condition : currentCondition
+		const entry = conditionValMap.get(key) || createEntry(key, condition, currentCondition)
+		retainEntry(key, entry)
+		return entry.matchSig
 	}
 
 	return match

@@ -135,6 +135,14 @@ function createHTMLRenderer({
 		removeFromArr(node.parent, node)
 		node.parent = null
 	}
+	function clearChildren(parent, first, last) {
+		const children = parent[FLAG_FRAG] ? parent : parent[3]
+		const childCount = children.length
+		if (children[0] !== first || children[childCount - 1] !== last) return false
+		for (let i = 0; i < childCount; i++) children[i].parent = null
+		children.length = 0
+		return true
+	}
 	function appendNode(parent, ...nodes) {
 		let _parent = parent
 		if (!parent[FLAG_FRAG]) {
@@ -152,6 +160,7 @@ function createHTMLRenderer({
 				_parent.push(...node)
 				node.length = 0
 			} else {
+				removeNode(node)
 				_parent.push(node)
 				node.parent = _parent
 			}
@@ -185,15 +194,14 @@ function createHTMLRenderer({
 		const [prefix, _key] = key.split(':')
 		if (_key) {
 			switch (prefix) {
-				case 'on': {
-					return nop
-				}
 				case 'attr': {
 					key = _key
 					break
 				}
 				default: {
-					// do nothing
+					if (prefix === 'on' || prefix.startsWith('on-')) {
+						return nop
+					}
 				}
 			}
 		}
@@ -205,7 +213,7 @@ function createHTMLRenderer({
 				propsNode.push(propNode)
 				val.connect(function () {
 					const newData = peek(val)
-					if (newData === undefined || newData === null) {
+					if (newData === undefined || newData === null || newData === false) {
 						propNode[0] = ''
 						propBody[1] = ''
 					} else if (newData === true) {
@@ -218,7 +226,7 @@ function createHTMLRenderer({
 				})
 			} else if (val === true) {
 				propsNode.push(` ${key}`)
-			} else if (val !== undefined && val !== null) {
+			} else if (val !== undefined && val !== null && val !== false) {
 				propsNode.push(` ${key}="${escapeHtml(val)}"`)
 			}
 		}
@@ -241,6 +249,7 @@ function createHTMLRenderer({
 		setProps,
 		insertBefore,
 		appendNode,
+		clearChildren,
 		removeNode,
 		rawHTML,
 		serialize

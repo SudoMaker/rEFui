@@ -26,7 +26,7 @@ Typical async fetch pattern
 ```javascript
 const loadUser = createDefer(idle)((commit) => {
 	const id = userId.value      // track dependency synchronously
-	return (async () => {
+	void (async () => {
 		const res = await fetch(`/api/users/${id}`)
 		commit(await res.json())
 	})()
@@ -40,9 +40,11 @@ Prebuilt helper using the default cancellable nextTick deferrer. Equivalent to `
 ```javascript
 import { deferred } from 'refui'
 
-const me = deferred(async (commit) => {
-	const res = await fetch('/api/me')
-	commit(await res.json())
+const me = deferred((commit) => {
+	void (async () => {
+		const res = await fetch('/api/me')
+		commit(await res.json())
+	})()
 })
 ```
 

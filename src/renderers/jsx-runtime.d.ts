@@ -47,7 +47,11 @@ export namespace JSX {
 	}
 
 	export type LibraryManagedAttributes<C, P> = P & {
-		children?: any
+		children?: 'children' extends keyof P
+			? P extends { children?: infer Children }
+				? Children
+				: never
+			: any
 		$ref?: RefProp
 	}
 }

@@ -18,11 +18,12 @@
  * under the License.
  */
 
-import type { MaybeSignal } from '../signal.js'
-import type { RenderFunction, ForProps, ForTemplate } from '../components.js'
+import type { MaybeSignal, Signal } from '../signal.js'
+import type { RenderFunction, ForProps, ForMethod } from '../components.js'
 
-export type UnKeyedProps<T = unknown> = Omit<ForProps<T>, 'entries'> & {
+export type UnKeyedProps<T = unknown> = Omit<ForProps<T>, 'entries' | 'track' | 'children'> & {
 	entries: MaybeSignal<T[]>
+	children?: ForMethod<Signal<T>>
 }
 
-export function UnKeyed<T = unknown>(props: UnKeyedProps<T>, template: ForTemplate<T>): RenderFunction
+export function UnKeyed<T = unknown>(props: UnKeyedProps<T>, method: ForMethod<Signal<T>>): RenderFunction

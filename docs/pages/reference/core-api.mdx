@@ -180,9 +180,9 @@ const Inspector = () => {
 };
 ```
 
-If the component gets disposed(usually unmounted) before the timeout resolves, `getSelf()` returns `null`, preventing the deferred callback from mutating state that no longer has a live context.
+If the component gets disposed (usually unmounted) before the timeout resolves, `getSelf()` returns `undefined`, preventing the deferred callback from mutating state that no longer has a live context.
 
-Think of `capture` (and the lower-level `freeze`) as rEFui's equivalent of `AsyncContext`: they carry the current component context across promises, timers, or other deferred callbacks—until the owning instance disposes, at which point the captured function reports `null` so you can bail out safely.
+Think of `capture` (and the lower-level `freeze`) as rEFui's equivalent of `AsyncContext`: they carry the current component context across promises, timers, or other deferred callbacks—until the owning instance disposes, at which point the captured function reports no current component so you can bail out safely.
 
 ### `snapshot()`
 
@@ -210,7 +210,7 @@ const MyComponent = () => {
 
 ### `contextValid`
 
-Boolean flag exported from `refui/signal` that indicates whether the current reactive scope is still active. Async helpers such as `<Async>` check this value to avoid rendering after their parent component has disposed. Inside deferred callbacks, guard on `contextValid` (or capture it through `freeze`/`capture`) before mutating signals or DOM.
+Boolean flag exported from `refui/signal` for the context currently executing. A frozen or captured callback runs with `contextValid === false` after its owner has disposed; the previous ambient value is restored when the callback returns. Async helpers such as `<Async>` use this guard to avoid rendering after their parent component has disposed.
 
 ### `getCurrentSelf()`
 

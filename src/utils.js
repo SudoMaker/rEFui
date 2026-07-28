@@ -27,11 +27,11 @@ export function nop() {}
 export function cached(handler) {
 	const store = new Map()
 	return function(arg) {
-		let val = store.get(arg)
-		if (!val) {
-			val = handler(arg)
-			store.set(arg, val)
+		if (store.has(arg)) {
+			return store.get(arg)
 		}
+		const val = handler(arg)
+		store.set(arg, val)
 		return val
 	}
 }
