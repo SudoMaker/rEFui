@@ -36,13 +36,13 @@ let effectQueue = []
 // Scheduler part
 
 function scheduleSignal(signalEffects) {
-	if (signalEffects.length <= 2) {
+	if (!signalEffects || signalEffects.length <= 2) {
 		return
 	}
 	return signalQueue.push(signalEffects)
 }
 function scheduleEffect(effects) {
-	if (effects.length <= 2) {
+	if (!effects || effects.length <= 2) {
 		return
 	}
 	return effectQueue.push(effects)
@@ -329,8 +329,6 @@ const Signal = class {
 		// effectStore: [id, delCount, ...effects]
 		// eslint-disable-next-line no-plusplus
 		const id = sigID++
-		const userEffects = [id, 0]
-		const signalEffects = [id, 0]
 		const disposeCtx = currentDisposers
 
 		const internals = {
@@ -338,8 +336,8 @@ const Signal = class {
 			value,
 			compute,
 			disposeCtx,
-			userEffects,
-			signalEffects
+			userEffects: null,
+			signalEffects: null
 		}
 
 		Object.defineProperty(this, '_', {
@@ -377,7 +375,10 @@ const Signal = class {
 
 	get connected() {
 		const { userEffects, signalEffects } = this._
-		return userEffects.length - userEffects[1] > 2 || signalEffects.length - signalEffects[1] > 2
+		return (
+			(userEffects !== null && userEffects.length - userEffects[1] > 2)
+			|| (signalEffects !== null && signalEffects.length - signalEffects[1] > 2)
+		)
 	}
 
 	touch() {
@@ -429,9 +430,17 @@ const Signal = class {
 		if (!effect) {
 			return
 		}
-		const { userEffects, signalEffects, disposeCtx } = this._
-		const effects = isPure(effect) ? signalEffects : userEffects
+		const internals = this._
+		const { disposeCtx } = internals
 		if (contextValid) {
+			let effects
+			if (isPure(effect)) {
+				effects = internals.signalEffects
+					?? (internals.signalEffects = [internals.id, 0])
+			} else {
+				effects = internals.userEffects
+					?? (internals.userEffects = [internals.id, 0])
+			}
 			const container = [effect]
 			effects.push(container)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
