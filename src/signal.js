@@ -147,29 +147,22 @@ function _dispose_raw() {
 	for (let i = 0; i < count; i++) this[i](true)
 	this.length = 0
 }
-function _dispose_with_callback(dispose_raw, batch) {
-	this(batch)
-	dispose_raw(batch)
-}
 function createDisposer(disposers, prevDisposers, cleanup) {
-	let _cleanup = _dispose_raw.bind(disposers)
-
-	if (cleanup) {
-		_cleanup = _dispose_with_callback.bind(cleanup, _cleanup)
+	function dispose(batch) {
+		if (!batch && prevDisposers) {
+			removeFromArr(prevDisposers, dispose)
+		}
+		if (cleanup) {
+			cleanup(batch)
+		}
+		_dispose_raw.call(disposers)
 	}
 
 	if (prevDisposers) {
-		const dispose = _cleanup
-		_cleanup = function (batch) {
-			if (!batch) {
-				removeFromArr(prevDisposers, _cleanup)
-			}
-			dispose(batch)
-		}
-		prevDisposers.push(_cleanup)
+		prevDisposers.push(dispose)
 	}
 
-	return _cleanup
+	return dispose
 }
 
 function collectDisposers(disposers, fn, cleanup) {
@@ -273,7 +266,7 @@ function freeze(
 	}
 ) {
 	if (currentDisposers) {
-		_onDispose(_invalidateFrozenState.bind(state))
+		currentDisposers.push(_invalidateFrozenState.bind(state))
 	}
 	return _frozen.bind(fn, state)
 }
@@ -442,7 +435,7 @@ const Signal = class {
 			const container = [effect]
 			effects.push(container)
 			if (currentDisposers && currentDisposers !== disposeCtx) {
-				_onDispose(function() {
+				currentDisposers.push(function() {
 					container[0] = null
 					if (!--effect.__refui_scheduled && effect.__refui_pending) {
 						effect.__refui_pending = false
@@ -1044,7 +1037,7 @@ function onCondition(sig, compute) {
 		}
 
 		entry.refs += 1
-		_onDispose(function () {
+		currentDisposers.push(function () {
 			entry.refs -= 1
 			if (!entry.refs && !entry.persistent) {
 				removeEntry(key, entry)
@@ -1108,7 +1101,7 @@ function onCondition(sig, compute) {
 	)
 
 	if (currentDisposers) {
-		_onDispose(function() {
+		currentDisposers.push(function() {
 			for (const entry of conditionValMap.values()) {
 				entry.dispose()
 			}

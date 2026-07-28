@@ -248,7 +248,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		if (disposers.size && renderedFragment) {
 			renderedRenderer.clearFragment(renderedFragment)
 		}
-		for (let [, _dispose] of disposers) _dispose(batch)
+		for (const _dispose of disposers.values()) _dispose(batch)
 		nodeCache = new Map()
 		disposers = new Map()
 		if (ks) ks = new Map()
@@ -465,10 +465,11 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 				if (newData) {
 					const newDataLength = newData.length
+					const newNodes = new Array(newDataLength)
 					for (let i = 0; i < newDataLength; i++) {
-						const node = getItemNode(newData[i])
-						if (node) R.appendNode(fragment, node)
+						newNodes[i] = getItemNode(newData[i])
 					}
+					R.appendNode(fragment, ...newNodes)
 				}
 
 				flushKS()

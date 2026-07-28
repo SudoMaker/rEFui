@@ -144,23 +144,54 @@ function createRenderer(nodeOps, rendererID) {
 		}
 	}
 
-	function appendNode(parent, ...nodes) {
+	function appendNodes(parent, nodes) {
 		const nodeCount = nodes.length
 		if (isFragment(parent)) {
-			const [, , anchorEnd] = fragmentMap.get(parent)
+			const [, children, anchorEnd] = fragmentMap.get(parent)
 			for (let i = 0; i < nodeCount; i++) {
-				insertBefore(nodes[i], anchorEnd)
+				const node = nodes[i]
+				removeNode(node)
+				parentMap.set(node, parent)
+				children.push(node)
+
+				if (isFragment(node)) {
+					const expanded = expandFragment(node)
+					const expandedLength = expanded.length
+					for (let j = 0; j < expandedLength; j++) {
+						insertBeforeRaw(expanded[j], anchorEnd)
+					}
+				} else {
+					insertBeforeRaw(node, anchorEnd)
+				}
 			}
 			return
 		} else {
+			let flattened = null
 			for (let i = 0; i < nodeCount; i++) {
-				removeNode(nodes[i])
-				parentMap.set(nodes[i], parent)
+				const node = nodes[i]
+				removeNode(node)
+				parentMap.set(node, parent)
+
+				if (isFragment(node)) {
+					const expanded = expandFragment(node)
+					if (expanded.length !== 1 || expanded[0] !== node) {
+						if (!flattened) flattened = nodes.slice(0, i)
+						flattened.push(...expanded)
+					} else if (flattened) {
+						flattened.push(node)
+					}
+				} else if (flattened) {
+					flattened.push(node)
+				}
 			}
-			const flattened = flattenChildren(nodes)
-			flattened.unshift(parent)
-			appendNodeRaw.apply(null, flattened)
+			const rawNodes = flattened || nodes
+			rawNodes.unshift(parent)
+			appendNodeRaw.apply(null, rawNodes)
 		}
+	}
+
+	function appendNode(parent, ...nodes) {
+		return appendNodes(parent, nodes)
 	}
 
 	function insertBefore(node, ref) {
@@ -207,7 +238,7 @@ function createRenderer(nodeOps, rendererID) {
 		if (Array.isArray(el)) {
 			if (el.length > 1) {
 				const fragment = createFragment('Array')
-				appendNode(fragment, ...normalizeChildren(el))
+				appendNodes(fragment, normalizeChildren(el))
 				return fragment
 			} else if (el.length === 1) {
 				return ensureElement(el[0])
@@ -273,9 +304,32 @@ function createRenderer(nodeOps, rendererID) {
 		return normalizedChildren
 	}
 
+	function normalizeElementChildren(children) {
+		if (children.length !== 1) return children.length ? normalizeChildren(children) : children
+
+		const child = children[0]
+		if (child === null || child === undefined) {
+			children.length = 0
+		} else if (isNode(child)) {
+			return children
+		} else if (isPrimitive(child)) {
+			const text = String(child)
+			if (text) {
+				children[0] = createTextNode(text)
+			} else {
+				children.length = 0
+			}
+		} else if (isSignal(child)) {
+			children[0] = createTextNode(child)
+		} else {
+			return normalizeChildren(children)
+		}
+		return children
+	}
+
 	function createElement(tag, props, ...children) {
 		if (typeof tag === 'string') {
-			const normalizedChildren = normalizeChildren(children)
+			const normalizedChildren = normalizeElementChildren(children)
 			const node = tag === Fragment ? createFragment('') : createNode(tag)
 
 			if (props) {
@@ -294,8 +348,7 @@ function createRenderer(nodeOps, rendererID) {
 			}
 
 			if (normalizedChildren.length) {
-				normalizedChildren.unshift(node)
-				appendNode.apply(null, normalizedChildren)
+				appendNodes(node, normalizedChildren)
 			}
 
 			return node
