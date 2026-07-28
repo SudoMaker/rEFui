@@ -308,7 +308,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 				const dispose = collectDisposers(
 					[],
 					function () {
-						node = R.c(itemTemplate, { item, index: idxSig }) || R.createAnchor()
+						node = R.ensureElement(itemTemplate({ item, index: idxSig })) || R.createAnchor()
 						nodeCache.set(itemKey, node)
 					},
 					function (batch) {
@@ -527,6 +527,9 @@ function _dynContainer(name, catchErr, ctx, props, ...children) {
 
 			current = component
 			renderFn = function (R) {
+				if (!hotEnabled && typeof component === 'function' && !props.$ref) {
+					return R.ensureElement(component(props, ...children))
+				}
 				return R.c(component, props, ...children)
 			}
 

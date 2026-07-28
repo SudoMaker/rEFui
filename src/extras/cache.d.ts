@@ -37,4 +37,10 @@ export interface CacheStore<T = any> {
 	Cached: ComponentTemplate<{ expose?: (api: CacheExpose) => void }>
 }
 
+/**
+ * Creates retained cache slots for an item template. When HMR is inactive and
+ * an item's props do not request a truthy `$ref`, the template is invoked
+ * directly inside its retained slot scope. Ref and HMR cases retain a nested
+ * component boundary.
+ */
 export function createCache<T = any>(template: ComponentTemplate<T>): CacheStore<T>

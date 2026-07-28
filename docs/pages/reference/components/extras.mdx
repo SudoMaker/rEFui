@@ -36,7 +36,7 @@ Provides a cache system for efficiently managing and rendering lists of componen
 ```jsx
 import { createCache } from 'refui/extras'
 
-// 1. Define a template component for items in the cache
+// 1. Define the item template
 const ItemTemplate = ({ name, id }) => <div>Item: {name} (ID: {id})</div>;
 
 const App = () => {
@@ -75,6 +75,8 @@ const App = () => {
 - `dispose()`: Permanently disposes active and pooled component scopes and releases their resources.
 
 `clear()` and `del()` move component slots into the reuse pool; they intentionally keep those scopes alive. Call `dispose()` when the cache itself is no longer needed. Updating or reusing a slot replaces its rendered item subtree with the new props while retaining the cache slot and list position. Disposal is permanent and idempotent; later mutation calls are ignored.
+
+Each retained cache slot remains a component. When HMR is inactive and an item's props do not contain a truthy `$ref`, its template is invoked directly inside that slot's replacement scope, avoiding a redundant nested component wrapper while preserving signals, effects, and cleanup. Supplying a truthy `$ref` uses full component construction and assigns the nested template instance to the ref. HMR builds also retain full component construction so the template remains replaceable.
 
 ## Portal
 

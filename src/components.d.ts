@@ -78,15 +78,16 @@ export interface ForProps<T = unknown> {
 	indexed?: boolean
 	name?: string
 	expose?: (api: ForExpose<T>) => void
-	children?: ForTemplate<T>
+	children?: ForMethod<T>
 }
 
-export type ForTemplate<T = unknown> = (
-	input: { item: T; index: Signal<number> },
-	...children: any[]
-) => PossibleRender
+/**
+ * Creates one retained list item. For invokes this method directly inside the
+ * item's disposal scope; it is not constructed as a Component.
+ */
+export type ForMethod<T = unknown> = (input: { item: T; index: Signal<number> }) => PossibleRender
 
-export function For<T = unknown>(props: ForProps<T>, template: ForTemplate<T>): RenderFunction
+export function For<T = unknown>(props: ForProps<T>, method: ForMethod<T>): RenderFunction
 
 export interface IfProps {
 	condition?: MaybeSignal<any> | (() => any) | any
@@ -101,11 +102,24 @@ export interface DynamicExpose {
 }
 
 export interface DynamicProps {
-	is: MaybeSignal<ComponentTemplate<any> | Component<any> | null | undefined>
+	/**
+	 * A component template or renderer tag name. Component instances belong in
+	 * {@link Render}, not Dynamic.
+	 */
+	is: MaybeSignal<ComponentTemplate<any> | string | null | undefined>
+	/**
+	 * Requests the concrete component instance or host node. Supplying it keeps
+	 * the selected value on the renderer's full component-construction path.
+	 */
 	current?: Signal<unknown> | ((value: unknown) => void)
 	[key: string]: any
 }
 
+/**
+ * Function selections without a truthy ref are invoked in Dynamic's
+ * replacement scope when HMR is inactive. Truthy-ref and HMR selections
+ * retain the renderer's component-construction path.
+ */
 export function Dynamic(props: DynamicProps, ...children: any[]): RenderFunction
 
 export interface AsyncProps<T = unknown, E = unknown> {

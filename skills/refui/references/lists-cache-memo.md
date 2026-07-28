@@ -10,6 +10,7 @@ Prefer `<For>` when:
 Key concepts:
 - **Keyed identity**: use `track="id"` (or equivalent) when items have stable IDs.
 - **Indexed**: use `indexed` when you need the index as a reactive value (index changes should propagate without rebuilding items).
+- **Item method**: the child is called directly in each item's retained disposal scope; it is not a component boundary of its own.
 - **No `fallback` prop**: `For` does not accept `fallback`. Use `If` to render empty states.
 
 In-place mutations:
@@ -58,6 +59,10 @@ Prefer caching primitives when:
 Common tools (names vary by version; confirm with MCP):
 - `createCache` / `Cached` (extras) for reusing built fragments
 - `memo` / `useMemo` (components) for reusing component results across parents (not for everyday fine-grained updates)
+
+`createCache` keeps a component scope for every retained slot. Outside HMR, its
+item template is invoked directly in that scope unless the item requests a
+truthy `$ref`; ref and HMR cases retain the nested component boundary.
 
 Rule of thumb:
 - Do not reach for memoization as the first performance tool. rEFui already updates surgically via signals.

@@ -19,6 +19,7 @@ temp/
 dist/*
 test/*.dev.js
 test/*.dev.js.map
+docs/pages/.methanol/*
 
 # node modules
 node_modules/

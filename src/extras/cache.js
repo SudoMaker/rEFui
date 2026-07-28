@@ -20,6 +20,7 @@
 
 import { signal, untrack, onDispose } from 'refui/signal'
 import { createComponent, dispose as disposeComponent, Fn, For, render } from 'refui/components'
+import { hotEnabled } from 'refui/hmr'
 import { markStatic } from 'refui/utils'
 
 function createCache(tpl) {
@@ -36,6 +37,9 @@ function createCache(tpl) {
 			return Fn({ name: 'CacheEntry' }, function () {
 				const props = currentData.get()
 				return function (R) {
+					if (!hotEnabled && !props?.$ref) {
+						return R.ensureElement(tpl(props))
+					}
 					return R.c(tpl, props)
 				}
 			})
