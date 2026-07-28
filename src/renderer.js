@@ -43,6 +43,7 @@ function createRenderer(nodeOps, rendererID) {
 		removeNode: removeNodeRaw,
 		appendNode: appendNodeRaw,
 		insertBefore: insertBeforeRaw,
+		clearChildren: clearChildrenRaw,
 		setProps,
 	} = nodeOps
 
@@ -87,6 +88,35 @@ function createRenderer(nodeOps, rendererID) {
 
 		flags.connected = true
 		return [node]
+	}
+
+	function disconnectClearedNode(node) {
+		parentMap.delete(node)
+		if (isFragment(node)) {
+			const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
+			if (flags.connected) {
+				const expanded = _expandFragment(anchorStart, children, anchorEnd, flags)
+				expanded.unshift(node)
+				appendNodeRaw.apply(null, expanded)
+				flags.connected = false
+			}
+		}
+	}
+
+	function clearFragment(node) {
+		if (!clearChildrenRaw || !isFragment(node)) return false
+
+		const parent = parentMap.get(node)
+		if (!parent || isFragment(parent)) return false
+
+		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
+		if (!flags.connected || !clearChildrenRaw(parent, anchorStart, anchorEnd)) return false
+
+		const childCount = children.length
+		for (let i = 0; i < childCount; i++) disconnectClearedNode(children[i])
+		children.length = 0
+		appendNodeRaw(parent, anchorStart, anchorEnd)
+		return true
 	}
 
 	function removeNode(node) {
@@ -297,6 +327,7 @@ function createRenderer(nodeOps, rendererID) {
 		normalizeChildren,
 		isFragment,
 		expandFragment,
+		clearFragment,
 		createFragment,
 		createElement,
 		ensureElement,

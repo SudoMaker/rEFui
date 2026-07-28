@@ -58,6 +58,11 @@ The child of a `<For>` component can be a **component** or a **function** that r
 -   **Component:** Pass a component function directly. It will receive `item` and `index` as props. This is the recommended approach for better code organization.
 -   **Function:** Pass a function that takes `item` and `index` as arguments (destructured from a props object) and returns a node.
 
+When a cleared list owns its parent’s complete child range and the host renderer
+supports guarded bulk clearing, `For` clears that range once while still
+running every item cleanup. Lists with siblings, and renderers without the
+optional capability, use ordinary individual removal.
+
 Items are tracked by the value of each entry by default, but when you're replacing the whole array by loading it from other sources, provide a `track` prop with the name of the key property in your data objects. Keys must be unique within the list. You can also set `indexed={true}` to receive a signal containing the item's current index in the child props object: `({ item, index })`.
 
 **Note**: If you directly modify a non-signal property on an `item` from the list, the UI will not update. For lists with reactive items that need granular updates, use the [`UnKeyed`](extras.mdx#unkeyed) component instead.

@@ -150,6 +150,11 @@ function createDOMRenderer({
 	function removeNode(node) {
 		node.parentNode?.removeChild(node)
 	}
+	function clearChildren(parent, first, last) {
+		if (parent.firstChild !== first || parent.lastChild !== last) return false
+		parent.textContent = ''
+		return true
+	}
 	function appendNode(parent, ...nodes) {
 		const nodeCount = nodes.length
 		for (let i = 0; i < nodeCount; i++) {
@@ -299,6 +304,7 @@ function createDOMRenderer({
 		setProps,
 		insertBefore,
 		appendNode,
+		clearChildren,
 		removeNode,
 		macros,
 		useMacro

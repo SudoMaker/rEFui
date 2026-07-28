@@ -27,6 +27,7 @@ export interface BaseNodeOps<Node = unknown, Fragment = unknown> {
 	createAnchor(name?: string | null): Node
 	createFragment(name?: string | null): Fragment
 	removeNode(node: Node | Fragment): void
+	clearChildren?(parent: Node | Fragment, first: Node, last: Node): boolean
 	appendNode(parent: Node | Fragment, ...children: Array<Node | Fragment>): void
 	insertBefore(node: Node | Fragment, ref: Node | Fragment): void
 	setProps(node: Node | Fragment, props: Record<string, unknown>): void
@@ -42,6 +43,7 @@ export interface RendererCore<Node = unknown, Fragment = unknown> extends BaseNo
 	isFragment(value: unknown): value is Fragment
 	createFragment(name?: string | null): Fragment
 	expandFragment(node: Fragment): Array<Node | Fragment>
+	clearFragment(node: Fragment): boolean
 	normalizeChildren(children: unknown[]): Array<Node | Fragment>
 	createElement<P = any>(tag: any, props?: P, ...children: any[]): Node | Fragment | null
 	ensureElement(value: unknown): Node | Fragment | null

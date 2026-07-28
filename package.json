@@ -18,7 +18,9 @@
       ]
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "keywords": [
     "refui",
     "refuel",

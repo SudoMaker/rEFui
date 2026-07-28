@@ -30,6 +30,7 @@ const customRenderer = createRenderer({
 	createAnchor: (text) => /* create anchor/comment */,
 	createFragment: () => /* create fragment */,
 	removeNode: (node) => /* remove node */,
+	clearChildren: (parent, first, last) => /* optional guarded bulk clear */,
 	appendNode: (parent, ...children) => /* append children */,
 	insertBefore: (node, ref) => /* insert before reference */,
 	setProps: (node, props) => /* set properties */
@@ -82,6 +83,23 @@ Creates a fragment for grouping elements.
 ```jsx
 const fragment = renderer.createFragment('MyFragment');
 renderer.appendNode(fragment, element1, element2);
+```
+
+### `renderer.clearFragment(fragment)`
+
+Attempts to remove every rendered child of a connected fragment in one host
+operation. It returns `true` only when the host renderer implements
+`nodeOps.clearChildren` and confirms that the fragment owns the complete child
+range of its parent. Fragment anchors are restored automatically.
+
+When the method returns `false`, callers must use ordinary node removal. The
+built-in `For` component does this automatically, so sibling content is never
+bulk-cleared.
+
+```js
+if (!renderer.clearFragment(fragment)) {
+	// Fall back to removing the fragment's children individually.
+}
 ```
 
 ### `renderer.ensureElement(value)`

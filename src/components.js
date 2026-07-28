@@ -241,8 +241,13 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 	let ks = indexed && new Map()
 	let nodeCache = new Map()
 	let disposers = new Map()
+	let renderedFragment = null
+	let renderedRenderer = null
 
 	function _clear(batch) {
+		if (disposers.size && renderedFragment) {
+			renderedRenderer.clearFragment(renderedFragment)
+		}
 		for (let [, _dispose] of disposers) _dispose(batch)
 		nodeCache = new Map()
 		disposers = new Map()
@@ -288,6 +293,8 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 
 	return function (R) {
 		const fragment = R.createFragment(name)
+		renderedFragment = fragment
+		renderedRenderer = R
 
 		function getItemNode(itemKey) {
 			let node = nodeCache.get(itemKey)

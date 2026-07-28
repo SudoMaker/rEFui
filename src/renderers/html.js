@@ -135,6 +135,14 @@ function createHTMLRenderer({
 		removeFromArr(node.parent, node)
 		node.parent = null
 	}
+	function clearChildren(parent, first, last) {
+		const children = parent[FLAG_FRAG] ? parent : parent[3]
+		const childCount = children.length
+		if (children[0] !== first || children[childCount - 1] !== last) return false
+		for (let i = 0; i < childCount; i++) children[i].parent = null
+		children.length = 0
+		return true
+	}
 	function appendNode(parent, ...nodes) {
 		let _parent = parent
 		if (!parent[FLAG_FRAG]) {
@@ -241,6 +249,7 @@ function createHTMLRenderer({
 		setProps,
 		insertBefore,
 		appendNode,
+		clearChildren,
 		removeNode,
 		rawHTML,
 		serialize
