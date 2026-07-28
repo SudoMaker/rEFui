@@ -275,7 +275,7 @@ function createRenderer(nodeOps, rendererID) {
 
 		if (isStatic(tag)) {
 			const { $ref, ..._props } = props ?? nullRefObject
-			if ($ref) {
+			if (!$ref) {
 				return ensureElement(tag(_props, ...children))
 			}
 		}

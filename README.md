@@ -128,7 +128,7 @@ DOMRenderer.render(document, App)
 
 ## JSX configurations
 
-For detailed instructions on configuring JSX for your project, please see the [JSX Setup Guide](docs/pages/JSX.md).
+For detailed instructions on configuring JSX for your project, see the [JSX Setup Guide](docs/pages/guides/jsx-setup.mdx).
 
 ## Hot Module Replacement
 
@@ -172,8 +172,8 @@ export default defineConfig({
 export default defineConfig({
 	plugins: [refurbish()],
 	esbuild: {
-		jsx: 'automatic'
-		jsxImportSource: `refui`
+		jsx: 'automatic',
+		jsxImportSource: 'refui'
 	}
 })
 ```
@@ -184,13 +184,13 @@ Notes:
 
 ## Built-in Components
 
-See [Components](docs/pages/Components.md)
+See [Components](docs/pages/concepts/components.mdx).
 
 ## Renderers
 
-- [DOM](docs/pages/DOMRenderer.md): `refui/dom`
-- [HTML](docs/pages/HTMLRenderer.md): `refui/html`
-- [Reflow](docs/pages/JSX.md): Composing logic without concerning about UI
+- [DOM](docs/pages/guides/dom-renderer.mdx): `refui/dom`
+- [HTML](docs/pages/guides/html-renderer.mdx): `refui/html`
+- [Reflow](docs/pages/guides/jsx-setup.mdx): compose render-agnostic logic before selecting a host renderer
 
 ## CDN
 
@@ -269,7 +269,7 @@ Activate the skill:
 
 ## MCP
 
-AI agents may not have full understaings of how rEFui works and how to use it correctly. Luckily, [MCP](https://modelcontextprotocol.io/docs/getting-started/intro)s that provide the latest docs can greatly help on this problem.
+AI agents may not have a complete understanding of rEFui. [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) documentation providers can supply current reference material.
 
 rEFui docs MCP are currently available on [DeepWiki](https://deepwiki.com/SudoMaker/rEFui) and [Context7](https://context7.com/sudomaker/refui).
 

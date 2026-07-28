@@ -49,8 +49,17 @@ const createElement = (function() {
 			if (!$ref && typeof component === 'function') {
 				const renderer = component(_props, ...children)
 				if (isThenable(renderer)) {
-					const { fallback, catch: catchErr, onLoad, suspensed = true, __props } = props
-					return _asyncContainer.bind(renderer, 'Future', fallback, catchErr, onLoad, suspensed, __props, children)
+					const { fallback, catch: catchErr, onLoad, suspensed = true, ...asyncProps } = _props
+					return _asyncContainer.bind(
+						renderer,
+						'Future',
+						fallback,
+						catchErr,
+						onLoad,
+						suspensed,
+						asyncProps,
+						children
+					)
 				}
 
 				return renderer

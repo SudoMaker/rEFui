@@ -49,7 +49,7 @@ export type ContextProvider<T = unknown> = (props: ContextProps<T>, ...children:
 export function createContext<T = unknown>(defaultValue: T, name?: string): ContextProvider<T>
 export function useContext<T = unknown>(Context: ContextProvider<T>): T
 
-export function lazy<T = any>(loader: () => PromiseLike<T> | T, symbol?: string | null): ComponentTemplate<any>
+export function lazy<T = any>(loader: () => PromiseLike<T> | T, symbol?: PropertyKey | null): ComponentTemplate<any>
 
 export function memo<T extends (...args: any[]) => any>(fn: T): (...args: Parameters<T>) => ReturnType<T>
 export function useMemo<T extends (...args: any[]) => any>(fn: T): () => (...args: Parameters<T>) => ReturnType<T>
@@ -78,11 +78,13 @@ export interface ForProps<T = unknown> {
 	indexed?: boolean
 	name?: string
 	expose?: (api: ForExpose<T>) => void
+	children?: ForTemplate<T>
 }
 
-export type ForTemplate<T = unknown> =
-	| ComponentTemplate<any>
-	| ((input: { item: T; index: Signal<number> }) => PossibleRender)
+export type ForTemplate<T = unknown> = (
+	input: { item: T; index: Signal<number> },
+	...children: any[]
+) => PossibleRender
 
 export function For<T = unknown>(props: ForProps<T>, template: ForTemplate<T>): RenderFunction
 
@@ -107,7 +109,7 @@ export interface DynamicProps {
 export function Dynamic(props: DynamicProps, ...children: any[]): RenderFunction
 
 export interface AsyncProps<T = unknown, E = unknown> {
-	future: PromiseLike<T> | T
+	future: PromiseLike<T> | T | (() => PromiseLike<T> | T)
 	fallback?: MaybeSignal<PossibleRender | ((props: Record<string, unknown>, ...children: any[]) => PossibleRender)>
 	catch?: MaybeSignal<PossibleRender | ((props: Record<string, unknown> & { error: E }, ...children: any[]) => PossibleRender)>
 	suspensed?: boolean

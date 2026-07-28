@@ -19,56 +19,89 @@
  */
 
 import { signal, untrack, onDispose } from 'refui/signal'
-import { createComponent, For, render } from 'refui/components'
+import { createComponent, dispose as disposeComponent, Fn, For, render } from 'refui/components'
 import { markStatic } from 'refui/utils'
 
 function createCache(tpl) {
 	let dataArr = []
 	const componentsArr = []
 	const components = signal(componentsArr)
+	const componentUpdates = new WeakMap()
 	let componentCache = []
+	let disposed = false
+
+	function createCacheComponent(data) {
+		const currentData = signal(data)
+		const component = createComponent(function CacheEntry() {
+			return Fn({ name: 'CacheEntry' }, function () {
+				const props = currentData.get()
+				return function (R) {
+					return R.c(tpl, props)
+				}
+			})
+		})
+		componentUpdates.set(component, currentData.set.bind(currentData))
+		return component
+	}
+
+	function updateComponent(component, data) {
+		componentUpdates.get(component)(data)
+	}
+
+	function acquire(data) {
+		const component = componentCache.pop()
+		if (component) {
+			updateComponent(component, data)
+			return component
+		}
+		return createCacheComponent(data)
+	}
 
 	function getIndex(handler) {
 		return dataArr.findIndex(handler)
 	}
 	function add(...newData) {
-		if (!newData.length) return
+		if (disposed || !newData.length) return
 		for (let i of newData) {
-			let component = componentCache.pop()
-			if (!component) component = createComponent(tpl, i)
-			componentsArr.push(component)
-			component.update(i)
+			componentsArr.push(acquire(i))
 			dataArr.push(i)
 		}
 		components.trigger()
 	}
 	function replace(newData) {
+		if (disposed) return
 		let idx = 0
-		dataArr = newData.slice()
 		const newDataLength = newData.length
 		const componentsLength = componentsArr.length
 		while (idx < newDataLength && idx < componentsLength) {
-			componentsArr[idx].update(newData[idx])
+			updateComponent(componentsArr[idx], newData[idx])
 			idx += 1
 		}
 		if (idx < newDataLength) {
-			add(...newData.slice(idx))
+			while (idx < newDataLength) {
+				componentsArr.push(acquire(newData[idx]))
+				idx += 1
+			}
+			components.trigger()
 		} else if (idx < componentsLength) {
-			componentsArr.length = idx
+			componentCache.push(...componentsArr.splice(idx))
 			components.trigger()
 		}
+		dataArr = newData.slice()
 	}
 	function get(idx) {
 		return dataArr[idx]
 	}
 	function set(idx, data) {
+		if (disposed) return
 		const component = componentsArr[idx]
 		if (component) {
-			component.update(data)
+			updateComponent(component, data)
 			dataArr[idx] = data
 		}
 	}
 	function del(idx) {
+		if (disposed) return
 		const component = componentsArr[idx]
 		if (component) {
 			componentCache.push(component)
@@ -78,6 +111,11 @@ function createCache(tpl) {
 		}
 	}
 	function clear() {
+		if (disposed) return
+		if (!componentsArr.length) {
+			dataArr.length = 0
+			return
+		}
 		componentCache = componentCache.concat(componentsArr)
 		componentsArr.length = 0
 		dataArr.length = 0
@@ -88,16 +126,21 @@ function createCache(tpl) {
 	}
 
 	function dispose() {
-		clear()
-		const arrCopy = componentsArr.slice()
+		if (disposed) return
+		disposed = true
+		const arrCopy = componentCache.concat(componentsArr)
+		componentCache = []
+		componentsArr.length = 0
+		dataArr.length = 0
+		components.trigger()
 		const count = arrCopy.length
-		for (let i = 0; i < count; i++) dispose(arrCopy[i])
+		for (let i = 0; i < count; i++) disposeComponent(arrCopy[i])
 	}
 
 	onDispose(dispose)
 
 	function Cached({ expose }) {
-		return function() {
+		return function(R) {
 			const cache = new WeakMap()
 			expose?.({ cache })
 			return For({ name: 'Cached', entries: components }, function({ item }) {

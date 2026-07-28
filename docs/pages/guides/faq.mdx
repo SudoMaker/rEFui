@@ -67,7 +67,7 @@ Effects/computed signals flush at the end of the tick. Use `nextTick`/`await nex
 Pass an `expose` prop to children; inside the child call `expose({ api… })`. This replaces the older global expose pattern and stays stable across async boundaries.
 
 ## How do I portal content across the tree?
-Use `createPortal()` from `refui/extras`; it returns `[Inlet, Outlet]`. Render `<Inlet>` where you produce content and `<Outlet>` where you consume it. Portals are renderer-agnostic. With Reflow renderer, you can even input from a DOM renderer and output to a HTML renderer, and vise versa.
+Use `createPortal()` from `refui/extras`; it returns `[Inlet, Outlet]`. Render `<Inlet>` where you produce content and `<Outlet>` where you consume it. Portals are renderer-agnostic. With the Reflow renderer, you can even input from a DOM renderer and output to an HTML renderer, and vice versa.
 
 ## How does HMR work?
 Use the `refurbish` plugin (Vite/Webpack/Rspack). Components are retained; state survives reloads. You don’t need `import.meta.hot` boilerplate in components.

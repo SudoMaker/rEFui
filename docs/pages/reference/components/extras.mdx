@@ -72,6 +72,9 @@ const App = () => {
 - `clear()`: Removes all items.
 - `size()`: Returns the number of items in the cache.
 - `getIndex(handler)`: Finds the index of an item using a handler function.
+- `dispose()`: Permanently disposes active and pooled component scopes and releases their resources.
+
+`clear()` and `del()` move component slots into the reuse pool; they intentionally keep those scopes alive. Call `dispose()` when the cache itself is no longer needed. Updating or reusing a slot replaces its rendered item subtree with the new props while retaining the cache slot and list position. Disposal is permanent and idempotent; later mutation calls are ignored.
 
 ## Portal
 
@@ -242,16 +245,16 @@ const codeParser = ({ source }) => {
 	return (R) => {
 		const code = read(source)
 
-		// Simple syntax highlighting for keywords
-		const keywords = ['function', 'const', 'let', 'var', 'if', 'else', 'return']
-		let highlightedCode = code
-
-		keywords.forEach(keyword => {
-			const regex = new RegExp(`\b${keyword}\b`, 'g')
-			highlightedCode = highlightedCode.replace(regex, `<span class="keyword">${keyword}</span>`)
-		})
-
-		return R.c('pre', { innerHTML: highlightedCode })
+		// Split into text and keyword tokens so source remains escaped by the renderer.
+		const keywordPattern = /\b(function|const|let|var|if|else|return)\b/g
+		const parts = code.split(keywordPattern)
+		return R.c(
+			'pre',
+			null,
+			...parts.map((part, index) =>
+				index % 2 ? R.c('span', { class: 'keyword' }, part) : part
+			)
+		)
 	}
 }
 
@@ -302,28 +305,34 @@ const App = () => {
 import { Parse } from 'refui/extras'
 import { signal, read } from 'refui'
 
-// HTML-like parser that converts custom tags to components
+// HTML-like parser that converts custom tokens to renderer nodes
 const customHtmlParser = ({ source }) => {
 	return (R) => {
-		const text = read(source)
+		const text = String(read(source) ?? '')
+		const tokenPattern = /\[button:([^\]]+)\]|\[link:([^|\]]+)\|([^\]]+)\]/g
+		const nodes = []
+		let cursor = 0
 
-		// Convert [button:text] to actual button elements
-		const buttonRegex = /\ \[button:(.*?)\]/g
-		const linkRegex = /\ \[link:(.*?)\|(.*?)\]/g
+		for (const match of text.matchAll(tokenPattern)) {
+			nodes.push(text.slice(cursor, match.index))
+			if (match[1]) {
+				const label = match[1]
+				nodes.push(R.c('button', {
+					'on:click': () => alert(`${label} clicked!`)
+				}, label))
+			} else {
+				const href = /^https?:\/\//i.test(match[2]) ? match[2] : '#'
+				nodes.push(R.c('a', {
+					href,
+					target: '_blank',
+					rel: 'noopener noreferrer'
+				}, match[3]))
+			}
+			cursor = match.index + match[0].length
+		}
 
-		let result = text
-
-		// Replace button syntax
-		result = result.replace(buttonRegex, (match, buttonText) => {
-			return `<button onclick="alert('${buttonText} clicked!')">${buttonText}</button>`
-		})
-
-		// Replace link syntax
-		result = result.replace(linkRegex, (match, url, linkText) => {
-			return `<a href="${url}" target="_blank">${linkText}</a>`
-		})
-
-		return R.c('div', { innerHTML: result })
+		nodes.push(text.slice(cursor))
+		return R.c('div', null, ...nodes)
 	}
 }
 
@@ -344,7 +353,7 @@ const CustomHtmlDemo = () => {
 			<Parse source={content} parser={customHtmlParser} />
 
 			<textarea
-			ows="6"
+				rows="6"
 				cols="60"
 				value={content}
 				on:input={(e) => content.value = e.target.value}
@@ -361,7 +370,7 @@ The `Parse` component includes automatic memoization that prevents unnecessary r
 
 ```jsx
 import { Parse } from 'refui/extras'
-import { signal, read } from 'refui'
+import { signal, read, useEffect } from 'refui'
 
 const expensiveParser = ({ source }) => {
 	return (R) => {
@@ -371,7 +380,7 @@ const expensiveParser = ({ source }) => {
 
 		// Simulate expensive parsing operation
 		const words = text.split(' ')
-		return words.map((word, index)
+		return words.map((word, index) =>
 			R.c('span', {
 				key: index,
 				style: `color: hsl(${index * 30}, 70%, 50%);`
@@ -385,7 +394,10 @@ const PerformanceDemo = () => {
 	const counter = signal(0)
 
 	// This counter update won't trigger re-parsing because the parser only reads `text`
-	setInterval(() => counter.value++, 1000)
+	useEffect(() => {
+		const timer = setInterval(() => counter.value++, 1000)
+		return () => clearInterval(timer)
+	})
 
 	return (
 		<div>
