@@ -18,6 +18,7 @@
  * under the License.
  */
 
+import { EffectScope } from './signal.js'
 import type { MaybeSignal, Signal } from './signal.js'
 import type { Renderer } from './renderer.js'
 
@@ -182,7 +183,7 @@ export interface RenderProps {
 
 export function Render(props: RenderProps): RenderFunction
 
-export class Component<P = any> {
+export class Component<P = any> extends EffectScope {
 	constructor(template: ComponentTemplate<P>, props?: P, ...children: any[])
 }
 

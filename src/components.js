@@ -28,7 +28,8 @@ import {
 	freeze,
 	signal,
 	isSignal,
-	contextValid
+	contextValid,
+	EffectScope
 } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
 import { nop, emptyArr, removeFromArr, isThenable, markStatic, nullRefObject } from 'refui/utils'
@@ -80,12 +81,12 @@ function render(instance, R) {
 		return
 	}
 
-	const { run, render: renderComponent } = ctx
+	const renderComponent = ctx.render
 	if (!renderComponent || typeof renderComponent !== 'function') {
 		return R.ensureElement(renderComponent)
 	}
 
-	return run(renderComponent, R)[0]
+	return runComponentScope(ctx, renderComponent, R)[0]
 }
 
 function dispose(instance) {
@@ -94,7 +95,7 @@ function dispose(instance) {
 		return
 	}
 
-	ctx.dispose()
+	ctx.destroy()
 }
 
 function getCurrentSelf() {
@@ -155,7 +156,7 @@ function useMemo(fn) {
 
 function dummyRun(fn, R) {
 	let result = null
-	const cleanup = collectDisposers([], function () {
+	const cleanup = collectDisposers(function () {
 		result = R.ensureElement(fn())
 	})
 	return [result, cleanup]
@@ -169,7 +170,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 		catchErr = handleErr
 	}
 
-	const run = currentCtx?.run ?? dummyRun
+	const ownerCtx = currentCtx
 
 	return function (R) {
 		const fragment = R.createFragment(name)
@@ -194,7 +195,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 				currentRender = newRender
 				if (newRender !== undefined && newRender !== null) {
 					const prevDispose = currentDispose
-					currentDispose = run(function () {
+					const renderReplacement = function () {
 						let newResult = null
 						let errored = false
 						try {
@@ -221,7 +222,11 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 								onDispose(prevDispose)
 							}
 						}
-					}, R)[1]
+					}
+					const renderResult = ownerCtx
+						? runComponentScope(ownerCtx, renderReplacement, R)
+						: dummyRun(renderReplacement, R)
+					currentDispose = renderResult[1]
 				} else {
 					currentDispose?.()
 					currentDispose = null
@@ -243,15 +248,20 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 	let disposers = new Map()
 	let renderedFragment = null
 	let renderedRenderer = null
+	let cleared = false
 
 	function _clear(batch) {
-		if (disposers.size && renderedFragment) {
-			renderedRenderer.clearFragment(renderedFragment)
+		try {
+			if (disposers.size && renderedFragment) {
+				cleared = renderedRenderer.clearFragment(renderedFragment)
+			}
+			for (const _dispose of disposers.values()) _dispose(batch)
+			nodeCache = new Map()
+			disposers = new Map()
+			if (ks) ks = new Map()
+		} finally {
+			cleared = false
 		}
-		for (const _dispose of disposers.values()) _dispose(batch)
-		nodeCache = new Map()
-		disposers = new Map()
-		if (ks) ks = new Map()
 	}
 
 	function flushKS() {
@@ -264,11 +274,11 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		}
 	}
 
-	onDispose(_clear)
+	onDispose(_clear.bind(null, true))
 
 	function clear() {
 		if (!currentData.length) return
-		_clear()
+		_clear(true)
 		if (kv) kv = new Map()
 		currentData = []
 		if (isSignal(entries) && entries.peek()?.length) entries.set([])
@@ -306,12 +316,15 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 					ks.set(itemKey, idxSig)
 				}
 				const dispose = collectDisposers(
-					[],
 					function () {
 						node = R.ensureElement(itemTemplate({ item, index: idxSig })) || R.createAnchor()
 						nodeCache.set(itemKey, node)
 					},
 					function (batch) {
+						if (cleared) {
+							return
+						}
+
 						if (!batch) {
 							nodeCache.delete(itemKey)
 							disposers.delete(itemKey)
@@ -319,7 +332,9 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 							if (kv) kv.delete(itemKey)
 						}
 						R.removeNode(node)
-					}
+					},
+					[],
+					null
 				)
 				disposers.set(itemKey, dispose)
 			}
@@ -351,7 +366,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 					const obsoleteDataKeys = [...new Set([...currentData, ...oldData])].slice(currentDataLength)
 
 					if (obsoleteDataKeys.length === oldData.length) {
-						_clear()
+						_clear(true)
 						newData = currentData
 					} else {
 						const obsoleteDataKeysLength = obsoleteDataKeys.length
@@ -854,7 +869,7 @@ function Transition(
 				pendingElement = null
 			}
 
-			pendingDispose = _dispose = collectDisposers([], function () {
+			pendingDispose = _dispose = collectDisposers(function () {
 				pendingElement = _element = Suspense(
 					{ name: 'TransitionContainer', onLoad, catch: catchErr ?? handleErr, state },
 					function () {
@@ -905,67 +920,90 @@ function Render({ from }) {
 }
 markStatic(Render)
 
-class Component {
-	constructor(tpl, props, ...children) {
-		const ctx = {
-			run: null,
-			render: null,
-			dispose: null,
-			self: this
+function ensureRenderElement(fn, R) {
+	return R.ensureElement(fn(R))
+}
+
+function createRenderScope(fn, R) {
+	const scope = new EffectScope()
+	let result = null
+	try {
+		result = scope._call(ensureRenderElement, fn, R)
+	} catch (error) {
+		try {
+			scope.destroy()
+		} catch (cleanupError) {
+			throw new AggregateError(
+				[error, cleanupError],
+				'Failed to clean up a component render scope after setup failed'
+			)
 		}
+		throw error
+	}
+	return [result, scope.destroy]
+}
+
+function runComponentScope(ctx, fn, R) {
+	const prevCtx = currentCtx
+	const prevUserCtx = currentUserCtx
+	currentCtx = ctx
+	currentUserCtx = ctx.user
+	try {
+		return ctx._call(createRenderScope, fn, R)
+	} finally {
+		currentUserCtx = prevUserCtx
+		currentCtx = prevCtx
+	}
+}
+
+function initializeComponent(ctx, tpl, props, children) {
+	let renderFn = tpl(props, ...children)
+	if (isThenable(renderFn)) {
+		const { fallback, catch: catchErr, onLoad, suspensed = true, ..._props } = props
+		renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, suspensed, _props, children)
+	}
+	ctx.render = renderFn
+}
+
+function cleanupComponentScope() {
+	if (this.self) this.self[KEY_CTX] = null
+	this.render = null
+	this.self = null
+	this.user = rootUserCtx
+}
+
+class Component extends EffectScope {
+	constructor(tpl, props, ...children) {
+		super()
+		const ctx = this
+		ctx.cleanup = cleanupComponentScope
+		ctx.render = null
+		ctx.self = this
+		ctx.user = currentUserCtx
+
+		Object.defineProperty(this, KEY_CTX, {
+			value: ctx,
+			writable: true
+		})
 
 		const prevCtx = currentCtx
 		currentCtx = ctx
 
-		const disposers = []
-
-		ctx.run = capture(function (fn, R) {
-			let result = null
-			const cleanup = collectDisposers(
-				[],
-				function () {
-					result = R.ensureElement(fn(R))
-				},
-				function (batch) {
-					if (!batch) {
-						removeFromArr(disposers, cleanup)
-					}
-				}
-			)
-			disposers.push(cleanup)
-			return [result, cleanup]
-		})
-
 		try {
-			ctx.dispose = collectDisposers(
-				disposers,
-				function () {
-					let renderFn = tpl(props, ...children)
-					if (isThenable(renderFn)) {
-						const { fallback, catch: catchErr, onLoad, suspensed = true, ..._props } = props
-						renderFn = _asyncContainer.call(renderFn, 'Future', fallback, catchErr, onLoad, suspensed, _props, children)
-					}
-					ctx.render = renderFn
-				},
-				() => {
-					Object.defineProperty(this, KEY_CTX, {
-						value: null,
-						enumerable: false
-					})
-				}
-			)
+			ctx._call(initializeComponent, ctx, tpl, props, children)
 		} catch (error) {
-			for (let i of disposers) i(true)
+			try {
+				ctx.destroy()
+			} catch (cleanupError) {
+				throw new AggregateError(
+					[error, cleanupError],
+					'Failed to clean up a component scope after setup failed'
+				)
+			}
 			throw error
 		} finally {
 			currentCtx = prevCtx
 		}
-
-		Object.defineProperty(this, KEY_CTX, {
-			value: ctx,
-			enumerable: false,
-			configurable: true
-		})
 	}
 }
 markStatic(Component)

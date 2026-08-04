@@ -147,6 +147,9 @@ function createDOMRenderer({
 		return doc.createDocumentFragment()
 	}
 
+	function getParent(node) {
+		return node.parentNode
+	}
 	function removeNode(node) {
 		node.parentNode?.removeChild(node)
 	}
@@ -301,6 +304,7 @@ function createDOMRenderer({
 		createAnchor,
 		createTextNode,
 		createFragment,
+		getParent,
 		setProps,
 		insertBefore,
 		appendNode,

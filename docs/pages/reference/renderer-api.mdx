@@ -29,6 +29,7 @@ const customRenderer = createRenderer({
 	createTextNode: (text) => /* create text node */,
 	createAnchor: (text) => /* create anchor/comment */,
 	createFragment: () => /* create fragment */,
+	getParent: (node) => /* optional physical parent lookup */,
 	removeNode: (node) => /* remove node */,
 	clearChildren: (parent, first, last) => /* optional guarded bulk clear */,
 	appendNode: (parent, ...children) => /* append children */,

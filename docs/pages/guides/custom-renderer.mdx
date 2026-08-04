@@ -25,15 +25,26 @@ Implement these methods and pass them to `createRenderer(nodeOps)`:
 - `createTextNode(text): Node`
 - `createAnchor(name?): Node` (used for comment/placeholder anchors)
 - `createFragment(name?): Fragment` (can be a lightweight grouping/anchor)
-- `isFragment(value): boolean`
-- `expandFragment(fragment): Array<Node | Fragment>` flatten a connected fragment into anchor + children + anchor; see built-in renderer for behavior
+- `getParent(node): Node | Fragment | null` (optional parent-ownership optimization)
 - `removeNode(node|fragment)`
 - `clearChildren(parent, first, last): boolean` (optional) clears all children only when `first` and `last` prove that the requested fragment owns the complete child range
 - `appendNode(parent, ...children)`
 - `insertBefore(node, ref)`
 - `setProps(node|fragment, props: Record<string, unknown>)`
 
-`setProps` is called with the full props object; make it idempotent. Normalize events, styles, and platform-specific attributes here. Clean up in `removeNode` when needed. When a prop value is a signal, subscribe and update the native prop/handler on change (see DOM/HTML renderers).
+`setProps` receives host props with the renderer metadata keys `$ref` and
+`children` omitted. When neither metadata key is present, it may receive the
+caller's original props object. Make it idempotent and do not mutate that
+object. Normalize events, styles, and platform-specific attributes here. Clean
+up in `removeNode` when needed. When a prop value is a signal, subscribe and
+update the native prop/handler on change (see DOM/HTML renderers).
+
+`getParent` is optional. Without it, the renderer core keeps parent entries and
+removes an already-parented node before calling the host append/insert method.
+If it is implemented, return the node's current physical host parent (or
+`null` when detached); the core then tracks only logical fragment ownership.
+In that mode, `appendNode` and `insertBefore` must move already-parented
+ordinary nodes, matching DOM behavior.
 
 `clearChildren` is an optional performance capability, not a required tree
 operation. Return `false` without changing the tree when the parent contains
@@ -49,7 +60,10 @@ automatically keep the individual-removal fallback.
 3) Signals drive retained updates; only touched nodes call `setProps`/append/remove.
 
 ## Fragments
-If the platform lacks fragments, create an anchor node or manage an array of children; implement `isFragment` and `createFragment` accordingly. `appendNode`/`insertBefore` should handle fragments by flattening or delegating.
+If the platform lacks fragments, return a lightweight child container from
+`createFragment`. The renderer core recognizes and expands fragments it creates;
+the host `appendNode`/`insertBefore` operations only need to move or flatten the
+raw fragment container they receive.
 
 ## Props and events
 - Events: detect keys like `on:click` or normalize your own; attach/detach listeners in `setProps`.
@@ -59,22 +73,23 @@ If the platform lacks fragments, create an anchor node or manage an array of chi
 
 ## Suggested structure
 ```js
-import { createRenderer } from 'refui'
+import { createRenderer, isSignal, watch } from 'refui'
 
 const nodeOps = {
 	isNode: (n) => !!n && n.type === 'node',
 	createNode: (tag) => platformCreate(tag),
 	createTextNode(text) {
-		// mirror DOM/HTML behavior: if text is a signal, subscribe
+		// mirror DOM/HTML behavior: track signal text with an owned effect
 		if (isSignal(text)) {
 			const n = platformCreateText('')
-			text.connect(() => platformSetText(n, String(peek(text) ?? '')))
+			watch(() => platformSetText(n, String(text.get() ?? '')))
 			return n
 		}
 		return platformCreateText(String(text ?? ''))
 	},
 	createAnchor: () => platformCreateComment(''),
 	createFragment: () => platformCreateFragment(),
+	getParent: (node) => platformParent(node), // optional
 	removeNode: platformRemove,
 	clearChildren(parent, first, last) {
 		if (!platformOwnsCompleteRange(parent, first, last)) return false
@@ -83,8 +98,7 @@ const nodeOps = {
 	},
 	appendNode(parent, ...kids) { kids.forEach(k => platformAppend(parent, k)) },
 	insertBefore(node, ref) { platformInsertBefore(node, ref) },
-	setProps(node, props) { platformSetProps(node, props) },
-	isFragment: (n) => n && n.type === 'fragment'
+	setProps(node, props) { platformSetProps(node, props) }
 }
 
 export const R = createRenderer(nodeOps)

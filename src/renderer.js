@@ -40,15 +40,20 @@ function createRenderer(nodeOps, rendererID) {
 		createTextNode,
 		createAnchor,
 		createFragment: createFragmentRaw,
+		getParent: getParentRaw,
 		removeNode: removeNodeRaw,
 		appendNode: appendNodeRaw,
 		insertBefore: insertBeforeRaw,
 		clearChildren: clearChildrenRaw,
 		setProps,
 	} = nodeOps
+	const nativeParentage = typeof getParentRaw === 'function'
 
 	const fragmentMap = new WeakMap()
 	const parentMap = new WeakMap()
+	const getParent = nativeParentage
+		? function (node) { return parentMap.get(node) || getParentRaw(node) }
+		: function (node) { return parentMap.get(node) }
 
 	function isFragment(i) {
 		return i && fragmentMap.has(i)
@@ -61,7 +66,10 @@ function createRenderer(nodeOps, rendererID) {
 		appendNodeRaw(fragment, anchorStart, anchorEnd)
 		parentMap.set(anchorStart, fragment)
 		parentMap.set(anchorEnd, fragment)
-		fragmentMap.set(fragment, [anchorStart, [], anchorEnd, {connected: false}])
+		fragmentMap.set(fragment, [anchorStart, [], anchorEnd, {
+			connected: false,
+			hasFragmentChildren: false
+		}])
 		return fragment
 	}
 
@@ -74,53 +82,67 @@ function createRenderer(nodeOps, rendererID) {
 		return children.reduce(flatChildrenReducer, [])
 	}
 
-	function _expandFragment(anchorStart, children, anchorEnd, flags) {
+	function _expandFragment(anchorStart, children, anchorEnd) {
 		const flattened = flattenChildren(children)
 		flattened.unshift(anchorStart)
 		flattened.push(anchorEnd)
 		return flattened
 	}
 	function expandFragment(node) {
-		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
+		const frag = fragmentMap.get(node)
+		const flags = frag[3]
 		if (flags.connected) {
-			return _expandFragment(anchorStart, children, anchorEnd, flags)
+			return _expandFragment.apply(null, frag)
 		}
 
 		flags.connected = true
 		return [node]
 	}
 
-	function disconnectClearedNode(node) {
-		parentMap.delete(node)
-		if (isFragment(node)) {
-			const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
-			if (flags.connected) {
-				const expanded = _expandFragment(anchorStart, children, anchorEnd, flags)
-				expanded.unshift(node)
-				appendNodeRaw.apply(null, expanded)
-				flags.connected = false
-			}
+	function disconnectClearedFragment(node) {
+		const frag = fragmentMap.get(node)
+		const flags = frag[3]
+		if (flags.connected) {
+			const expanded = _expandFragment.apply(null, frag)
+			expanded.unshift(node)
+			appendNodeRaw.apply(null, expanded)
+			flags.connected = false
 		}
 	}
 
 	function clearFragment(node) {
-		if (!clearChildrenRaw || !isFragment(node)) return false
+		if (!clearChildrenRaw || !isFragment(node)) {
+			return false
+		}
 
 		const parent = parentMap.get(node)
-		if (!parent || isFragment(parent)) return false
+		if (!parent || isFragment(parent)) {
+			return false
+		}
 
 		const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
-		if (!flags.connected || !clearChildrenRaw(parent, anchorStart, anchorEnd)) return false
+		if (!flags.connected || !clearChildrenRaw(parent, anchorStart, anchorEnd)) {
+			return false
+		}
 
 		const childCount = children.length
-		for (let i = 0; i < childCount; i++) disconnectClearedNode(children[i])
+		if (flags.hasFragmentChildren) {
+			for (let i = 0; i < childCount; i++) {
+				const child = children[i]
+				parentMap.delete(child)
+				if (isFragment(child)) disconnectClearedFragment(child)
+			}
+			flags.hasFragmentChildren = false
+		} else {
+			for (let i = 0; i < childCount; i++) parentMap.delete(children[i])
+		}
 		children.length = 0
 		appendNodeRaw(parent, anchorStart, anchorEnd)
 		return true
 	}
 
 	function removeNode(node) {
-		const parent = parentMap.get(node)
+		const parent = getParent(node)
 
 		if (!parent) return
 
@@ -132,9 +154,10 @@ function createRenderer(nodeOps, rendererID) {
 		parentMap.delete(node)
 
 		if (isFragment(node)) {
-			const [anchorStart, children, anchorEnd, flags] = fragmentMap.get(node)
+			const frag = fragmentMap.get(node)
+			const flags = frag[3]
 			if (flags.connected) {
-				const expanded = _expandFragment(anchorStart, children, anchorEnd, flags)
+				const expanded = _expandFragment.apply(null, frag)
 				expanded.unshift(node)
 				appendNodeRaw.apply(null, expanded)
 				flags.connected = false
@@ -144,35 +167,31 @@ function createRenderer(nodeOps, rendererID) {
 		}
 	}
 
+	function unlinkMappedNode(node) {
+		const parent = parentMap.get(node)
+		if (isFragment(parent)) {
+			const [, children] = fragmentMap.get(parent)
+			removeFromArr(children, node)
+		}
+		parentMap.delete(node)
+	}
+
 	function appendNodes(parent, nodes) {
 		const nodeCount = nodes.length
-		if (isFragment(parent)) {
-			const [, children, anchorEnd] = fragmentMap.get(parent)
-			for (let i = 0; i < nodeCount; i++) {
-				const node = nodes[i]
-				removeNode(node)
-				parentMap.set(node, parent)
-				children.push(node)
-
-				if (isFragment(node)) {
-					const expanded = expandFragment(node)
-					const expandedLength = expanded.length
-					for (let j = 0; j < expandedLength; j++) {
-						insertBeforeRaw(expanded[j], anchorEnd)
-					}
-				} else {
-					insertBeforeRaw(node, anchorEnd)
-				}
-			}
-			return
-		} else {
+		if (!isFragment(parent)) {
 			let flattened = null
 			for (let i = 0; i < nodeCount; i++) {
 				const node = nodes[i]
-				removeNode(node)
-				parentMap.set(node, parent)
+				const nodeIsFragment = isFragment(node)
+				if (!nativeParentage) {
+					removeNode(node)
+				} else if (parentMap.has(node)) {
+					if (nodeIsFragment) removeNode(node)
+					else unlinkMappedNode(node)
+				}
+				if (!nativeParentage || nodeIsFragment) parentMap.set(node, parent)
 
-				if (isFragment(node)) {
+				if (nodeIsFragment) {
 					const expanded = expandFragment(node)
 					if (expanded.length !== 1 || expanded[0] !== node) {
 						if (!flattened) flattened = nodes.slice(0, i)
@@ -187,6 +206,32 @@ function createRenderer(nodeOps, rendererID) {
 			const rawNodes = flattened || nodes
 			rawNodes.unshift(parent)
 			appendNodeRaw.apply(null, rawNodes)
+		} else {
+			const [, children, anchorEnd, flags] = fragmentMap.get(parent)
+			for (let i = 0; i < nodeCount; i++) {
+				const node = nodes[i]
+				const nodeIsFragment = isFragment(node)
+				if (!nativeParentage) {
+					removeNode(node)
+				} else if (parentMap.has(node)) {
+					if (nodeIsFragment) removeNode(node)
+					else unlinkMappedNode(node)
+				}
+				parentMap.set(node, parent)
+				children.push(node)
+
+				if (nodeIsFragment) {
+					flags.hasFragmentChildren = true
+					const expanded = expandFragment(node)
+					const expandedLength = expanded.length
+					for (let j = 0; j < expandedLength; j++) {
+						insertBeforeRaw(expanded[j], anchorEnd)
+					}
+				} else {
+					insertBeforeRaw(node, anchorEnd)
+				}
+			}
+			return
 		}
 	}
 
@@ -195,19 +240,28 @@ function createRenderer(nodeOps, rendererID) {
 	}
 
 	function insertBefore(node, ref) {
-		removeNode(node)
+		const nodeIsFragment = isFragment(node)
+		if (!nativeParentage) {
+			removeNode(node)
+		} else if (parentMap.has(node)) {
+			if (nodeIsFragment) removeNode(node)
+			else unlinkMappedNode(node)
+		}
 
-		const parent = parentMap.get(ref)
-		parentMap.set(node, parent)
+		const parent = getParent(ref)
 
 		if (isFragment(parent)) {
-			const [, children, anchorEnd] = fragmentMap.get(parent)
+			parentMap.set(node, parent)
+			const [, children, anchorEnd, flags] = fragmentMap.get(parent)
 			if (anchorEnd === ref) {
 				children.push(node)
 			} else {
 				const idx = children.indexOf(ref)
 				children.splice(idx, 0, node)
 			}
+			if (nodeIsFragment) flags.hasFragmentChildren = true
+		} else if ((!nativeParentage || nodeIsFragment) && parent) {
+			parentMap.set(node, parent)
 		}
 
 		if (isFragment(ref)) {
@@ -215,7 +269,7 @@ function createRenderer(nodeOps, rendererID) {
 			ref = anchorStart
 		}
 
-		if (isFragment(node)) {
+		if (nodeIsFragment) {
 			const expanded = expandFragment(node)
 			const expandedLength = expanded.length
 			for (let i = 0; i < expandedLength; i++) {
@@ -333,9 +387,19 @@ function createRenderer(nodeOps, rendererID) {
 			const node = tag === Fragment ? createFragment('') : createNode(tag)
 
 			if (props) {
-				// `children` is omitted when passing to the node
-				const { $ref, children, ..._props } = props
-				setProps(node, _props)
+				let $ref
+				const propsProto = Object.getPrototypeOf(props)
+				if (
+					(propsProto !== Object.prototype && propsProto !== null) ||
+					'$ref' in props || 'children' in props
+				) {
+					// `$ref` and `children` are renderer metadata, not node props.
+					const { $ref: ref, children, ...nodeProps } = props
+					$ref = ref
+					setProps(node, nodeProps)
+				} else {
+					setProps(node, props)
+				}
 				if ($ref) {
 					if (isSignal($ref)) {
 						$ref.value = node

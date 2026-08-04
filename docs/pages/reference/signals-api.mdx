@@ -395,12 +395,32 @@ touch(someValue, someOtherValue) // Works with signals or regular values
 
 ## Effect Management
 
+### `EffectScope`
+
+Low-level lifecycle and reactive-effect scope. Constructing a scope does not run its effect; call `run()` to execute it and collect signal dependencies. A cleanup function returned by the effect runs before the next execution and when `destroy()` is called.
+
+Effects and disposal callbacks created while the scope is running belong to it. Destroying the scope releases those children and makes later queued runs inert. Component instances extend `EffectScope`, so component-owned effects use the same lifecycle representation.
+
+```javascript
+const scope = new EffectScope(() => {
+	console.log(count.value)
+	return () => console.log('cleanup')
+})
+
+scope.run()
+scope.destroy()
+```
+
 ### `watch(effect)`
 Creates an effect that runs when dependencies change.
 
 - `effect`: Function to run
 - Returns: Dispose function
 - Behavior: `watch` runs the effect immediately once and then again whenever any tracked signal changes. There is no `runImmediate` flag—if you need to defer the first execution, wire the effect manually with `connect([signal], effect, false)` and call the effect yourself at the appropriate time.
+
+Signals reached on later runs are tracked as well, so short-circuited expressions such as `a.value && b.value` begin listening to `b` after `a` becomes truthy. If later control flow stops reading a dependency, its existing subscription may cause one final run when that signal changes; because the effect does not read it again, that stale subscription is then retired.
+
+Each run is also a lifecycle scope. Child effects and `onDispose` callbacks created during a run are cleaned before the next run and when the parent watch is disposed. Deliberately long-lived work should be created outside the rerunning watch or placed in a separately managed detached scope.
 
 ```javascript
 const dispose = watch(() => {
@@ -604,11 +624,11 @@ useEffect(logName, name)
 name.value = 'Bob' // Will trigger the effect and log "Current user: Bob"
 ```
 
-### `collectDisposers(disposers, fn, cleanup?)`
-Collects disposers within a function scope. Used internally, do not use if you don't know how it works.
+### `collectDisposers(fn, cleanup?, disposers?, ownerDisposers?)`
+Collects disposers created while `fn` runs and returns a function that disposes the collected scope. The optional `cleanup` runs before the collected child disposers, and an existing `DisposerStore` can be supplied as the third argument. The optional fourth argument supplies an owner store; pass `null` only for a deliberately detached scope whose lifetime is managed manually. Treat supplied stores as opaque: do not depend on their length, ordering, or entries.
 
 ```javascript
-const dispose = collectDisposers([], () => {
+const dispose = collectDisposers(() => {
 	// Create effects here
 })
 ```
