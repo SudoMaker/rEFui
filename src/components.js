@@ -28,7 +28,7 @@ import {
 	freeze,
 	signal,
 	isSignal,
-	contextValid,
+	scopeValid,
 	EffectScope
 } from 'refui/signal'
 import { hotEnabled, enableHMR } from 'refui/hmr'
@@ -703,7 +703,7 @@ function Async(
 			let lastResult = null
 			let lastHandler = null
 			return Fn({ name: 'Then' }, function () {
-				if (!contextValid) {
+				if (!scopeValid()) {
 					return
 				}
 				const handler = read(then)

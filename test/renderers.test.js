@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createComponent, dispose, render } from 'refui/components'
+import { Async, createComponent, dispose, render } from 'refui/components'
 import { createHTMLRenderer } from 'refui/html'
 import { createRenderer } from 'refui/renderer'
 import devRuntime from 'refui/jsx-dev-runtime'
@@ -196,6 +196,31 @@ test('Reflow accepts async components without props', function () {
 			}
 		}, null)
 	})
+})
+
+test('Async stays inert when its future resolves after owner disposal', async function () {
+	const R = createHTMLRenderer()
+	let resolve
+	let renderCount = 0
+	const future = new Promise(function (done) {
+		resolve = done
+	})
+	const view = createComponent(function View() {
+		return function () {
+			return R.c(Async, { future }, function ({ result }) {
+				renderCount += 1
+				return R.c('b', null, result)
+			})
+		}
+	})
+
+	render(view, R)
+	dispose(view)
+	resolve('done')
+	await nextTick()
+	await nextTick()
+
+	assert.equal(renderCount, 0)
 })
 
 test('Reflow forwards ordinary props to an async fallback', async function () {

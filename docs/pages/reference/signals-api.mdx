@@ -645,7 +645,7 @@ const result = untrack(() => {
 ```
 
 ### `freeze(fn)`
-Locks in the current effect context for later use. The returned wrapper keeps referencing the original dependency graph—much like an `AsyncContext` scope—so any effects you create inside it attach to the cleanup bucket that existed at wrap time. If an effect was running when you called `freeze`, subsequent executions will tie freshly accessed signals back to that same effect. Once the owning scope is disposed, the wrapper still executes, but with its context cleared; new effects become inert and stop tracking changes within that scope.
+Locks in the current effect scope for later use. The returned wrapper keeps referencing the original scope—much like an `AsyncContext` scope—so any effects you create inside it attach to the cleanup bucket that existed at wrap time. If an effect was running when you called `freeze`, subsequent executions will tie freshly accessed signals back to that same effect. Once the owning scope is disposed, the wrapper still executes under that inactive scope; new effects become inert and stop tracking changes within it.
 
 ```javascript
 const runLater = freeze((message) => {
@@ -657,8 +657,9 @@ setTimeout(() => {
 }, 1000)
 ```
 
-### `contextValid`
-Boolean flag for the context currently executing. A frozen or captured callback runs with `contextValid === false` after its owner has disposed, then the previous ambient value is restored when that callback returns. Runtime features such as async boundaries use it to avoid rendering into a disposed scope.
+### `scopeValid(scope?)`
+
+Returns whether the supplied `EffectScope`, or the currently executing scope when omitted, is active and valid. Because `freeze()` captures the current scope directly, destroying that scope invalidates later calls without a separate context-validity flag.
 
 ## Scheduling
 

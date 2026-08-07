@@ -26,8 +26,6 @@ let currentScope = null
 let currentResolve = null
 let currentTick = null
 
-let contextValid = true
-
 let signalQueue = []
 let effectQueue = []
 
@@ -115,6 +113,15 @@ function nextTick(cb, ...args) {
 
 // Signal part
 
+function scopeValid(scope = currentScope) {
+	return !scope
+		|| (scope.flags & (SCOPE_ACTIVE | SCOPE_VALID)) === (SCOPE_ACTIVE | SCOPE_VALID)
+}
+
+function scopeLive(scope) {
+	return !!scope?.effect && scopeValid(scope)
+}
+
 function pure(cb) {
 	cb._pure = true
 	return cb
@@ -131,7 +138,7 @@ function disposeStore(disposers) {
 }
 
 function getCurrentDisposers() {
-	if (!(currentScope?.flags & SCOPE_ACTIVE) || !contextValid) return
+	if (!currentScope || !scopeValid()) return
 	if (!currentScope.disposers) currentScope.disposers = []
 	return currentScope.disposers
 }
@@ -145,7 +152,7 @@ class EffectScope {
 		cleanup,
 		disposers = null
 	) {
-		let flags = SCOPE_ACTIVE | (contextValid ? SCOPE_VALID : 0)
+		let flags = SCOPE_ACTIVE | (scopeValid() ? SCOPE_VALID : 0)
 		if (effect) {
 			flags |= (isPure(effect) ? SCOPE_PURE : 0)
 				| (cleanupResult ? SCOPE_CLEANUP_RESULT : 0)
@@ -155,7 +162,7 @@ class EffectScope {
 		this.disposers = disposers
 		if (sources) this.sources = sources
 		this.destroy = this._destroy.bind(this)
-		if (contextValid && ownerDisposers) {
+		if ((flags & SCOPE_VALID) && ownerDisposers) {
 			this.ownerDisposers = ownerDisposers
 			ownerDisposers.push(this.destroy)
 		}
@@ -175,15 +182,11 @@ class EffectScope {
 
 	_call(fn, ...args) {
 		const prevScope = currentScope
-		const prevContextValid = contextValid
-		currentScope = this
-		contextValid = prevContextValid
-			&& (this.flags & (SCOPE_ACTIVE | SCOPE_VALID)) === (SCOPE_ACTIVE | SCOPE_VALID)
+		currentScope = scopeValid(prevScope) ? this : prevScope
 		try {
 			return fn(...args)
 		} finally {
 			currentScope = prevScope
-			contextValid = prevContextValid
 		}
 	}
 
@@ -197,10 +200,8 @@ class EffectScope {
 		}
 
 		const prevScope = currentScope
-		const prevContextValid = contextValid
 		this.flags = flags | SCOPE_RUNNING
 		currentScope = this
-		contextValid = true
 		try {
 			if (this.disposers || this.dispose) this._cleanupEffect()
 			if (!(this.flags & SCOPE_ACTIVE)) return
@@ -219,7 +220,6 @@ class EffectScope {
 			}
 		} finally {
 			currentScope = prevScope
-			contextValid = prevContextValid
 			flags = this.flags & ~SCOPE_RUNNING
 			this.flags = flags
 			if ((flags & (SCOPE_PENDING | SCOPE_ACTIVE)) === (SCOPE_PENDING | SCOPE_ACTIVE)) {
@@ -295,7 +295,7 @@ function _onDispose(cb) {
 }
 
 function onDispose(cb) {
-	if ((currentScope?.flags & SCOPE_ACTIVE) && contextValid) {
+	if (currentScope && scopeValid()) {
 		if (!isProduction && typeof cb !== 'function') {
 			throw new TypeError(`Callback must be a function but got ${Object.prototype.toString.call(cb)}`)
 		}
@@ -326,48 +326,27 @@ function useEffect(effect, ...args) {
 	return createEffect(effect.bind(null, ...args), true)
 }
 
-function _invalidateFrozenState() {
-	this.scope = null
-	this.valid = false
-}
-function _frozen({ scope, valid }, ...args) {
+function _frozen(scope, ...args) {
 	const prevScope = currentScope
-	const prevContextValid = contextValid
 
 	currentScope = scope
-	contextValid = valid && (!scope || !!(scope.flags & SCOPE_ACTIVE))
 
 	try {
 		return this(...args)
 	} finally {
 		currentScope = prevScope
-		contextValid = prevContextValid
 	}
 }
-function freeze(
-	fn,
-	state = {
-		scope: currentScope,
-		valid: contextValid
-	}
-) {
-	onDispose(_invalidateFrozenState.bind(state))
-	return _frozen.bind(fn, state)
+function freeze(fn) {
+	return _frozen.bind(fn, currentScope)
 }
 
 const untrack = freeze(function(fn, ...args) {
 	return fn(...args)
 })
 
-function scopeIsLive(scope) {
-	return !!(
-		scope?.effect
-		&& (scope.flags & (SCOPE_ACTIVE | SCOPE_VALID)) === (SCOPE_ACTIVE | SCOPE_VALID)
-	)
-}
-
 function subscribeSignal(sig, scope) {
-	if (!contextValid || !scopeIsLive(scope)) return
+	if (!scopeLive(scope)) return
 	const state = sig[SIGNAL_STATE]
 	const effects = state[SIGNAL_EFFECTS]
 	if (!effects) {
@@ -375,7 +354,7 @@ function subscribeSignal(sig, scope) {
 	} else if (effects instanceof Set) {
 		effects.add(scope)
 	} else if (effects !== scope) {
-		if (scopeIsLive(effects)) state[SIGNAL_EFFECTS] = new Set([effects, scope])
+		if (scopeLive(effects)) state[SIGNAL_EFFECTS] = new Set([effects, scope])
 		else state[SIGNAL_EFFECTS] = scope
 	}
 }
@@ -401,12 +380,12 @@ function signalConnected(sig) {
 	const effects = state[SIGNAL_EFFECTS]
 	if (!effects) return false
 	if (!(effects instanceof Set)) {
-		if (scopeIsLive(effects)) return true
+		if (scopeLive(effects)) return true
 		state[SIGNAL_EFFECTS] = null
 		return false
 	}
 	for (const scope of effects) {
-		if (!scopeIsLive(scope)) effects.delete(scope)
+		if (!scopeLive(scope)) effects.delete(scope)
 	}
 	if (!effects.size) {
 		state[SIGNAL_EFFECTS] = null
@@ -1081,7 +1060,7 @@ function onCondition(sig, compute) {
 	}
 
 	function retainEntry(key, entry) {
-		if (!(currentScope?.flags & SCOPE_ACTIVE) || !contextValid) {
+		if (!currentScope || !scopeValid()) {
 			entry.persistent = true
 			return
 		}
@@ -1150,7 +1129,7 @@ function onCondition(sig, compute) {
 		})
 	)
 
-	if ((currentScope?.flags & SCOPE_ACTIVE) && contextValid) {
+	if (currentScope && scopeValid()) {
 		onDispose(function() {
 			for (const entry of conditionValMap.values()) {
 				entry.dispose()
@@ -1207,6 +1186,6 @@ export {
 	useEffect,
 	untrack,
 	freeze,
-	contextValid,
+	scopeValid,
 	EffectScope
 }

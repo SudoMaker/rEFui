@@ -413,6 +413,58 @@ test('a frozen effect context becomes inert after its scope is disposed', async 
 	assert.equal(source.connected, false)
 })
 
+test('a disposed frozen context cannot create a live child effect', async function () {
+	const source = signal(0)
+	let createChild
+	let childRuns = 0
+	const disposeOwner = watch(function () {
+		createChild ||= freeze(function () {
+			return watch(function () {
+				childRuns += 1
+				source.value
+			})
+		})
+	})
+
+	disposeOwner()
+	const disposeChild = createChild()
+	assert.equal(childRuns, 0)
+	assert.equal(source.connected, false)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(childRuns, 0)
+	disposeChild()
+})
+
+test('entering another scope cannot revive a disposed frozen context', async function () {
+	const source = signal(0)
+	const otherScope = new EffectScope()
+	let createChild
+	let childRuns = 0
+	const disposeOwner = watch(function () {
+		createChild ||= freeze(function () {
+			return otherScope._call(function () {
+				return watch(function () {
+					childRuns += 1
+					source.value
+				})
+			})
+		})
+	})
+
+	disposeOwner()
+	const disposeChild = createChild()
+	assert.equal(childRuns, 0)
+	assert.equal(source.connected, false)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(childRuns, 0)
+	disposeChild()
+	otherScope.destroy()
+})
+
 test('a disposed pending effect cannot attach newly reached dependencies', async function () {
 	const first = signal(0)
 	const second = signal(0)
