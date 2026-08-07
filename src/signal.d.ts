@@ -43,7 +43,7 @@ export interface Signal<T> {
 	touch(): void
 	trigger(): void
 	refresh(): void
-	connect(effect: EffectCallback, runImmediate?: boolean): void
+	connect(effect: EffectCallback, runImmediate?: boolean): BatchDisposer
 	hasValue(): boolean
 	inverse(): Signal<boolean>
 	nullishThen<U>(fallback: MaybeSignal<U>): Signal<T | U>
@@ -121,7 +121,7 @@ export function createSchedule<T = unknown>(
 		| ((commit: (value: MaybeSignal<T>) => void) => BatchDisposer | void)
 ) => Signal<T | undefined>
 
-export function connect(signals: readonly Signal<unknown>[], effect: EffectCallback, runImmediate?: boolean): void
+export function connect(signals: readonly Signal<unknown>[], effect: EffectCallback, runImmediate?: boolean): BatchDisposer
 export function bind(handler: (value: unknown) => void, value: MaybeSignal<unknown> | (() => unknown)): void
 export function useAction<T>(
 	initial?: T,
@@ -152,7 +152,7 @@ export function touch(...values: MaybeSignal<unknown>[]): void
 export function read<T>(value: MaybeSignal<T>): T
 export function readAll<T extends readonly unknown[]>(...values: T): { [K in keyof T]: T[K] extends Signal<infer U> ? U : T[K] }
 export function write<T>(target: MaybeSignal<T>, value: T | ((previous: T) => T)): T
-export function listen(signals: readonly MaybeSignal<unknown>[], callback: EffectCallback): void
+export function listen(signals: readonly MaybeSignal<unknown>[], callback: EffectCallback): BatchDisposer
 
 export function tick(): Promise<void>
 export function nextTick(callback?: (...args: unknown[]) => void, ...args: unknown[]): Promise<void>
@@ -168,7 +168,7 @@ export function useEffect<TArgs extends unknown[]>(effect: (...args: TArgs) => v
 
 export function untrack<T, U extends unknown[]>(fn: (...args: U) => T, ...args: U): T
 export function freeze<T extends (...args: any[]) => any>(fn: T): T
-export function scopeIsValid(scope?: EffectScope): boolean
+export function scopeValid(scope?: EffectScope): boolean
 
 export function onCondition<T>(signal: Signal<T>, compute?: (value: boolean) => boolean): (match: MaybeSignal<T>) => Signal<boolean>
 

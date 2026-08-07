@@ -61,26 +61,71 @@ function scheduleEffect(scope) {
 
 function flushRunQueue(queue) {
 	const queueLength = queue.length
-	for (let i = 0; i < queueLength; i++) queue[i].run()
+	let errors
+	for (let i = 0; i < queueLength; i++) {
+		try {
+			queue[i].run()
+		} catch (error) {
+			if (errors) errors.push(error)
+			else errors = [error]
+		}
+	}
+	return errors
 }
-function flushQueues() {
+function appendErrors(target, errors) {
+	if (!errors) return target
+	if (target) target.push(...errors)
+	else target = errors
+	return target
+}
+function throwErrors(errors, message) {
+	if (!errors?.length) return
+	if (errors.length === 1) throw errors[0]
+	throw new AggregateError(errors, message)
+}
+function preserveQueueRemainder(queue, position) {
+	const pending = effectQueue
+	effectQueue = queue.slice(position)
+	if (pending.length) effectQueue.push(...pending)
+}
+function flushEffectRunQueue(queue) {
+	const queueLength = queue.length
+	let errors
+	for (let i = 0; i < queueLength; i++) {
+		try {
+			queue[i].run()
+		} catch (error) {
+			if (errors) errors.push(error)
+			else errors = [error]
+		}
+		if (signalQueue.length) {
+			if (i + 1 < queueLength) preserveQueueRemainder(queue, i + 1)
+			break
+		}
+	}
+	return errors
+}
+function flushQueues(errors) {
 	if (signalQueue.length || effectQueue.length) {
 		while (signalQueue.length) {
 			const queue = signalQueue
 			signalQueue = []
-			flushRunQueue(queue)
+			errors = appendErrors(errors, flushRunQueue(queue))
 		}
 		while (effectQueue.length) {
 			const queue = effectQueue
 			effectQueue = []
-			flushRunQueue(queue)
+			errors = appendErrors(errors, flushEffectRunQueue(queue))
 			if (signalQueue.length) break
 		}
 
 		if (signalQueue.length || effectQueue.length) {
-			return Promise.resolve().then(flushQueues)
+			return Promise.resolve().then(function() {
+				return flushQueues(errors)
+			})
 		}
 	}
+	throwErrors(errors, 'Multiple reactive effects failed')
 }
 
 
@@ -90,7 +135,7 @@ function tickHandler(resolve) {
 function resetTick() {
 	ticking = false
 	currentTick = new Promise(tickHandler).then(flushQueues)
-	currentTick.finally(resetTick)
+	void currentTick.then(resetTick, resetTick)
 }
 function _tick() {
 	currentResolve()
@@ -134,7 +179,16 @@ function isPure(cb) {
 function disposeStore(disposers) {
 	if (!disposers) return
 	const count = disposers.length
-	for (let i = 0; i < count; i++) disposers[i](true)
+	let errors
+	for (let i = 0; i < count; i++) {
+		try {
+			disposers[i](true)
+		} catch (error) {
+			if (errors) errors.push(error)
+			else errors = [error]
+		}
+	}
+	throwErrors(errors, 'Multiple disposers failed')
 }
 
 function getCurrentDisposers() {
@@ -173,11 +227,19 @@ class EffectScope {
 		const dispose = this.dispose
 		this.disposers = null
 		if (dispose) this.dispose = null
+		let errors
 		try {
 			disposeStore(disposers)
-		} finally {
-			dispose?.()
+		} catch (error) {
+			errors = error instanceof AggregateError ? [...error.errors] : [error]
 		}
+		try {
+			dispose?.()
+		} catch (error) {
+			if (errors) errors.push(error)
+			else errors = [error]
+		}
+		throwErrors(errors, 'Multiple effect cleanups failed')
 	}
 
 	_call(fn, ...args) {
@@ -239,11 +301,19 @@ class EffectScope {
 				const disposers = this.disposers
 				if (cleanup) this.cleanup = null
 				this.disposers = null
+				let errors
 				try {
 					cleanup?.call(this, batch)
-				} finally {
-					disposeStore(disposers)
+				} catch (error) {
+					errors = [error]
 				}
+				try {
+					disposeStore(disposers)
+				} catch (error) {
+					const cleanupErrors = error instanceof AggregateError ? error.errors : [error]
+					errors = appendErrors(errors, cleanupErrors)
+				}
+				throwErrors(errors, 'Multiple scope cleanups failed')
 				return
 			}
 			try {
@@ -352,6 +422,11 @@ function subscribeSignal(sig, scope) {
 	if (!effects) {
 		state[SIGNAL_EFFECTS] = scope
 	} else if (effects instanceof Set) {
+		if (effects.size >= 64 && (effects.size & (effects.size - 1)) === 0) {
+			for (const effect of effects) {
+				if (!scopeLive(effect)) effects.delete(effect)
+			}
+		}
 		effects.add(scope)
 	} else if (effects !== scope) {
 		if (scopeLive(effects)) state[SIGNAL_EFFECTS] = new Set([effects, scope])
@@ -487,7 +562,7 @@ const Signal = class {
 	}
 
 	connect(effect, runImmediate = true) {
-		connectSignals(this, effect, runImmediate)
+		return connect(this, effect, runImmediate)
 	}
 
 	hasValue() {
@@ -671,11 +746,11 @@ Object.defineProperties(signal, {
 })
 
 function isSignal(val) {
-	return val && val.constructor === Signal
+	return !!val && val.constructor === Signal
 }
 
-function connectSignals(signals, effect, runImmediate = true) {
-	if (!effect) return
+function connect(signals, effect, runImmediate = true) {
+	if (!effect) return nop
 	const ownerDisposers = getCurrentDisposers()
 	const scope = new EffectScope(effect, false, null, signals)
 	ownerDisposers?.push(scope.destroy)
@@ -683,7 +758,14 @@ function connectSignals(signals, effect, runImmediate = true) {
 		try {
 			scope.run()
 		} catch (error) {
-			scope.destroy()
+			try {
+				scope.destroy()
+			} catch (cleanupError) {
+				throw new AggregateError(
+					[error, cleanupError],
+					'Failed to clean up a connection after setup failed'
+				)
+			}
 			throw error
 		}
 	} else if (isSignal(signals)) {
@@ -694,6 +776,7 @@ function connectSignals(signals, effect, runImmediate = true) {
 			subscribeSignal(signals[i], scope)
 		}
 	}
+	return scope.destroy
 }
 function watch(effect) {
 	return createEffect(effect, false)
@@ -753,10 +836,25 @@ function write(val, newVal) {
 
 function listen(vals, cb) {
 	const valCount = vals.length
+	const disposers = []
 	for (let i = 0; i < valCount; i++) {
 		if (isSignal(vals[i])) {
-			vals[i].connect(cb)
+			disposers.push(vals[i].connect(cb))
 		}
+	}
+	return function(batch) {
+		let errors
+		const disposerCount = disposers.length
+		for (let i = 0; i < disposerCount; i++) {
+			try {
+				disposers[i](batch)
+			} catch (error) {
+				if (errors) errors.push(error)
+				else errors = [error]
+			}
+		}
+		disposers.length = 0
+		throwErrors(errors, 'Multiple listeners failed to dispose')
 	}
 }
 
@@ -922,10 +1020,6 @@ function createSchedule(deferrer, onAbort) {
 	})
 
 	return scheduled
-}
-
-function connect(sigs, effect, runImmediate = true) {
-	connectSignals(sigs, effect, runImmediate)
 }
 
 function bind(handler, val) {

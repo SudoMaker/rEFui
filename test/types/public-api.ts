@@ -15,6 +15,9 @@ import {
 	poke,
 	R as RootR,
 	signal,
+	scopeValid,
+	connect,
+	listen,
 	useContext
 } from 'refui'
 import { createDOMRenderer, type DOMRendererOptions } from 'refui/dom'
@@ -34,6 +37,10 @@ const initiallyEmpty: Signal<number | undefined> = signal<number>()
 const pokeResult: void = poke(count, 1)
 const plainPokeResult: number = poke(0, 1)
 const countValue: number = peek(count)
+const disposeCountConnection: () => void = count.connect(function () {})
+const disposeConnections: () => void = connect([count], function () {})
+const disposeListeners: () => void = listen([count], function () {})
+const rootScopeIsValid: boolean = scopeValid()
 const disposerStore: DisposerStore = []
 const disposeStore = collectDisposers(function () {}, undefined, disposerStore)
 disposeStore()
@@ -135,6 +142,10 @@ R.c(function Abstract() {
 
 void incorrectlyNarrowedTextNode
 void fragmentCleared
+void disposeCountConnection
+void disposeConnections
+void disposeListeners
+void rootScopeIsValid
 void effectStore
 void rowMethod
 void invalidRowMethod
