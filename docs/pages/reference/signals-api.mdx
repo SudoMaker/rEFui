@@ -22,6 +22,8 @@ const count = signal(0)
 const derived = signal(count, (val) => val * 2)
 ```
 
+Signal writes use `!==` change detection. Repeated `NaN` writes therefore trigger updates, while `+0` and `-0` are treated as equal.
+
 ### `computed(fn)`
 Creates a computed signal that derives its value from other signals.
 
@@ -31,6 +33,8 @@ Creates a computed signal that derives its value from other signals.
 ```javascript
 const fullName = computed(() => `${firstName.value} ${lastName.value}`)
 ```
+
+Computed signals are eager: their computation runs immediately and whenever a dependency changes. Create them inside a component, an `EffectScope` (for example, inside `watch()` or `useEffect()`), or a `collectDisposers()` scope when their lifetime is not application-global. A root-level computed remains connected while its reachable source graph retains it.
 
 ### `isSignal(value)`
 Checks if a value is a signal.
@@ -136,12 +140,16 @@ Manually connects an effect to the signal.
 
 - `effect`: The effect function to connect
 - `runImmediate`: Whether to run the effect immediately (default: true)
+- Returns: Dispose function
 
 ```javascript
-mySignal.connect(() => console.log('Signal changed'))
+const dispose = mySignal.connect(() => console.log('Signal changed'))
 
 // Connect without running immediately
-mySignal.connect(() => console.log('Signal changed'), false)
+const disposeDeferred = mySignal.connect(() => console.log('Signal changed'), false)
+
+dispose()
+disposeDeferred()
 ```
 
 ### `.touch()`
@@ -434,16 +442,20 @@ Connects multiple signals to an effect.
 - `signals`: Array of signals to connect to
 - `effect`: The effect function to connect
 - `runImmediate`: Whether to run the effect immediately (default: true)
+- Returns: Dispose function
 
 ```javascript
-connect([signal1, signal2], () => {
+const dispose = connect([signal1, signal2], () => {
 	console.log('Signals changed')
 })
 
 // Connect without running immediately
-connect([signal1, signal2], () => {
+const disposeDeferred = connect([signal1, signal2], () => {
 	console.log('Signals changed')
 }, false)
+
+dispose()
+disposeDeferred()
 ```
 
 ### `bind(handler, value)`
@@ -456,10 +468,14 @@ bind(console.log, mySignal)
 ### `listen(signals, callback)`
 Listens to multiple signals with a single callback.
 
+Returns one function that disposes every connection created by the call.
+
 ```javascript
-listen([signal1, signal2], () => {
+const dispose = listen([signal1, signal2], () => {
 	console.log('One of the signals changed')
 })
+
+dispose()
 ```
 
 ### `useAction(value?, compute?)`
@@ -636,13 +652,15 @@ const dispose = collectDisposers(() => {
 ## Control Flow
 
 ### `untrack(fn, ...args)`
-Runs a function without tracking dependencies. Arguments are passed as-is to the fn.
+Runs a function outside the current reactive scope. Arguments are passed as-is to the fn. Signal reads do not create dependencies, and effects or disposal callbacks created inside the function are detached from the caller's lifecycle ownership.
 
 ```javascript
 const result = untrack(() => {
 	return someSignal.value // Won't create dependency
 })
 ```
+
+Use a separately managed scope when detached work needs an explicit lifetime.
 
 ### `freeze(fn)`
 Locks in the current effect scope for later use. The returned wrapper keeps referencing the original scope—much like an `AsyncContext` scope—so any effects you create inside it attach to the cleanup bucket that existed at wrap time. If an effect was running when you called `freeze`, subsequent executions will tie freshly accessed signals back to that same effect. Once the owning scope is disposed, the wrapper still executes under that inactive scope; new effects become inert and stop tracking changes within it.
@@ -680,6 +698,8 @@ Waits for the next tick and executes a callback after all pending signal updates
 - Returns: Promise that resolves after the callback executes
 
 This is essential when you need to access updated computed signal values after making changes, since signal effects are processed asynchronously.
+
+If one or more queued effects throw, the scheduler continues draining runnable work before rejecting. One failure is rethrown directly; multiple failures are reported as an `AggregateError`.
 
 ```javascript
 const count = signal(0)

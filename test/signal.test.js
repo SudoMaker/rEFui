@@ -9,6 +9,7 @@ import {
 	connect,
 	derive,
 	freeze,
+	isSignal,
 	listen,
 	nextTick,
 	onCondition,
@@ -16,7 +17,8 @@ import {
 	signal,
 	useEffect,
 	useAction,
-	watch
+	watch,
+	scopeValid
 } from 'refui/signal'
 import { cached } from 'refui/utils'
 
@@ -663,6 +665,157 @@ test('pure propagation finishes before an earlier user effect runs', async funct
 	assert.deepEqual(seen, [[2, 2]])
 
 	disposeScope()
+})
+
+test('queued effects recover after an earlier effect throws', async function () {
+	const gate = signal(false)
+	let laterRuns = 0
+	const disposeThrowing = watch(function () {
+		if (gate.value) throw new Error('queued failure')
+	})
+	const disposeLater = watch(function () {
+		gate.value
+		laterRuns += 1
+	})
+
+	gate.value = true
+	await assert.rejects(nextTick(), /queued failure/)
+	assert.equal(laterRuns, 2)
+
+	gate.value = false
+	await nextTick()
+	assert.equal(laterRuns, 3)
+	disposeThrowing()
+	disposeLater()
+})
+
+test('a caught scheduler failure does not create another unhandled rejection', async function () {
+	const failures = []
+	function onUnhandled(error) {
+		failures.push(error)
+	}
+	process.on('unhandledRejection', onUnhandled)
+	const gate = signal(false)
+	const disposeEffect = watch(function () {
+		if (gate.value) throw new Error('handled failure')
+	})
+
+	try {
+		gate.value = true
+		await assert.rejects(nextTick(), /handled failure/)
+		await new Promise(function(resolve) {
+			setImmediate(resolve)
+		})
+		assert.deepEqual(failures, [])
+	} finally {
+		process.off('unhandledRejection', onUnhandled)
+		disposeEffect()
+	}
+})
+
+test('cleanup failures do not prevent later child disposal', async function () {
+	const source = signal(0)
+	let childRuns = 0
+	const disposeParent = watch(function () {
+		onDispose(function () {
+			throw new Error('cleanup failure')
+		})
+		watch(function () {
+			source.value
+			childRuns += 1
+		})
+	})
+
+	assert.throws(disposeParent, /cleanup failure/)
+	source.value = 1
+	await nextTick()
+	assert.equal(childRuns, 1)
+})
+
+test('multiple cleanup failures are aggregated after every cleanup runs', function () {
+	const calls = []
+	const disposeScope = collectDisposers(function () {
+		onDispose(function () {
+			calls.push('first')
+			throw new Error('first cleanup')
+		})
+		onDispose(function () {
+			calls.push('second')
+			throw new Error('second cleanup')
+		})
+	})
+
+	assert.throws(disposeScope, function(error) {
+		assert.ok(error instanceof AggregateError)
+		assert.equal(error.errors.length, 2)
+		return true
+	})
+	assert.deepEqual(calls, ['first', 'second'])
+})
+
+test('pure work preempts later user effects in the same queue', async function () {
+	const kick = signal(false)
+	const source = signal(0)
+	const doubled = computed(function () {
+		return source.value * 2
+	})
+	const seen = []
+	const disposeWriter = watch(function () {
+		if (kick.value) source.value = 1
+	})
+	const disposeReader = watch(function () {
+		kick.value
+		seen.push([source.value, doubled.value])
+	})
+
+	seen.length = 0
+	kick.value = true
+	await nextTick()
+	assert.deepEqual(seen, [[1, 2]])
+	disposeWriter()
+	disposeReader()
+})
+
+test('subscriber churn is compacted without reading connected', function () {
+	const source = signal(0)
+	const disposeKeeper = watch(function () {
+		source.value
+	})
+	for (let i = 0; i < 10000; i++) {
+		watch(function () {
+			source.value
+		})()
+	}
+
+	const state = source[Object.getOwnPropertySymbols(source)[0]]
+	assert.ok(state[2] instanceof Set)
+	assert.ok(state[2].size <= 64, `retained ${state[2].size} subscribers`)
+	disposeKeeper()
+})
+
+test('explicit connections return independent disposers', async function () {
+	const source = signal(0)
+	let connectedRuns = 0
+	let listenedRuns = 0
+	const disposeConnection = source.connect(function () {
+		connectedRuns += 1
+	})
+	const disposeListeners = listen([source], function () {
+		listenedRuns += 1
+	})
+
+	disposeConnection()
+	disposeListeners()
+	source.value = 1
+	await nextTick()
+	assert.equal(connectedRuns, 1)
+	assert.equal(listenedRuns, 1)
+})
+
+test('signal predicates and scope validity return booleans', function () {
+	assert.equal(isSignal(null), false)
+	assert.equal(isSignal(0), false)
+	assert.equal(scopeValid(), true)
 })
 
 test('memo caches falsy results', function () {

@@ -153,7 +153,7 @@ count.value = 3
 5. **Use `untrack()` for non-reactive operations**:
 	 ```javascript
 	 const result = untrack(() => {
-		 // This won't create dependencies
+		 // This won't create dependencies or inherit lifecycle ownership
 		 return someSignal.value + otherSignal.value
 	 })
 	 ```
