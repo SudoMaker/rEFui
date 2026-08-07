@@ -18,88 +18,68 @@
  * under the License.
  */
 
-import { removeFromArr } from 'refui/utils'
+import { nop, removeFromArr } from 'refui/utils'
 import { isProduction } from 'refui/constants'
 
-let sigID = 0
 let ticking = false
-let currentEffect = null
-let currentDisposers = null
+let currentScope = null
 let currentResolve = null
 let currentTick = null
-
-let contextValid = true
 
 let signalQueue = []
 let effectQueue = []
 
+const SIGNAL_STATE = Symbol(isProduction ? '' : 'signalState')
+
+const SIGNAL_VALUE = 0
+const SIGNAL_COMPUTE = 1
+const SIGNAL_EFFECTS = 2
+
+const SCOPE_ACTIVE = 1
+const SCOPE_VALID = 2
+const SCOPE_PURE = 4
+const SCOPE_CLEANUP_RESULT = 8
+const SCOPE_SCHEDULED = 16
+const SCOPE_PENDING = 32
+const SCOPE_RUNNING = 64
+
 // Scheduler part
 
-function scheduleSignal(signalEffects) {
-	if (!signalEffects || signalEffects.length <= 2) {
+function scheduleEffect(scope) {
+	const flags = scope?.flags ?? 0
+	if (!(flags & SCOPE_ACTIVE) || !scope.effect) return
+	if (flags & SCOPE_RUNNING) {
+		scope.flags = flags | SCOPE_PENDING
 		return
 	}
-	return signalQueue.push(signalEffects)
-}
-function scheduleEffect(effects) {
-	if (!effects || effects.length <= 2) {
-		return
-	}
-	return effectQueue.push(effects)
+	if (flags & SCOPE_SCHEDULED) return
+	scope.flags = flags | SCOPE_SCHEDULED
+	const queue = flags & SCOPE_PURE ? signalQueue : effectQueue
+	queue.push(scope)
+	return queue.length
 }
 
-// effectStore: [id, delCount, ...effects]
 function flushRunQueue(queue) {
 	const queueLength = queue.length
-	for (let i = 0; i < queueLength; i++) {
-		const effects = queue[i]
-		const effectEnd = effects.length
-		for (let j = 2; j < effectEnd; j++) {
-			const effect = effects[j][0]
-			if (!effect) {
-				continue
-			}
-			effect.__refui_scheduled = Math.max(1, effect.__refui_scheduled + 1)
-			effect.__refui_pending = false
-		}
-	}
-
-	for (let i = 0; i < queueLength; i++) {
-		const effects = queue[i]
-		const effectEnd = effects.length
-		for (let j = 2; j < effectEnd; j++) {
-			const effect = effects[j][0]
-			if (effect) {
-				if (--effect.__refui_scheduled > 0) {
-					effect.__refui_pending = true
-				} else if (effect.__refui_scheduled === 0) {
-					effect.__refui_pending = false
-					effect()
-				}
-			}
-		}
-	}
-}
-function sortQueue(a, b) {
-	return a[0] - b[0]
+	for (let i = 0; i < queueLength; i++) queue[i].run()
 }
 function flushQueues() {
 	if (signalQueue.length || effectQueue.length) {
 		while (signalQueue.length) {
-			const _ = signalQueue
+			const queue = signalQueue
 			signalQueue = []
-			if (_.length > 1) {
-				_.sort(sortQueue)
-			}
-			flushRunQueue(_)
+			flushRunQueue(queue)
 		}
 		while (effectQueue.length) {
-			const _ = effectQueue
+			const queue = effectQueue
 			effectQueue = []
-			flushRunQueue(_)
+			flushRunQueue(queue)
+			if (signalQueue.length) break
 		}
 
-		return Promise.resolve().then(flushQueues)
+		if (signalQueue.length || effectQueue.length) {
+			return Promise.resolve().then(flushQueues)
+		}
 	}
 }
 
@@ -133,6 +113,15 @@ function nextTick(cb, ...args) {
 
 // Signal part
 
+function scopeValid(scope = currentScope) {
+	return !scope
+		|| (scope.flags & (SCOPE_ACTIVE | SCOPE_VALID)) === (SCOPE_ACTIVE | SCOPE_VALID)
+}
+
+function scopeLive(scope) {
+	return !!scope?.effect && scopeValid(scope)
+}
+
 function pure(cb) {
 	cb._pure = true
 	return cb
@@ -142,42 +131,146 @@ function isPure(cb) {
 	return !!cb._pure
 }
 
-function _dispose_raw() {
-	const count = this.length
-	for (let i = 0; i < count; i++) this[i](true)
-	this.length = 0
-}
-function createDisposer(disposers, prevDisposers, cleanup) {
-	function dispose(batch) {
-		if (!batch && prevDisposers) {
-			removeFromArr(prevDisposers, dispose)
-		}
-		if (cleanup) {
-			cleanup(batch)
-		}
-		_dispose_raw.call(disposers)
-	}
-
-	if (prevDisposers) {
-		prevDisposers.push(dispose)
-	}
-
-	return dispose
+function disposeStore(disposers) {
+	if (!disposers) return
+	const count = disposers.length
+	for (let i = 0; i < count; i++) disposers[i](true)
 }
 
-function collectDisposers(disposers, fn, cleanup) {
-	const prevDisposers = currentDisposers
-	const _dispose = createDisposer(disposers, prevDisposers, cleanup)
-	currentDisposers = disposers
-	try {
-		fn()
-	} catch (error) {
-		currentDisposers = prevDisposers
-		if (prevDisposers) {
-			removeFromArr(prevDisposers, _dispose)
+function getCurrentDisposers() {
+	if (!currentScope || !scopeValid()) return
+	if (!currentScope.disposers) currentScope.disposers = []
+	return currentScope.disposers
+}
+
+class EffectScope {
+	constructor(
+		effect,
+		cleanupResult = true,
+		ownerDisposers = getCurrentDisposers(),
+		sources = null,
+		cleanup,
+		disposers = null
+	) {
+		let flags = SCOPE_ACTIVE | (scopeValid() ? SCOPE_VALID : 0)
+		if (effect) {
+			flags |= (isPure(effect) ? SCOPE_PURE : 0)
+				| (cleanupResult ? SCOPE_CLEANUP_RESULT : 0)
+			this.effect = effect
+		} else if (cleanup) this.cleanup = cleanup
+		this.flags = flags
+		this.disposers = disposers
+		if (sources) this.sources = sources
+		this.destroy = this._destroy.bind(this)
+		if ((flags & SCOPE_VALID) && ownerDisposers) {
+			this.ownerDisposers = ownerDisposers
+			ownerDisposers.push(this.destroy)
 		}
+	}
+
+	_cleanupEffect() {
+		const disposers = this.disposers
+		const dispose = this.dispose
+		this.disposers = null
+		if (dispose) this.dispose = null
 		try {
-			_dispose_raw.call(disposers)
+			disposeStore(disposers)
+		} finally {
+			dispose?.()
+		}
+	}
+
+	_call(fn, ...args) {
+		const prevScope = currentScope
+		currentScope = scopeValid(prevScope) ? this : prevScope
+		try {
+			return fn(...args)
+		} finally {
+			currentScope = prevScope
+		}
+	}
+
+	run() {
+		let flags = this.flags & ~SCOPE_SCHEDULED
+		this.flags = flags
+		if ((flags & (SCOPE_ACTIVE | SCOPE_VALID)) !== (SCOPE_ACTIVE | SCOPE_VALID) || !this.effect) return
+		if (flags & SCOPE_RUNNING) {
+			this.flags = flags | SCOPE_PENDING
+			return
+		}
+
+		const prevScope = currentScope
+		this.flags = flags | SCOPE_RUNNING
+		currentScope = this
+		try {
+			if (this.disposers || this.dispose) this._cleanupEffect()
+			if (!(this.flags & SCOPE_ACTIVE)) return
+			if (isSignal(this.sources)) {
+				subscribeSignal(this.sources, this)
+			} else if (this.sources) {
+				const sourceCount = this.sources.length
+				for (let i = 0; i < sourceCount; i++) {
+					subscribeSignal(this.sources[i], this)
+				}
+			}
+			const dispose = this.effect()
+			if ((this.flags & SCOPE_CLEANUP_RESULT) && typeof dispose === 'function') {
+				if (this.flags & SCOPE_ACTIVE) this.dispose = dispose
+				else dispose()
+			}
+		} finally {
+			currentScope = prevScope
+			flags = this.flags & ~SCOPE_RUNNING
+			this.flags = flags
+			if ((flags & (SCOPE_PENDING | SCOPE_ACTIVE)) === (SCOPE_PENDING | SCOPE_ACTIVE)) {
+				this.flags = flags & ~SCOPE_PENDING
+				scheduleEffect(this)
+			}
+		}
+	}
+
+	_destroy(batch) {
+		if (!(this.flags & SCOPE_ACTIVE)) return
+		this.flags = 0
+		const ownerDisposers = this.ownerDisposers
+		try {
+			if (!this.effect) {
+				const cleanup = this.cleanup
+				const disposers = this.disposers
+				if (cleanup) this.cleanup = null
+				this.disposers = null
+				try {
+					cleanup?.call(this, batch)
+				} finally {
+					disposeStore(disposers)
+				}
+				return
+			}
+			try {
+				if (this.disposers || this.dispose) this._cleanupEffect()
+			} finally {
+				this.effect = null
+				if (this.sources) this.sources = null
+				this.disposers = null
+			}
+		} finally {
+			if (ownerDisposers && !batch) {
+				const ownerPosition = ownerDisposers.indexOf(this.destroy)
+				if (ownerPosition !== -1) ownerDisposers[ownerPosition] = nop
+			}
+			if (ownerDisposers) this.ownerDisposers = null
+		}
+	}
+}
+
+function collectDisposers(fn, cleanup, disposers = [], ownerDisposers = getCurrentDisposers()) {
+	const scope = new EffectScope(null, false, ownerDisposers, null, cleanup, disposers)
+	try {
+		scope._call(fn)
+	} catch (error) {
+		scope.cleanup = null
+		try {
+			scope.destroy()
 		} catch (cleanupError) {
 			throw new AggregateError(
 				[error, cleanupError],
@@ -185,26 +278,24 @@ function collectDisposers(disposers, fn, cleanup) {
 			)
 		}
 		throw error
-	} finally {
-		currentDisposers = prevDisposers
 	}
-	return _dispose
+	return scope.destroy
 }
 
 function _onDispose(cb) {
-	const disposers = currentDisposers
+	const disposers = getCurrentDisposers()
 	function cleanup(batch) {
-		if (!batch) {
-			removeFromArr(disposers, cleanup)
-		}
-		cb(batch)
+		if (!cb) return
+		const current = cb
+		cb = null
+		current(batch)
 	}
 	disposers.push(cleanup)
 	return cleanup
 }
 
 function onDispose(cb) {
-	if (currentDisposers) {
+	if (currentScope && scopeValid()) {
 		if (!isProduction && typeof cb !== 'function') {
 			throw new TypeError(`Callback must be a function but got ${Object.prototype.toString.call(cb)}`)
 		}
@@ -213,111 +304,106 @@ function onDispose(cb) {
 	return cb
 }
 
-function useEffect(effect, ...args) {
-	let cleanup = null
-	let cancelled = false
-	const _dispose = watch(function() {
-		cleanup?.()
-		cleanup = effect(...args)
-	})
-	const cancelEffect = function() {
-		if (cancelled) {
-			return
+function createEffect(effect, cleanupResult) {
+	const scope = new EffectScope(effect, cleanupResult)
+	try {
+		scope.run()
+	} catch (error) {
+		try {
+			scope.destroy()
+		} catch (cleanupError) {
+			throw new AggregateError(
+				[error, cleanupError],
+				'Failed to clean up an effect after setup failed'
+			)
 		}
-		cancelled = true
-		cleanup?.()
-		_dispose()
+		throw error
 	}
-	onDispose(cancelEffect)
-	return cancelEffect
+	return scope.destroy
 }
 
-const _invalidatedState = {
-	disposers: null,
-	effect: null,
-	valid: false
+function useEffect(effect, ...args) {
+	return createEffect(effect.bind(null, ...args), true)
 }
-function _invalidateFrozenState() {
-	Object.assign(this, _invalidatedState)
-}
-function _frozen({ disposers, effect, valid }, ...args) {
-	const prevDisposers = currentDisposers
-	const prevEffect = currentEffect
-	const prevContextValid = contextValid
 
-	currentDisposers = disposers
-	currentEffect = effect
-	contextValid = valid
+function _frozen(scope, ...args) {
+	const prevScope = currentScope
+
+	currentScope = scope
 
 	try {
 		return this(...args)
 	} finally {
-		currentDisposers = prevDisposers
-		currentEffect = prevEffect
-		contextValid = prevContextValid
+		currentScope = prevScope
 	}
 }
-function freeze(
-	fn,
-	state = {
-		disposers: currentDisposers,
-		effect: currentEffect,
-		valid: contextValid
-	}
-) {
-	if (currentDisposers) {
-		currentDisposers.push(_invalidateFrozenState.bind(state))
-	}
-	return _frozen.bind(fn, state)
+function freeze(fn) {
+	return _frozen.bind(fn, currentScope)
 }
 
 const untrack = freeze(function(fn, ...args) {
 	return fn(...args)
 })
 
-function vacuumEffectStore() {
-	let delCount = this[1]
-	if (!delCount) {
-		return
+function subscribeSignal(sig, scope) {
+	if (!scopeLive(scope)) return
+	const state = sig[SIGNAL_STATE]
+	const effects = state[SIGNAL_EFFECTS]
+	if (!effects) {
+		state[SIGNAL_EFFECTS] = scope
+	} else if (effects instanceof Set) {
+		effects.add(scope)
+	} else if (effects !== scope) {
+		if (scopeLive(effects)) state[SIGNAL_EFFECTS] = new Set([effects, scope])
+		else state[SIGNAL_EFFECTS] = scope
 	}
-	const effectEnd = this.length
-
-	if (delCount === effectEnd - 2) {
-		this.length = 2
-		this[1] = 0
-		return
-	}
-
-	let i = 2
-
-	for (; i < effectEnd; i++) {
-		if (!this[i][0]) {
-			delCount -= 1
-			break
-		}
-	}
-
-	let cursor = i
-	i += 1
-
-	for (; i < effectEnd && delCount > 0; i++) {
-		if (this[i][0]) {
-			this[cursor] = this[i]
-			cursor += 1
-		} else {
-			delCount -= 1
-		}
-	}
-
-	this.splice(cursor, i - cursor)
-	this[1] = 0
 }
 
-function scheduleVacuum(effects) {
-	if (effects[1] === 2) {
-		nextTick(vacuumEffectStore.bind(effects))
+function trackSignal(sig) {
+	if (currentScope?.effect) subscribeSignal(sig, currentScope)
+}
+
+function triggerSignal(sig) {
+	const state = sig[SIGNAL_STATE]
+	const effects = state[SIGNAL_EFFECTS]
+	if (effects) {
+		state[SIGNAL_EFFECTS] = null
+		if (effects instanceof Set) {
+			for (const scope of effects) scheduleEffect(scope)
+		} else scheduleEffect(effects)
 	}
-	effects[1] += 1
+	tick()
+}
+
+function signalConnected(sig) {
+	const state = sig[SIGNAL_STATE]
+	const effects = state[SIGNAL_EFFECTS]
+	if (!effects) return false
+	if (!(effects instanceof Set)) {
+		if (scopeLive(effects)) return true
+		state[SIGNAL_EFFECTS] = null
+		return false
+	}
+	for (const scope of effects) {
+		if (!scopeLive(scope)) effects.delete(scope)
+	}
+	if (!effects.size) {
+		state[SIGNAL_EFFECTS] = null
+		return false
+	}
+	if (effects.size === 1) state[SIGNAL_EFFECTS] = effects.values().next().value
+	return true
+}
+
+function setSignal(sig, val) {
+	const state = sig[SIGNAL_STATE]
+	const compute = state[SIGNAL_COMPUTE]
+	const newValue = read(val)
+	const nextValue = compute ? peek(compute(newValue)) : newValue
+	if (state[SIGNAL_VALUE] !== nextValue) {
+		state[SIGNAL_VALUE] = nextValue
+		triggerSignal(sig)
+	}
 }
 
 const Signal = class {
@@ -326,31 +412,17 @@ const Signal = class {
 			throw new Error('Signal must not be extended!')
 		}
 
-		// effectStore: [id, delCount, ...effects]
-		// eslint-disable-next-line no-plusplus
-		const id = sigID++
-		const disposeCtx = currentDisposers
-
-		const internals = {
-			id,
-			value,
-			compute,
-			disposeCtx,
-			userEffects: null,
-			signalEffects: null
-		}
-
-		Object.defineProperty(this, '_', {
-			value: internals,
-			writable: false,
+		Object.defineProperty(this, SIGNAL_STATE, {
+			value: [value, compute, null],
 			enumerable: false,
-			configurable: false
+			configurable: false,
+			writable: false
 		})
 
 		if (compute) {
-			watch(pure(this.set.bind(this, value)))
+			watch(pure(setSignal.bind(null, this, value)))
 		} else if (isSignal(value)) {
-			value.connect(pure(this.set.bind(this, value)))
+			value.connect(pure(setSignal.bind(null, this, value)))
 		}
 	}
 
@@ -374,101 +446,48 @@ const Signal = class {
 	}
 
 	get connected() {
-		const { userEffects, signalEffects } = this._
-		return (
-			(userEffects !== null && userEffects.length - userEffects[1] > 2)
-			|| (signalEffects !== null && signalEffects.length - signalEffects[1] > 2)
-		)
+		return signalConnected(this)
 	}
 
 	touch() {
-		this.connect(currentEffect)
+		trackSignal(this)
 	}
 
 	get() {
-		this.connect(currentEffect)
-		return this._.value
+		trackSignal(this)
+		return this[SIGNAL_STATE][SIGNAL_VALUE]
 	}
 
 	set(val) {
-		const { compute, value } = this._
-		const newVal = read(val)
-		val = compute ? peek(compute(newVal)) : newVal
-		if (value !== val) {
-			this._.value = val
-			this.trigger()
-		}
+		setSignal(this, val)
 	}
 
 	peek() {
-		return this._.value
+		return this[SIGNAL_STATE][SIGNAL_VALUE]
 	}
 
 	poke(val) {
-		this._.value = val
+		this[SIGNAL_STATE][SIGNAL_VALUE] = val
 	}
 
 	trigger() {
-		const { userEffects, signalEffects } = this._
-		scheduleSignal(signalEffects)
-		scheduleEffect(userEffects)
-		tick()
+		triggerSignal(this)
 	}
 
 	refresh() {
-		const { compute, value } = this._
+		const state = this[SIGNAL_STATE]
+		const compute = state[SIGNAL_COMPUTE]
 		if (compute) {
-			const val = peek(compute(value))
-			if (value !== val) {
-				this._.value = val
-				this.trigger()
+			const nextValue = peek(compute(state[SIGNAL_VALUE]))
+			if (state[SIGNAL_VALUE] !== nextValue) {
+				state[SIGNAL_VALUE] = nextValue
+				triggerSignal(this)
 			}
 		}
 	}
 
 	connect(effect, runImmediate = true) {
-		if (!effect) {
-			return
-		}
-		const internals = this._
-		const { disposeCtx } = internals
-		if (contextValid) {
-			let effects
-			if (isPure(effect)) {
-				effects = internals.signalEffects
-					?? (internals.signalEffects = [internals.id, 0])
-			} else {
-				effects = internals.userEffects
-					?? (internals.userEffects = [internals.id, 0])
-			}
-			const container = [effect]
-			effects.push(container)
-			if (currentDisposers && currentDisposers !== disposeCtx) {
-				currentDisposers.push(function() {
-					container[0] = null
-					if (!--effect.__refui_scheduled && effect.__refui_pending) {
-						effect.__refui_pending = false
-						effect()
-					}
-					scheduleVacuum(effects)
-				})
-			}
-			if (!Object.hasOwn(effect, '__refui_scheduled')) {
-				Object.defineProperties(effect, {
-					__refui_scheduled: {
-						value: 0,
-						writable: true
-					},
-					__refui_pending: {
-						value: false,
-						writable: true
-					}
-				})
-			}
-		}
-		if (runImmediate && currentEffect !== effect) {
-			effect()
-		}
+		connectSignals(this, effect, runImmediate)
 	}
 
 	hasValue() {
@@ -655,17 +674,30 @@ function isSignal(val) {
 	return val && val.constructor === Signal
 }
 
-function watch(effect) {
-	const prevEffect = currentEffect
-	currentEffect = effect
-
-	try {
-		return collectDisposers([], effect)
-	} finally {
-		currentEffect = prevEffect
+function connectSignals(signals, effect, runImmediate = true) {
+	if (!effect) return
+	const ownerDisposers = getCurrentDisposers()
+	const scope = new EffectScope(effect, false, null, signals)
+	ownerDisposers?.push(scope.destroy)
+	if (runImmediate) {
+		try {
+			scope.run()
+		} catch (error) {
+			scope.destroy()
+			throw error
+		}
+	} else if (isSignal(signals)) {
+		subscribeSignal(signals, scope)
+	} else {
+		const signalCount = signals.length
+		for (let i = 0; i < signalCount; i++) {
+			subscribeSignal(signals[i], scope)
+		}
 	}
 }
-
+function watch(effect) {
+	return createEffect(effect, false)
+}
 
 function peek(val) {
 	while (isSignal(val)) {
@@ -893,19 +925,7 @@ function createSchedule(deferrer, onAbort) {
 }
 
 function connect(sigs, effect, runImmediate = true) {
-	const sigCount = sigs.length
-	for (let i = 0; i < sigCount; i++) {
-		sigs[i].connect(effect, false)
-	}
-	if (runImmediate) {
-		const prevEffect = currentEffect
-		currentEffect = effect
-		try {
-			effect()
-		} finally {
-			currentEffect = prevEffect
-		}
-	}
+	connectSignals(sigs, effect, runImmediate)
 }
 
 function bind(handler, val) {
@@ -1040,13 +1060,13 @@ function onCondition(sig, compute) {
 	}
 
 	function retainEntry(key, entry) {
-		if (!currentDisposers) {
+		if (!currentScope || !scopeValid()) {
 			entry.persistent = true
 			return
 		}
 
 		entry.refs += 1
-		currentDisposers.push(function () {
+		onDispose(function () {
 			entry.refs -= 1
 			if (!entry.refs && !entry.persistent) {
 				removeEntry(key, entry)
@@ -1065,7 +1085,7 @@ function onCondition(sig, compute) {
 		}
 
 		entry.dispose = untrack(function () {
-			return collectDisposers([], function () {
+			return collectDisposers(function () {
 				entry.matchSig = signal(currentCondition === currentVal, compute)
 				if (isSignal(condition)) {
 					condition.connect(function () {
@@ -1109,8 +1129,8 @@ function onCondition(sig, compute) {
 		})
 	)
 
-	if (currentDisposers) {
-		currentDisposers.push(function() {
+	if (currentScope && scopeValid()) {
+		onDispose(function() {
 			for (const entry of conditionValMap.values()) {
 				entry.dispose()
 			}
@@ -1158,7 +1178,6 @@ export {
 	merge,
 	write,
 	listen,
-	scheduleEffect as schedule,
 	tick,
 	nextTick,
 	collectDisposers,
@@ -1167,5 +1186,6 @@ export {
 	useEffect,
 	untrack,
 	freeze,
-	contextValid
+	scopeValid,
+	EffectScope
 }

@@ -22,20 +22,23 @@ Computed signals derive their value from other signals and automatically update 
 ## Important notice
 Signal effects are semi-lazily computed: no matter how many times you change a signal during one tick, its effects execute once at the end of that tick. If you modify a signal and need its updated derived value, use `nextTick(cb)` or `await nextTick()`. The lower-level `tick()` API manually triggers a flush; prefer `nextTick` when you need to await the scheduler.
 
+Derived signal propagation still flushes before user effects, but effects within the same phase should not communicate through assumed execution order. Coordinate related work through signals or `nextTick()` instead.
+
 ### Avoiding Stale Values
 Effects and computed signals flush at the end of the tick. If you need to read a fresh derived value immediately after a write, always use `await nextTick()`.
 
 ### Dependency Tracking
-Signals track dependencies only when they are read during the synchronous execution of a computation. If you use early returns or branching logic, ensure all necessary signals are read before the branch:
+Signals track dependencies when they are read during the synchronous execution of a computation. Branches can discover dependencies incrementally: when a previously tracked condition changes and opens a branch, signals read in that branch become dependencies on that run.
 
 ```js
 const summary = computed(() => {
-  const t = track.value        // read first to ensure tracking
-  const meta = metadata.value  // read first to ensure tracking
-  if (!t) return 'Ready'
-  return `${t.name} – ${meta}`
+	const t = track.value
+	if (!t) return 'Ready'
+	return `${t.name} – ${metadata.value}`
 })
 ```
+
+While `track.value` is falsy, `metadata` is not observed. Once `track` becomes truthy, the computation reruns, reaches `metadata.value`, and starts observing it. A dependency that is no longer read is retired lazily after its existing subscription next fires.
 
 ## Basic Usage
 

@@ -62,3 +62,9 @@ Common patterns:
 
 Interop note:
 - If you manually construct host nodes (or pass through nodes from another renderer), mark them with `markNode` from `refui/reflow` so the runtime doesn’t treat arrays as child lists.
+
+### Custom renderer parent ownership
+
+- `createRenderer()` can track parent relationships itself; custom renderers do not need to expose a parent accessor.
+- A renderer may implement `getParent(node)` to report the current physical host parent. This lets the core retain ownership metadata only for logical fragments and avoids per-node parent-map entries.
+- When `getParent` is provided, the renderer's `appendNode` and `insertBefore` operations must move an already-parented ordinary node, matching DOM behavior. Without `getParent`, the core removes and reparents nodes before calling the host operation as before.

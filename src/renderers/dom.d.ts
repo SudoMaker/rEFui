@@ -36,6 +36,7 @@ export interface DOMNodeOps<
 	Fragment = DocumentFragment,
 	MacroNode extends Element = Element
 > extends BaseNodeOps<Node, Fragment> {
+	getParent(node: Node | Fragment): Node | Fragment | null | undefined
 	macros: Record<string, DOMMacroHandler<MacroNode>>
 	useMacro(descriptor: DOMMacroDescriptor<MacroNode>): void
 }

@@ -29,7 +29,7 @@ Use this file whenever you are about to write or refactor rEFui code. It is inte
 
 ### Do
 - Use `$(() => ...)` / `computed(() => ...)` for **computed expressions** (string templates, ternaries, math, formatting).
-- Read dependencies *before* branching when early returns exist (dependency tracking).
+- Let branches discover dependencies when they become reachable; call `.touch()` before a branch only when the skipped state must still react to that signal.
 
 ### Don’t
 - Don’t compute derived strings inline in JSX via `.value` reads.

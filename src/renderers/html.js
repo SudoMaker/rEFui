@@ -120,6 +120,9 @@ function createHTMLRenderer({
 		frag[FLAG_FRAG] = true
 		return frag
 	}
+	function getParent(node) {
+		return node.parent
+	}
 
 	function revokeSelfClosing(parent) {
 		if (parent[FLAG_SELF_CLOSING]) {
@@ -136,7 +139,7 @@ function createHTMLRenderer({
 		node.parent = null
 	}
 	function clearChildren(parent, first, last) {
-		const children = parent[FLAG_FRAG] ? parent : parent[3]
+		const children = parent.nodeName ? parent[3] : parent
 		const childCount = children.length
 		if (children[0] !== first || children[childCount - 1] !== last) return false
 		for (let i = 0; i < childCount; i++) children[i].parent = null
@@ -145,7 +148,7 @@ function createHTMLRenderer({
 	}
 	function appendNode(parent, ...nodes) {
 		let _parent = parent
-		if (!parent[FLAG_FRAG]) {
+		if (parent.nodeName) {
 			revokeSelfClosing(parent)
 			_parent = parent[3]
 		}
@@ -167,9 +170,15 @@ function createHTMLRenderer({
 		}
 	}
 	function insertBefore(node, ref) {
-		const parent = ref.parent
+		if (node === ref) return
+
+		let parent = ref.parent
 		if (!parent) {
 			return
+		}
+		if (!node[FLAG_FRAG]) {
+			removeNode(node)
+			parent = ref.parent
 		}
 
 		const index = parent.indexOf(ref)
@@ -246,6 +255,7 @@ function createHTMLRenderer({
 		createAnchor,
 		createTextNode,
 		createFragment,
+		getParent,
 		setProps,
 		insertBefore,
 		appendNode,

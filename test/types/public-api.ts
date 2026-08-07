@@ -3,10 +3,12 @@ import {
 	Signal as SignalValue,
 	type AsyncProps,
 	type DynamicProps,
+	type DisposerStore,
 	type ForMethod,
 	type Signal,
 	createContext,
 	createComponent,
+	collectDisposers,
 	derive,
 	lazy,
 	peek,
@@ -32,6 +34,9 @@ const initiallyEmpty: Signal<number | undefined> = signal<number>()
 const pokeResult: void = poke(count, 1)
 const plainPokeResult: number = poke(0, 1)
 const countValue: number = peek(count)
+const disposerStore: DisposerStore = []
+const disposeStore = collectDisposers(function () {}, undefined, disposerStore)
+disposeStore()
 
 const user = signal<{ name: string } | null>({ name: 'Ada' })
 const userName: Signal<string | undefined> = derive(user, 'name')
@@ -130,6 +135,7 @@ R.c(function Abstract() {
 
 void incorrectlyNarrowedTextNode
 void fragmentCleared
+void effectStore
 void rowMethod
 void invalidRowMethod
 void dynamicTagProps

@@ -19,7 +19,14 @@
  */
 
 export type BatchDisposer = (batch?: boolean) => void
+export type DisposerStore = Array<BatchDisposer | number | undefined>
 export type EffectCallback = () => void
+
+export class EffectScope {
+	constructor(effect?: () => void | BatchDisposer)
+	run(): void
+	destroy(batch?: boolean): void
+}
 
 export type MaybeSignal<T> = T | Signal<T>
 export type SignalsOf<T extends readonly unknown[]> = {
@@ -147,19 +154,21 @@ export function readAll<T extends readonly unknown[]>(...values: T): { [K in key
 export function write<T>(target: MaybeSignal<T>, value: T | ((previous: T) => T)): T
 export function listen(signals: readonly MaybeSignal<unknown>[], callback: EffectCallback): void
 
-export type EffectStore = [number, number, ...Array<[EffectCallback | null]>]
-export function schedule(effects: EffectStore): number | undefined
 export function tick(): Promise<void>
 export function nextTick(callback?: (...args: unknown[]) => void, ...args: unknown[]): Promise<void>
 
-export function collectDisposers(disposers: BatchDisposer[], fn: () => void, cleanup?: BatchDisposer): BatchDisposer
+export function collectDisposers(
+	fn: () => void,
+	cleanup?: BatchDisposer,
+	disposers?: DisposerStore,
+	ownerDisposers?: DisposerStore | null
+): BatchDisposer
 export function onDispose(callback: BatchDisposer): BatchDisposer
 export function useEffect<TArgs extends unknown[]>(effect: (...args: TArgs) => void | BatchDisposer, ...args: TArgs): () => void
 
 export function untrack<T, U extends unknown[]>(fn: (...args: U) => T, ...args: U): T
 export function freeze<T extends (...args: any[]) => any>(fn: T): T
-
-export const contextValid: boolean
+export function scopeIsValid(scope?: EffectScope): boolean
 
 export function onCondition<T>(signal: Signal<T>, compute?: (value: boolean) => boolean): (match: MaybeSignal<T>) => Signal<boolean>
 

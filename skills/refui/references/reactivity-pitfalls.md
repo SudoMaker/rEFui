@@ -42,24 +42,24 @@ Effects/computed flush at the end of the tick. If you need to observe derived va
 
 Prefer `nextTick` over manually calling `tick()` unless you truly need to kick the scheduler.
 
-## 4) Dependency tracking “early return” trap
+## 4) Conditional dependency discovery
 
 Signals are tracked only when they are read during the synchronous run of a computation.
 
-If you return before touching a dependency, it won’t be tracked:
-- Read all dependencies first, then branch.
+If control flow initially skips a signal, that signal is not tracked yet. When an
+already-tracked dependency reruns the computation and makes the branch reachable,
+the newly read signal is tracked from then on.
 
-Example (buggy):
+Example:
 - `const label = $(() => isLive.value ? 'Live' : `Step ${index.value + 1} of ${len.value}`)`
-If `isLive.value` is true, `index`/`len` are never read, so changes to them won’t trigger updates.
-
-Fix:
-- Read all dependencies first: `const label = $(() => { const live = isLive.value; const i = index.value; const l = len.value; return live ? 'Live' : `Step ${i + 1} of ${l}` })`
+While `isLive.value` is true, `index` and `len` are not dependencies. If `isLive`
+later becomes false, the computation reruns, reads `index` and `len`, and starts
+reacting to them.
 
 Important scope note:
-- This pitfall applies to JavaScript control flow inside `computed` / `$(() => ...)` / `watch(...)` / class builders / style builders where later `.value` reads can be skipped.
+- Dependencies discovered by `computed` / `$(() => ...)` / `watch(...)` are retired lazily. A dependency skipped by later control flow can cause one final rerun when it changes; if the computation still skips it, it is no longer subscribed afterward.
 - It does **not** mean `<If condition={someSignal}>` is wrong. Passing a signal/computed directly into rEFui control-flow components is the intended reactive usage.
-- The suspicious pattern is `const klass = $(() => a.value ? (b.value ? 'x' : 'y') : 'z')` when `b.value` must stay reactive after `a.value` changes later. In that case, read both first, then branch.
+- Use `peek` for values that should never become dependencies, including after a branch is reached.
 
 ## 5) Effects/lifecycle cleanup
 
@@ -111,7 +111,7 @@ Also:
 - Mixing two modes as multiple children of a single `If`:
   - `If` only takes **two** children (true branch, false branch). Extra siblings are ignored.
   - Wrap each branch in a single container if it needs multiple nodes.
-- Conditional computed that skips dependencies; read all dependencies before branching.
+- Assuming a skipped branch is already tracked before control flow reaches it.
 - `watch` that accidentally tracks a control signal you only wanted to observe; use `peek` when you need a non-tracking read.
 - Using a stale lookup map after list reorder:
   - If you build a `Map` from an array once and then reorder the array, the map reflects **old positions**.

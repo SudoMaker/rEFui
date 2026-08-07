@@ -26,9 +26,13 @@ export interface BaseNodeOps<Node = unknown, Fragment = unknown> {
 	createTextNode(content: unknown): Node
 	createAnchor(name?: string | null): Node
 	createFragment(name?: string | null): Fragment
+	/** Return the node's current physical host parent to opt out of core parent tracking. */
+	getParent?(node: Node | Fragment): Node | Fragment | null | undefined
 	removeNode(node: Node | Fragment): void
 	clearChildren?(parent: Node | Fragment, first: Node, last: Node): boolean
+	/** Append children, moving already-parented nodes when getParent is implemented. */
 	appendNode(parent: Node | Fragment, ...children: Array<Node | Fragment>): void
+	/** Insert a node, moving it from its old parent when getParent is implemented. */
 	insertBefore(node: Node | Fragment, ref: Node | Fragment): void
 	setProps(node: Node | Fragment, props: Record<string, unknown>): void
 }
