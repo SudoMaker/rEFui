@@ -329,6 +329,62 @@ test('computed signals retain their public computed helper semantics', async fun
 	assert.equal(doubled.peek(), 6)
 })
 
+test('refresh reruns the computed scope with its original input', function () {
+	const source = signal(2)
+	const doubled = signal(source, function (value) {
+		return value * 2
+	})
+
+	assert.equal(doubled.peek(), 4)
+	doubled.refresh()
+	assert.equal(doubled.peek(), 4)
+})
+
+test('refresh collects new computed branches without tracking the caller', async function () {
+	let useFirst = true
+	const first = signal(1)
+	const second = signal(2)
+	const selected = computed(function () {
+		return useFirst ? first.value : second.value
+	})
+	const refreshTrigger = signal(0)
+	let callerRuns = 0
+	const disposeCaller = watch(function () {
+		refreshTrigger.value
+		callerRuns += 1
+		selected.refresh()
+	})
+
+	useFirst = false
+	refreshTrigger.value = 1
+	await nextTick()
+	assert.equal(selected.peek(), 2)
+	assert.equal(callerRuns, 2)
+
+	second.value = 3
+	await nextTick()
+	assert.equal(selected.peek(), 3)
+	assert.equal(callerRuns, 2)
+
+	disposeCaller()
+})
+
+test('refresh consumes an already queued computed execution', async function () {
+	const source = signal(0)
+	let computations = 0
+	const value = computed(function () {
+		computations += 1
+		return source.value
+	})
+
+	assert.equal(computations, 1)
+	source.value = 1
+	value.refresh()
+	assert.equal(computations, 2)
+	await nextTick()
+	assert.equal(computations, 2)
+})
+
 test('useEffect cleans the previous run and final run exactly once', async function () {
 	const source = signal(0)
 	const events = []
@@ -570,6 +626,25 @@ test('listen preserves one eager subscription per supplied signal', async functi
 	disposeListeners()
 })
 
+test('listen rolls back earlier eager connections when setup fails', async function () {
+	const first = signal(0)
+	const second = signal(0)
+	let runs = 0
+
+	assert.throws(function () {
+		listen([first, second], function () {
+			runs += 1
+			if (runs === 2) throw new Error('listener setup failed')
+		})
+	}, /listener setup failed/)
+
+	assert.equal(first.connected, false)
+	assert.equal(second.connected, false)
+	first.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+})
+
 test('useAction remains lazy and batches the latest action value', async function () {
 	const [onAction, trigger] = useAction(0)
 	const seen = []
@@ -689,6 +764,69 @@ test('queued effects recover after an earlier effect throws', async function () 
 	disposeLater()
 })
 
+test('a cleanup failure during rerun terminates the effect', async function () {
+	const source = signal(0)
+	let runs = 0
+	const disposeEffect = useEffect(function () {
+		source.value
+		runs += 1
+		return function () {
+			throw new Error('cleanup failed')
+		}
+	})
+
+	source.value = 1
+	await assert.rejects(nextTick(), /cleanup failed/)
+	assert.equal(runs, 1)
+	assert.equal(source.connected, false)
+
+	source.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+	disposeEffect()
+})
+
+test('a failed dynamic watch terminates before it can become orphaned', async function () {
+	const source = signal(0)
+	let fail = false
+	let runs = 0
+	const disposeEffect = watch(function () {
+		if (fail) throw new Error('effect failed before dependency read')
+		source.value
+		runs += 1
+	})
+
+	fail = true
+	source.value = 1
+	await assert.rejects(nextTick(), /effect failed before dependency read/)
+	assert.equal(source.connected, false)
+
+	fail = false
+	source.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+	disposeEffect()
+})
+
+test('a failed manual EffectScope run terminates the scope', function () {
+	const source = signal(0)
+	let cleanupCalls = 0
+	const scope = new EffectScope(function () {
+		source.value
+		onDispose(function () {
+			cleanupCalls += 1
+		})
+		throw new Error('manual run failed')
+	})
+
+	assert.throws(function () {
+		scope.run()
+	}, /manual run failed/)
+	assert.equal(cleanupCalls, 1)
+	assert.equal(source.connected, false)
+	assert.equal(scopeValid(scope), false)
+})
+
 test('a caught scheduler failure does not create another unhandled rejection', async function () {
 	const failures = []
 	function onUnhandled(error) {
@@ -751,6 +889,109 @@ test('multiple cleanup failures are aggregated after every cleanup runs', functi
 		return true
 	})
 	assert.deepEqual(calls, ['first', 'second'])
+})
+
+test('cleanup-only signal reads do not become effect dependencies', async function () {
+	const source = signal(0)
+	const cleanupOnly = signal(0)
+	let runs = 0
+	const disposeEffect = watch(function () {
+		source.value
+		runs += 1
+		onDispose(function () {
+			cleanupOnly.value
+		})
+	})
+
+	source.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+	assert.equal(cleanupOnly.connected, false)
+
+	cleanupOnly.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+	disposeEffect()
+})
+
+test('nested cleanup reads do not contaminate the parent effect', async function () {
+	const source = signal(0)
+	const cleanupOnly = signal(0)
+	let runs = 0
+	const disposeEffect = watch(function () {
+		source.value
+		runs += 1
+		collectDisposers(function () {}, function () {
+			cleanupOnly.value
+		})
+	})
+
+	source.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+	assert.equal(cleanupOnly.connected, false)
+
+	cleanupOnly.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+	disposeEffect()
+})
+
+test('effect cleanup retains ownership for its next lifecycle', async function () {
+	const source = signal(0)
+	const events = []
+	const disposeEffect = watch(function () {
+		const value = source.value
+		onDispose(function () {
+			events.push(['cleanup', value])
+			onDispose(function () {
+				events.push(['deferred', value])
+			})
+		})
+	})
+
+	source.value = 1
+	await nextTick()
+	assert.deepEqual(events, [['cleanup', 0]])
+
+	source.value = 2
+	await nextTick()
+	assert.deepEqual(events, [
+		['cleanup', 0],
+		['deferred', 0],
+		['cleanup', 1]
+	])
+
+	disposeEffect()
+})
+
+test('a callback frozen during cleanup stays untracked and retains its owner', async function () {
+	const source = signal(0)
+	const cleanupOnly = signal(0)
+	let frozenCleanup
+	let deferredCleanups = 0
+	const disposeEffect = watch(function () {
+		source.value
+		onDispose(function () {
+			frozenCleanup = freeze(function () {
+				cleanupOnly.value
+				onDispose(function () {
+					deferredCleanups += 1
+				})
+			})
+		})
+	})
+
+	source.value = 1
+	await nextTick()
+	frozenCleanup()
+	assert.equal(cleanupOnly.connected, false)
+
+	source.value = 2
+	await nextTick()
+	assert.equal(deferredCleanups, 1)
+	assert.equal(cleanupOnly.connected, false)
+	disposeEffect()
 })
 
 test('pure work preempts later user effects in the same queue', async function () {
@@ -900,6 +1141,19 @@ test('an explicitly disposed child stays inactive when its parent is disposed', 
 	assert.equal(childCleanupCalls, 1)
 })
 
+test('a manually disposed connection releases its owner slot', function () {
+	const ownerDisposers = []
+	let disposeConnection
+	const disposeOwner = collectDisposers(function () {
+		const source = signal(0)
+		disposeConnection = source.connect(function () {})
+		disposeConnection()
+	}, undefined, ownerDisposers)
+
+	assert.notEqual(ownerDisposers[0], disposeConnection)
+	disposeOwner()
+})
+
 test('cleaned children stay inert while later siblings remain disposable', function () {
 	const ownerDisposers = []
 	const disposeParent = collectDisposers(function () {}, undefined, ownerDisposers)
@@ -963,6 +1217,28 @@ test('derive clears stale values when a nullable source is cleared', async funct
 	assert.equal(title.peek(), undefined)
 })
 
+test('derive settles signal-valued properties before later user effects', async function () {
+	const property = signal(0)
+	const source = signal({ value: property })
+	const kick = signal(false)
+	const derived = derive(source, 'value')
+	const seen = []
+	const disposeWriter = watch(function () {
+		if (kick.value) property.value = 1
+	})
+	const disposeReader = watch(function () {
+		kick.value
+		seen.push(derived.value)
+	})
+
+	seen.length = 0
+	kick.value = true
+	await nextTick()
+	assert.deepEqual(seen, [1])
+	disposeWriter()
+	disposeReader()
+})
+
 test('onCondition keeps shared matches live until the last consumer disposes', async function () {
 	const selected = signal('a')
 	const condition = signal('a')
@@ -998,4 +1274,29 @@ test('onCondition keeps shared matches live until the last consumer disposes', a
 
 	disposeOwner()
 	assert.equal(selected.connected, false)
+})
+
+test('onCondition settles signal-valued matches before later user effects', async function () {
+	const selected = signal('a')
+	const condition = signal('a')
+	const kick = signal(false)
+	const matched = onCondition(selected)(condition)
+	const seen = []
+	const disposeWriter = watch(function () {
+		if (kick.value) {
+			selected.value = 'b'
+			condition.value = 'b'
+		}
+	})
+	const disposeReader = watch(function () {
+		kick.value
+		seen.push(matched.value)
+	})
+
+	seen.length = 0
+	kick.value = true
+	await nextTick()
+	assert.deepEqual(seen, [true])
+	disposeWriter()
+	disposeReader()
 })

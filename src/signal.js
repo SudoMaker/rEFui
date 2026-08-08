@@ -34,6 +34,7 @@ const SIGNAL_STATE = Symbol(isProduction ? '' : 'signalState')
 const SIGNAL_VALUE = 0
 const SIGNAL_COMPUTE = 1
 const SIGNAL_EFFECTS = 2
+const SIGNAL_SCOPE = 3
 
 const SCOPE_ACTIVE = 1
 const SCOPE_VALID = 2
@@ -42,6 +43,7 @@ const SCOPE_CLEANUP_RESULT = 8
 const SCOPE_SCHEDULED = 16
 const SCOPE_PENDING = 32
 const SCOPE_RUNNING = 64
+const SCOPE_UNTRACKED = 128
 
 // Scheduler part
 
@@ -63,9 +65,11 @@ function flushRunQueue(queue) {
 	const queueLength = queue.length
 	let errors
 	for (let i = 0; i < queueLength; i++) {
+		const scope = queue[i]
 		try {
-			queue[i].run()
+			if (scope.flags & SCOPE_SCHEDULED) scope._run()
 		} catch (error) {
+			error = terminateFailedScope(scope, error)
 			if (errors) errors.push(error)
 			else errors = [error]
 		}
@@ -92,9 +96,11 @@ function flushEffectRunQueue(queue) {
 	const queueLength = queue.length
 	let errors
 	for (let i = 0; i < queueLength; i++) {
+		const scope = queue[i]
 		try {
-			queue[i].run()
+			if (scope.flags & SCOPE_SCHEDULED) scope._run()
 		} catch (error) {
+			error = terminateFailedScope(scope, error)
 			if (errors) errors.push(error)
 			else errors = [error]
 		}
@@ -158,7 +164,11 @@ function nextTick(cb, ...args) {
 
 // Signal part
 
-function scopeValid(scope = currentScope) {
+function getCurrentOwner() {
+	return currentScope
+}
+
+function scopeValid(scope = getCurrentOwner()) {
 	return !scope
 		|| (scope.flags & (SCOPE_ACTIVE | SCOPE_VALID)) === (SCOPE_ACTIVE | SCOPE_VALID)
 }
@@ -176,13 +186,13 @@ function isPure(cb) {
 	return !!cb._pure
 }
 
-function disposeStore(disposers) {
+function disposeStore(disposers, batch = true) {
 	if (!disposers) return
 	const count = disposers.length
 	let errors
 	for (let i = 0; i < count; i++) {
 		try {
-			disposers[i](true)
+			disposers[i](batch)
 		} catch (error) {
 			if (errors) errors.push(error)
 			else errors = [error]
@@ -192,9 +202,23 @@ function disposeStore(disposers) {
 }
 
 function getCurrentDisposers() {
-	if (!currentScope || !scopeValid()) return
-	if (!currentScope.disposers) currentScope.disposers = []
-	return currentScope.disposers
+	const owner = currentScope
+	if (!owner
+		|| (owner.flags & (SCOPE_ACTIVE | SCOPE_VALID)) !== (SCOPE_ACTIVE | SCOPE_VALID)) return
+	if (!owner.disposers) owner.disposers = []
+	return owner.disposers
+}
+
+function terminateFailedScope(scope, error) {
+	try {
+		scope.destroy()
+	} catch (cleanupError) {
+		return new AggregateError(
+			[error, cleanupError],
+			'Failed to clean up an effect after execution failed'
+		)
+	}
+	return error
 }
 
 class EffectScope {
@@ -223,6 +247,9 @@ class EffectScope {
 	}
 
 	_cleanupEffect() {
+		const owner = currentScope
+		const wasUntracked = owner?.flags & SCOPE_UNTRACKED
+		if (owner && !wasUntracked) owner.flags |= SCOPE_UNTRACKED
 		const disposers = this.disposers
 		const dispose = this.dispose
 		this.disposers = null
@@ -239,7 +266,11 @@ class EffectScope {
 			if (errors) errors.push(error)
 			else errors = [error]
 		}
-		throwErrors(errors, 'Multiple effect cleanups failed')
+		try {
+			throwErrors(errors, 'Multiple effect cleanups failed')
+		} finally {
+			if (owner && !wasUntracked) owner.flags &= ~SCOPE_UNTRACKED
+		}
 	}
 
 	_call(fn, ...args) {
@@ -253,6 +284,14 @@ class EffectScope {
 	}
 
 	run() {
+		try {
+			return this._run()
+		} catch (error) {
+			throw terminateFailedScope(this, error)
+		}
+	}
+
+	_run() {
 		let flags = this.flags & ~SCOPE_SCHEDULED
 		this.flags = flags
 		if ((flags & (SCOPE_ACTIVE | SCOPE_VALID)) !== (SCOPE_ACTIVE | SCOPE_VALID) || !this.effect) return
@@ -295,6 +334,9 @@ class EffectScope {
 		if (!(this.flags & SCOPE_ACTIVE)) return
 		this.flags = 0
 		const ownerDisposers = this.ownerDisposers
+		const owner = currentScope
+		const wasUntracked = owner?.flags & SCOPE_UNTRACKED
+		if (owner && !wasUntracked) owner.flags |= SCOPE_UNTRACKED
 		try {
 			if (!this.effect) {
 				const cleanup = this.cleanup
@@ -324,6 +366,7 @@ class EffectScope {
 				this.disposers = null
 			}
 		} finally {
+			if (owner && !wasUntracked) owner.flags &= ~SCOPE_UNTRACKED
 			if (ownerDisposers && !batch) {
 				const ownerPosition = ownerDisposers.indexOf(this.destroy)
 				if (ownerPosition !== -1) ownerDisposers[ownerPosition] = nop
@@ -352,8 +395,7 @@ function collectDisposers(fn, cleanup, disposers = [], ownerDisposers = getCurre
 	return scope.destroy
 }
 
-function _onDispose(cb) {
-	const disposers = getCurrentDisposers()
+function _onDispose(cb, disposers) {
 	function cleanup(batch) {
 		if (!cb) return
 		const current = cb
@@ -365,50 +407,48 @@ function _onDispose(cb) {
 }
 
 function onDispose(cb) {
-	if (currentScope && scopeValid()) {
-		if (!isProduction && typeof cb !== 'function') {
+	if (!isProduction && typeof cb !== 'function') {
+		const owner = getCurrentOwner()
+		if (owner && scopeValid(owner)) {
 			throw new TypeError(`Callback must be a function but got ${Object.prototype.toString.call(cb)}`)
 		}
-		return _onDispose(cb)
+	}
+	const disposers = getCurrentDisposers()
+	if (disposers) {
+		return _onDispose(cb, disposers)
 	}
 	return cb
 }
 
-function createEffect(effect, cleanupResult) {
+function createEffectScope(effect, cleanupResult) {
 	const scope = new EffectScope(effect, cleanupResult)
-	try {
-		scope.run()
-	} catch (error) {
-		try {
-			scope.destroy()
-		} catch (cleanupError) {
-			throw new AggregateError(
-				[error, cleanupError],
-				'Failed to clean up an effect after setup failed'
-			)
-		}
-		throw error
-	}
-	return scope.destroy
+	scope.run()
+	return scope
+}
+
+function createEffect(effect, cleanupResult) {
+	return createEffectScope(effect, cleanupResult).destroy
 }
 
 function useEffect(effect, ...args) {
 	return createEffect(effect.bind(null, ...args), true)
 }
 
-function _frozen(scope, ...args) {
+function _frozen(scope, untracked, ...args) {
 	const prevScope = currentScope
-
 	currentScope = scope
+	const restoreTracking = untracked && scope && !(scope.flags & SCOPE_UNTRACKED)
+	if (restoreTracking) scope.flags |= SCOPE_UNTRACKED
 
 	try {
 		return this(...args)
 	} finally {
+		if (restoreTracking) scope.flags &= ~SCOPE_UNTRACKED
 		currentScope = prevScope
 	}
 }
 function freeze(fn) {
-	return _frozen.bind(fn, currentScope)
+	return _frozen.bind(fn, currentScope, !!(currentScope?.flags & SCOPE_UNTRACKED))
 }
 
 const untrack = freeze(function(fn, ...args) {
@@ -435,7 +475,9 @@ function subscribeSignal(sig, scope) {
 }
 
 function trackSignal(sig) {
-	if (currentScope?.effect) subscribeSignal(sig, currentScope)
+	if (currentScope?.effect && !(currentScope.flags & SCOPE_UNTRACKED)) {
+		subscribeSignal(sig, currentScope)
+	}
 }
 
 function triggerSignal(sig) {
@@ -495,7 +537,10 @@ const Signal = class {
 		})
 
 		if (compute) {
-			watch(pure(setSignal.bind(null, this, value)))
+			this[SIGNAL_STATE][SIGNAL_SCOPE] = createEffectScope(
+				pure(setSignal.bind(null, this, value)),
+				false
+			)
 		} else if (isSignal(value)) {
 			value.connect(pure(setSignal.bind(null, this, value)))
 		}
@@ -550,15 +595,7 @@ const Signal = class {
 	}
 
 	refresh() {
-		const state = this[SIGNAL_STATE]
-		const compute = state[SIGNAL_COMPUTE]
-		if (compute) {
-			const nextValue = peek(compute(state[SIGNAL_VALUE]))
-			if (state[SIGNAL_VALUE] !== nextValue) {
-				state[SIGNAL_VALUE] = nextValue
-				triggerSignal(this)
-			}
-		}
+		this[SIGNAL_STATE][SIGNAL_SCOPE]?.run()
 	}
 
 	connect(effect, runImmediate = true) {
@@ -752,22 +789,9 @@ function isSignal(val) {
 function connect(signals, effect, runImmediate = true) {
 	if (!effect) return nop
 	const ownerDisposers = getCurrentDisposers()
-	const scope = new EffectScope(effect, false, null, signals)
-	ownerDisposers?.push(scope.destroy)
+	const scope = new EffectScope(effect, false, ownerDisposers, signals)
 	if (runImmediate) {
-		try {
-			scope.run()
-		} catch (error) {
-			try {
-				scope.destroy()
-			} catch (cleanupError) {
-				throw new AggregateError(
-					[error, cleanupError],
-					'Failed to clean up a connection after setup failed'
-				)
-			}
-			throw error
-		}
+		scope.run()
 	} else if (isSignal(signals)) {
 		subscribeSignal(signals, scope)
 	} else {
@@ -837,10 +861,22 @@ function write(val, newVal) {
 function listen(vals, cb) {
 	const valCount = vals.length
 	const disposers = []
-	for (let i = 0; i < valCount; i++) {
-		if (isSignal(vals[i])) {
-			disposers.push(vals[i].connect(cb))
+	try {
+		for (let i = 0; i < valCount; i++) {
+			if (isSignal(vals[i])) {
+				disposers.push(vals[i].connect(cb))
+			}
 		}
+	} catch (error) {
+		try {
+			disposeStore(disposers, false)
+		} catch (cleanupError) {
+			throw new AggregateError(
+				[error, cleanupError],
+				'Failed to roll back listeners after setup failed'
+			)
+		}
+		throw error
 	}
 	return function(batch) {
 		let errors
@@ -1069,10 +1105,10 @@ function derive(sig, key, compute) {
 			}
 
 			untrack(function() {
-				disposer = watch(function() {
+				disposer = watch(pure(function() {
 					const value = read(newVal[key])
 					derivedSig.value = compute ? peek(compute(value)) : value
-				})
+				}))
 			})
 		}))
 
@@ -1154,7 +1190,9 @@ function onCondition(sig, compute) {
 	}
 
 	function retainEntry(key, entry) {
-		if (!currentScope || !scopeValid()) {
+		const owner = currentScope
+		if (!owner
+			|| (owner.flags & (SCOPE_ACTIVE | SCOPE_VALID)) !== (SCOPE_ACTIVE | SCOPE_VALID)) {
 			entry.persistent = true
 			return
 		}
@@ -1182,7 +1220,7 @@ function onCondition(sig, compute) {
 			return collectDisposers(function () {
 				entry.matchSig = signal(currentCondition === currentVal, compute)
 				if (isSignal(condition)) {
-					condition.connect(function () {
+					condition.connect(pure(function () {
 						removeFromArr(entry.matchSet, entry.matchSig)
 						if (!entry.matchSet.length) {
 							conditionMap.delete(entry.currentCondition)
@@ -1192,7 +1230,7 @@ function onCondition(sig, compute) {
 						entry.matchSet = getMatchSet(entry.currentCondition)
 						entry.matchSet.push(entry.matchSig)
 						entry.matchSig.value = entry.currentCondition === currentVal
-					}, false)
+					}), false)
 				}
 			})
 		})
@@ -1223,7 +1261,8 @@ function onCondition(sig, compute) {
 		})
 	)
 
-	if (currentScope && scopeValid()) {
+	const owner = getCurrentOwner()
+	if (owner && scopeValid(owner)) {
 		onDispose(function() {
 			for (const entry of conditionValMap.values()) {
 				entry.dispose()

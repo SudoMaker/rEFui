@@ -117,7 +117,7 @@ mySignal.trigger()
 ### `.refresh()`
 Re-evaluates a computed signal's computation function and updates the signal if the result has changed. This method only works on computed signals (signals created with a computation function). For regular signals, this method has no effect.
 
-This is useful when you need to manually force a computed signal to re-evaluate its computation, for example when external dependencies that aren't tracked by the signal system may have changed.
+This is useful when you need to manually force a computed signal to re-evaluate its computation, for example when external dependencies that aren't tracked by the signal system may have changed. Refresh reruns the computed signal's own effect scope, preserving its original input and collecting any newly reached signal dependencies without attaching them to the caller. If that computation was already queued, the synchronous refresh consumes the pending execution rather than running it twice.
 
 ```javascript
 const count = signal(0)
@@ -405,7 +405,7 @@ touch(someValue, someOtherValue) // Works with signals or regular values
 
 ### `EffectScope`
 
-Low-level lifecycle and reactive-effect scope. Constructing a scope does not run its effect; call `run()` to execute it and collect signal dependencies. A cleanup function returned by the effect runs before the next execution and when `destroy()` is called.
+Low-level lifecycle and reactive-effect scope. Constructing a scope does not run its effect; call `run()` to execute it and collect signal dependencies. A cleanup function returned by the effect runs before the next execution and when `destroy()` is called. Cleanup before a rerun retains the effect as its lifecycle owner, while all cleanup runs have dependency collection disabled so teardown-only signal reads do not make an effect reactive to those signals.
 
 Effects and disposal callbacks created while the scope is running belong to it. Destroying the scope releases those children and makes later queued runs inert. Component instances extend `EffectScope`, so component-owned effects use the same lifecycle representation.
 
@@ -429,6 +429,8 @@ Creates an effect that runs when dependencies change.
 Signals reached on later runs are tracked as well, so short-circuited expressions such as `a.value && b.value` begin listening to `b` after `a` becomes truthy. If later control flow stops reading a dependency, its existing subscription may cause one final run when that signal changes; because the effect does not read it again, that stale subscription is then retired.
 
 Each run is also a lifecycle scope. Child effects and `onDispose` callbacks created during a run are cleaned before the next run and when the parent watch is disposed. Deliberately long-lived work should be created outside the rerunning watch or placed in a separately managed detached scope.
+
+If an execution throws, the effect is destroyed after its registered cleanup finishes. This prevents a failed rerun from remaining active with a partially collected dependency graph; create a new effect explicitly if application error handling should retry it.
 
 ```javascript
 const dispose = watch(() => {
@@ -468,7 +470,7 @@ bind(console.log, mySignal)
 ### `listen(signals, callback)`
 Listens to multiple signals with a single callback.
 
-Returns one function that disposes every connection created by the call.
+Returns one function that disposes every connection created by the call. Registration is transactional: because each signal invokes the callback eagerly, a callback failure during setup disposes every connection that was already created before rethrowing the error.
 
 ```javascript
 const dispose = listen([signal1, signal2], () => {
@@ -536,7 +538,7 @@ const message = tpl`Hello ${name}, you have ${count} items`
 ```
 
 ### `derive(signal, key, compute?)`
-Creates a derived signal from an object property. The derived signal's content updates when the original signal changes, or when the corresponding property is itself a signal. A nullish source clears the derived value to `undefined`. Writing the derived signal does not update the original signal's property.
+Creates a derived signal from an object property. The derived signal's content updates when the original signal changes, or when the corresponding property is itself a signal. Property propagation is treated as derived work and settles before user effects run. A nullish source clears the derived value to `undefined`. Writing the derived signal does not update the original signal's property.
 
 ```javascript
 const name = derive(user, 'name')
@@ -569,7 +571,7 @@ const reactive = makeReactive({
 ## Conditional Logic
 
 ### `onCondition(signal, compute?)`
-Creates conditional matching based on signal values.
+Creates conditional matching based on signal values. When the match condition is itself a signal, its match state settles as derived work before user effects run.
 
 ```javascript
 const stateMatch = onCondition(state)
@@ -591,7 +593,7 @@ onDispose(() => {
 ### `useEffect(effect, ...args)`
 Registers an effect that runs automatically and handles its own cleanup. The `effect` function is executed immediately and re-executed whenever its signal dependencies change. Similar to `watch`, there is no option to skip the initial run—use `nextTick` or `connect` if you need to defer invocation.
 
-If the `effect` function returns another function, that returned function will be used as a `cleanup` handler. The cleanup is called right before the effect re-runs, and also when the component/scope is disposed.
+If the `effect` function returns another function, that returned function will be used as a `cleanup` handler. The cleanup is called right before the effect re-runs, and also when the component/scope is disposed. Signal reads performed only by cleanup do not become dependencies of the effect.
 
 Any additional arguments passed to `useEffect` after the `effect` function will be passed along to the `effect` function when it's called.
 
@@ -699,7 +701,7 @@ Waits for the next tick and executes a callback after all pending signal updates
 
 This is essential when you need to access updated computed signal values after making changes, since signal effects are processed asynchronously.
 
-If one or more queued effects throw, the scheduler continues draining runnable work before rejecting. One failure is rethrown directly; multiple failures are reported as an `AggregateError`.
+If one or more queued effects throw, the failing effects are destroyed, while the scheduler continues draining unrelated runnable work before rejecting. One failure is rethrown directly; multiple failures are reported as an `AggregateError`.
 
 ```javascript
 const count = signal(0)
