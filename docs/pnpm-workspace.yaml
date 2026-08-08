@@ -1,5 +1,5 @@
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - methanol@0.0.33 || 0.0.34
-  - refui@0.18.0 || 0.20.0
+  - methanol@0.0.33 || 0.0.34 || 0.1.0 || 0.1.1
+  - refui@0.18.0 || 0.20.0 || 0.20.1
