@@ -138,6 +138,8 @@ computed.refresh() // Force re-evaluation with new externalValue
 ### `.connect(effect, runImmediate = true)`
 Manually connects an effect to the signal.
 
+This is an explicit connection: signal reads inside `effect` do not add dependencies. Use `watch()` or `useEffect()` when the callback should automatically subscribe to every signal it reads.
+
 - `effect`: The effect function to connect
 - `runImmediate`: Whether to run the effect immediately (default: true)
 - Returns: Dispose function
@@ -441,6 +443,8 @@ const dispose = watch(() => {
 ### `connect(signals, effect, runImmediate = true)`
 Connects multiple signals to an effect.
 
+Only the supplied `signals` schedule the callback. Reads performed inside `effect` are untracked; use `watch()` or `useEffect()` for automatic dependency discovery.
+
 - `signals`: Array of signals to connect to
 - `effect`: The effect function to connect
 - `runImmediate`: Whether to run the effect immediately (default: true)
@@ -487,7 +491,8 @@ Creates an action system with an event handler and trigger function. This is use
 - `compute`: Optional computation function that derives the stored value before listeners run
 - Returns: `[onAction, trigger, touch]`
 	- `onAction(listener)` registers a callback bound to the current reactive scope. Do **not** call `onAction` from inside reactive effects or loops—each call adds another listener that will fire on every trigger. If you need to ignore future events, gate inside the callback or dispose the surrounding scope.
-	- `trigger(nextValue?)` updates the internal signal and synchronously notifies every registered listener. Like other signal updates, multiple triggers within the same tick are batched and delivered once using the latest value.
+	  Action listeners are not reactive effects: signals read by a listener do not subscribe that listener, including signals the listener also modifies. Create a `watch()` or `useEffect()` inside the listener when new reactive work is intentional.
+	- `trigger(nextValue?)` updates the internal signal and schedules every registered listener. Like other signal updates, multiple triggers within the same tick are batched and delivered once using the latest value.
 	- `touch()` exposes the underlying signal's `.touch()` helper. It does **not** deliver payloads; call it inside an effect when you want that effect to re-run (and therefore inspect shared state) whenever the action fires. The cleanup returned by `watch`/`useEffect` removes the subscription.
 
 ```javascript

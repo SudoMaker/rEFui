@@ -607,6 +607,27 @@ test('connect shares one readable effect across all explicit sources', async fun
 	assert.equal(b.connected, false)
 })
 
+test('manual connections do not collect dependencies from callback reads', async function () {
+	const source = signal(0)
+	const incidental = signal(0)
+	let runs = 0
+	const disposeConnection = source.connect(function () {
+		runs += 1
+		incidental.value
+	})
+
+	assert.equal(runs, 1)
+	incidental.value = 1
+	await nextTick()
+	assert.equal(runs, 1)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+
+	disposeConnection()
+})
+
 test('listen preserves one eager subscription per supplied signal', async function () {
 	const first = signal(0)
 	const second = signal(0)
@@ -664,6 +685,30 @@ test('useAction remains lazy and batches the latest action value', async functio
 	trigger(3)
 	await nextTick()
 	assert.deepEqual(seen, [2])
+})
+
+test('useAction listeners do not track signals they read or write', async function () {
+	const dependency = signal(0)
+	const [onAction, trigger] = useAction()
+	let runs = 0
+	const disposeListener = collectDisposers(function () {
+		onAction(function () {
+			runs += 1
+			const value = dependency.value
+			if (!value) dependency.value = 1
+		})
+	})
+
+	trigger()
+	await nextTick()
+	assert.equal(runs, 1)
+	assert.equal(dependency.value, 1)
+
+	dependency.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+
+	disposeListener()
 })
 
 test('separate explicit connections keep independent disposer ownership', async function () {
