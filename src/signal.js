@@ -790,6 +790,7 @@ function connect(signals, effect, runImmediate = true) {
 	if (!effect) return nop
 	const ownerDisposers = getCurrentDisposers()
 	const scope = new EffectScope(effect, false, ownerDisposers, signals)
+	scope.flags |= SCOPE_UNTRACKED
 	if (runImmediate) {
 		scope.run()
 	} else if (isSignal(signals)) {
@@ -1005,10 +1006,15 @@ function createSchedule(deferrer, onAbort) {
 
 		const wrappedFn = (function() {
 			if (isSignal(fn)) {
+				_valChanged = true
 				return function(commit) {
 					pending += 1
 					_commit = commit
-					_val = fn.value
+					const newVal = fn.value
+					if (_val !== newVal) {
+						_valChanged = true
+						_val = newVal
+					}
 					nextTick(scheduleFlush)
 					return scheduleFlush
 				}

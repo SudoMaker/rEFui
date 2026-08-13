@@ -583,9 +583,10 @@ test('watch owns a dependency read first inside a shorter-lived scope', async fu
 	assert.equal(source.connected, false)
 })
 
-test('connect shares one readable effect across all explicit sources', async function () {
+test('connect batches its explicitly supplied sources into one callback run', async function () {
 	const a = signal(0)
 	const b = signal(0)
+	const incidental = signal(0)
 	let runs = 0
 
 	const disposeEffect = collectDisposers(function () {
@@ -593,8 +594,14 @@ test('connect shares one readable effect across all explicit sources', async fun
 			runs += 1
 			a.value
 			b.value
+			incidental.value
 		})
 	})
+	assert.equal(runs, 1)
+	assert.equal(incidental.connected, false)
+
+	incidental.value = 1
+	await nextTick()
 	assert.equal(runs, 1)
 
 	a.value = 1
@@ -607,17 +614,114 @@ test('connect shares one readable effect across all explicit sources', async fun
 	assert.equal(b.connected, false)
 })
 
-test('listen preserves one eager subscription per supplied signal', async function () {
+test('manual connections do not collect dependencies from callback reads or writes', async function () {
+	const source = signal(0)
+	const incidental = signal(0)
+	let runs = 0
+	const disposeConnection = source.connect(function () {
+		runs += 1
+		const value = incidental.value
+		if (!value) incidental.value = 1
+	})
+
+	assert.equal(runs, 1)
+	assert.equal(incidental.value, 1)
+	assert.equal(incidental.connected, false)
+	await nextTick()
+	assert.equal(runs, 1)
+
+	incidental.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+
+	disposeConnection()
+})
+
+test('deferred manual connections stay lazy and untracked', async function () {
+	const source = signal(0)
+	const incidental = signal(0)
+	let runs = 0
+	const disposeConnection = source.connect(function () {
+		runs += 1
+		const value = incidental.value
+		if (!value) incidental.value = 1
+	}, false)
+
+	assert.equal(runs, 0)
+	assert.equal(incidental.value, 0)
+	source.value = 1
+	await nextTick()
+	assert.equal(runs, 1)
+	assert.equal(incidental.value, 1)
+	assert.equal(incidental.connected, false)
+
+	incidental.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+	source.value = 2
+	await nextTick()
+	assert.equal(runs, 2)
+
+	disposeConnection()
+})
+
+test('a manual connection can own an explicitly created tracked effect', async function () {
+	const source = signal(0)
+	const dependency = signal(0)
+	let connectionRuns = 0
+	let childRuns = 0
+	const disposeConnection = source.connect(function () {
+		connectionRuns += 1
+		watch(function () {
+			childRuns += 1
+			dependency.value
+		})
+	})
+
+	assert.equal(connectionRuns, 1)
+	assert.equal(childRuns, 1)
+	dependency.value = 1
+	await nextTick()
+	assert.equal(connectionRuns, 1)
+	assert.equal(childRuns, 2)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(connectionRuns, 2)
+	assert.equal(childRuns, 3)
+	dependency.value = 2
+	await nextTick()
+	assert.equal(childRuns, 4)
+
+	disposeConnection()
+	dependency.value = 3
+	await nextTick()
+	assert.equal(connectionRuns, 2)
+	assert.equal(childRuns, 4)
+})
+
+test('listen preserves explicit eager subscriptions without tracking callback reads', async function () {
 	const first = signal(0)
 	const second = signal(0)
+	const incidental = signal(0)
 	let runs = 0
 	const disposeListeners = collectDisposers(function () {
 		listen([first, second], function () {
 			runs += 1
+			incidental.value
 		})
 	})
 
 	assert.equal(runs, 2)
+	assert.equal(incidental.connected, false)
+	incidental.value = 1
+	await nextTick()
+	assert.equal(runs, 2)
+
 	first.value = 1
 	second.value = 1
 	await nextTick()
@@ -664,6 +768,140 @@ test('useAction remains lazy and batches the latest action value', async functio
 	trigger(3)
 	await nextTick()
 	assert.deepEqual(seen, [2])
+})
+
+test('useAction listeners do not track signals they read or write', async function () {
+	const dependency = signal(0)
+	const [onAction, trigger] = useAction()
+	let runs = 0
+	const disposeListener = collectDisposers(function () {
+		onAction(function () {
+			runs += 1
+			const value = dependency.value
+			if (!value) dependency.value = 1
+		})
+	})
+
+	trigger()
+	await nextTick()
+	assert.equal(runs, 1)
+	assert.equal(dependency.value, 1)
+
+	dependency.value = 2
+	await nextTick()
+	assert.equal(runs, 1)
+
+	disposeListener()
+})
+
+test('useAction touch explicitly connects and disconnects reactive effects', async function () {
+	const [onAction, trigger, touchAction] = useAction()
+	let runs = 0
+	let listenerRuns = 0
+	const disposeListener = collectDisposers(function () {
+		onAction(function () {
+			listenerRuns += 1
+		})
+	})
+	const disposeEffect = watch(function () {
+		runs += 1
+		touchAction()
+	})
+
+	assert.equal(runs, 1)
+	assert.equal(listenerRuns, 0)
+	touchAction()
+	await nextTick()
+	assert.equal(runs, 1)
+	assert.equal(listenerRuns, 0)
+
+	trigger(1)
+	trigger(2)
+	await nextTick()
+	assert.equal(runs, 2)
+	assert.equal(listenerRuns, 1)
+
+	disposeEffect()
+	disposeListener()
+	trigger(3)
+	await nextTick()
+	assert.equal(runs, 2)
+	assert.equal(listenerRuns, 1)
+})
+
+test('useAction transforms payloads and keeps listener ownership independent', async function () {
+	const [onAction, trigger] = useAction(0, function (value) {
+		return value * 2
+	})
+	const firstSeen = []
+	const secondSeen = []
+	const disposeFirst = collectDisposers(function () {
+		onAction(function (value) {
+			firstSeen.push(value)
+		})
+	})
+	const disposeSecond = collectDisposers(function () {
+		onAction(function (value) {
+			secondSeen.push(value)
+		})
+	})
+
+	trigger(2)
+	await nextTick()
+	assert.deepEqual(firstSeen, [4])
+	assert.deepEqual(secondSeen, [4])
+
+	disposeFirst()
+	trigger(3)
+	await nextTick()
+	assert.deepEqual(firstSeen, [4])
+	assert.deepEqual(secondSeen, [4, 6])
+
+	disposeSecond()
+	trigger(4)
+	await nextTick()
+	assert.deepEqual(firstSeen, [4])
+	assert.deepEqual(secondSeen, [4, 6])
+})
+
+test('useAction listeners can own explicitly created tracked effects', async function () {
+	const dependency = signal(0)
+	const [onAction, trigger] = useAction()
+	let listenerRuns = 0
+	let childRuns = 0
+	const disposeListener = collectDisposers(function () {
+		onAction(function () {
+			listenerRuns += 1
+			watch(function () {
+				childRuns += 1
+				dependency.value
+			})
+		})
+	})
+
+	trigger()
+	await nextTick()
+	assert.equal(listenerRuns, 1)
+	assert.equal(childRuns, 1)
+	dependency.value = 1
+	await nextTick()
+	assert.equal(listenerRuns, 1)
+	assert.equal(childRuns, 2)
+
+	trigger()
+	await nextTick()
+	assert.equal(listenerRuns, 2)
+	assert.equal(childRuns, 3)
+	dependency.value = 2
+	await nextTick()
+	assert.equal(childRuns, 4)
+
+	disposeListener()
+	dependency.value = 3
+	trigger()
+	await nextTick()
+	assert.equal(listenerRuns, 2)
+	assert.equal(childRuns, 4)
 })
 
 test('separate explicit connections keep independent disposer ownership', async function () {
