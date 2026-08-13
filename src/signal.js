@@ -1006,10 +1006,15 @@ function createSchedule(deferrer, onAbort) {
 
 		const wrappedFn = (function() {
 			if (isSignal(fn)) {
+				_valChanged = true
 				return function(commit) {
 					pending += 1
 					_commit = commit
-					_val = fn.value
+					const newVal = fn.value
+					if (_val !== newVal) {
+						_valChanged = true
+						_val = newVal
+					}
 					nextTick(scheduleFlush)
 					return scheduleFlush
 				}
