@@ -54,6 +54,12 @@ export function lazy<T = any>(loader: () => PromiseLike<T> | T, symbol?: Propert
 
 export function memo<T extends (...args: any[]) => any>(fn: T): (...args: Parameters<T>) => ReturnType<T>
 export function useMemo<T extends (...args: any[]) => any>(fn: T): () => (...args: Parameters<T>) => ReturnType<T>
+export function keepAlive<P = any, R extends Renderer = Renderer, Result = unknown>(
+	component: ComponentTemplate<P, R, Result>
+): ComponentTemplate<P, R, Result>
+export function useKeepAlive<P = any, R extends Renderer = Renderer, Result = unknown>(
+	component: ComponentTemplate<P, R, Result>
+): () => ComponentTemplate<P, R, Result>
 
 export interface FnOptions {
 	name?: string

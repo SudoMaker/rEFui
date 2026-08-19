@@ -156,13 +156,18 @@ Use `useAction` when you need a lightweight event channel (fire-and-forget notif
 ### Don’t
 - Don’t create component instances in hot paths unless you truly need manual lifetime control.
 
-## `memo` / `useMemo` (component memoization)
+## `memo` / `useMemo` / `keepAlive` / `useKeepAlive`
 
 ### Do
-- Use memoization only when you’ve identified repeated construction of a large subtree that can be reused across parents.
+- Use `memo(fn)` to cache the immediate result of one function call. `memo(Page)` caches the render function returned by `Page`, not the concrete host node.
+- Use `useMemo(fn)` when the memo factory is declared outside components but each component instance needs its own captured memo.
+- Use `keepAlive(Page)` when a concrete subtree must survive `Dynamic` detachment and later be reattached as the same node.
+- Use `useKeepAlive(Page)` when the keep-alive helper is declared outside components but every calling component instance needs a separately owned retained subtree.
+- Create `keepAlive` inside its intended owner. Final owner disposal must release the retained subtree, effects, subscriptions, and keyed list rows.
 
 ### Don’t
 - Don’t use memoization as a default “performance optimization”; rEFui’s fine-grained signals handle most cases.
+- Don’t mount one kept-alive node concurrently in multiple parents or across different concrete renderers.
 
 ## `<Async>`, `<Suspense>`, `lazy`, `Transition` (async UI)
 

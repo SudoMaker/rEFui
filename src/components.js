@@ -154,6 +154,20 @@ function useMemo(fn) {
 	}
 }
 
+function keepAlive(fn) {
+	return memo(function (...args) {
+		const renderFn = fn(...args)
+		return memo(function (R) {
+			return R.ensureElement(renderFn)
+		})
+	})
+}
+function useKeepAlive(fn) {
+	return function () {
+		return keepAlive(fn)
+	}
+}
+
 function dummyRun(fn, R) {
 	let result = null
 	const cleanup = collectDisposers(function () {
@@ -274,7 +288,14 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		}
 	}
 
-	onDispose(_clear.bind(null, true))
+	function _disposeMount(fragment) {
+		if (renderedFragment !== fragment) return
+		_clear(true)
+		if (kv) kv = new Map()
+		currentData = []
+		renderedFragment = null
+		renderedRenderer = null
+	}
 
 	function clear() {
 		if (!currentData.length) return
@@ -305,6 +326,7 @@ function For({ name = 'For', entries, track, indexed, expose }, itemTemplate) {
 		const fragment = R.createFragment(name)
 		renderedFragment = fragment
 		renderedRenderer = R
+		onDispose(_disposeMount.bind(null, fragment))
 
 		function getItemNode(itemKey) {
 			let node = nodeCache.get(itemKey)
@@ -1086,6 +1108,8 @@ export {
 	lazy,
 	memo,
 	useMemo,
+	keepAlive,
+	useKeepAlive,
 	Fn,
 	For,
 	If,
