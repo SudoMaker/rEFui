@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       methanol:
-        specifier: ^0.1.3
-        version: 0.1.3(rollup@4.55.1)
+        specifier: ^0.1.4
+        version: 0.1.4(rollup@4.55.1)
       pagefind:
         specifier: ^1.5.2
         version: 1.5.2
@@ -878,8 +878,8 @@ packages:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
 
-  methanol@0.1.3:
-    resolution: {integrity: sha512-aypA1tSiIloHC5QSfKtqaa91HGxAuCcFHIjswOY5Mmmk7939EYKyz5tlhGJs5HFpEgHQWa+vtzLsoFvlPWZG4g==}
+  methanol@0.1.4:
+    resolution: {integrity: sha512-4+6nswSZVIrxsAdj+y50Wn57qgPs/Sd4/853frLTJH2phtgtBU0xECaw20/fnnXm8cPN7omMk09p7NJ7ThjMDw==}
     hasBin: true
 
   micromark-core-commonmark@2.0.3:
@@ -1037,8 +1037,8 @@ packages:
   recma-stringify@1.0.0:
     resolution: {integrity: sha512-cjwII1MdIIVloKvC9ErQ+OgAtwHBmcZ0Bg4ciz78FtbT8In39aAYbaA7zvxQ61xVMSPE8WxhLwLbhif4Js2C+g==}
 
-  refui@0.20.3:
-    resolution: {integrity: sha512-UdRXLn9aktq0suRTl8fnIagZ3pKAWHPi0N4ju+dkjPOaPVxh+ztC1/qY2h+e5EWJSIZcF/ZvzDEcSRisZMVrSg==}
+  refui@0.20.4:
+    resolution: {integrity: sha512-TeUFcnke9kNFSdHL1zyPHUoCOYkgQsJTr7YHCDGFtDgwL1W7Yzn6DCHuUBPTY4pDwKutytRQ7OkkkZQ2aafCsA==}
 
   refurbish@0.1.8:
     resolution: {integrity: sha512-z9jHYe5ezXZ6COxBAwd/cR9dW09cBtQMv11CTB87GS693lxUQPPu5ioTzt0SGPO6+hjucr6A5kspbZEvox+0TQ==}
@@ -2064,7 +2064,7 @@ snapshots:
 
   merge2@1.4.1: {}
 
-  methanol@0.1.3(rollup@4.55.1):
+  methanol@0.1.4(rollup@4.55.1):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@rsbuild/core': 2.1.13
@@ -2080,8 +2080,8 @@ snapshots:
       json5: 2.2.3
       null-prototype-object: 1.2.7
       picomatch: 4.0.5
-      refui: 0.20.3
-      refurbish: 0.1.8(refui@0.20.3)(rollup@4.55.1)
+      refui: 0.20.4
+      refurbish: 0.1.8(refui@0.20.4)(rollup@4.55.1)
       rehype-slug: 6.0.0
       rehype-starry-night: 2.2.0
       remark-gfm: 4.0.1
@@ -2428,12 +2428,12 @@ snapshots:
       unified: 11.0.5
       vfile: 6.0.3
 
-  refui@0.20.3: {}
+  refui@0.20.4: {}
 
-  refurbish@0.1.8(refui@0.20.3)(rollup@4.55.1):
+  refurbish@0.1.8(refui@0.20.4)(rollup@4.55.1):
     dependencies:
       '@rollup/pluginutils': 5.4.0(rollup@4.55.1)
-      refui: 0.20.3
+      refui: 0.20.4
     transitivePeerDependencies:
       - rollup
 
