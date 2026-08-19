@@ -14,14 +14,18 @@ import {
 	createContext,
 	dispose,
 	getCurrentSelf,
+	keepAlive,
 	lazy,
+	memo,
 	render,
 	snapshot,
 	useContext,
+	useKeepAlive,
 	useMemo
 } from 'refui/components'
 import { createHTMLRenderer } from 'refui/html'
-import { nextTick, signal } from 'refui/signal'
+import { R as Reflow } from 'refui/reflow'
+import { nextTick, onDispose, signal, watch } from 'refui/signal'
 
 async function settle(turns = 6) {
 	for (let i = 0; i < turns; i++) {
@@ -79,6 +83,239 @@ test('component refs, snapshots, memo helpers, and contexts retain lifecycle bou
 	dispose(provider)
 	assert.deepEqual(runLater(), [undefined, 'default'])
 	assert.equal(render(callbackRef, R), undefined)
+})
+
+test('memoized component scopes are destroyed with their captured parent scope', async function () {
+	const R = createHTMLRenderer()
+	const source = signal(0)
+	let child
+	let childDisposals = 0
+	let childRuns = 0
+	let memoCalls = 0
+
+	function Child() {
+		onDispose(function () {
+			childDisposals += 1
+		})
+		watch(function () {
+			childRuns += 1
+			source.value
+		})
+		return function () {
+			return R.c('b', null, source)
+		}
+	}
+
+	const prepareMemo = useMemo(function () {
+		memoCalls += 1
+		return R.c(Child, {
+			$ref(value) {
+				child = value
+			}
+		})
+	})
+	const parent = createComponent(function Parent() {
+		const memoized = prepareMemo()
+		return function () {
+			return R.c('div', null, memoized(), memoized())
+		}
+	})
+	const node = render(parent, R)
+
+	assert.equal(R.serialize(node), '<div><b>0</b></div>')
+	assert.equal(memoCalls, 1)
+	assert.equal(childRuns, 1)
+	assert.equal(source.connected, true)
+
+	source.value = 1
+	await nextTick()
+	assert.equal(R.serialize(node), '<div><b>1</b></div>')
+	assert.equal(childRuns, 2)
+
+	dispose(parent)
+	assert.equal(childDisposals, 1)
+	assert.equal(render(child, R), undefined)
+	assert.equal(source.connected, false)
+	source.value = 2
+	await nextTick()
+	assert.equal(childRuns, 2)
+})
+
+test('a memoized page remounts its setup-created keyed For into a fresh Dynamic fragment', async function () {
+	const R = createHTMLRenderer()
+	const entries = signal([{ id: 0 }, { id: 1 }])
+	const current = signal(null)
+	let MemoPage
+	let rowDisposals = 0
+
+	function Page() {
+		return Reflow.c('list', null,
+			Reflow.c(For, { entries, track: 'id' }, function ({ item }) {
+				onDispose(function () {
+					rowDisposals += 1
+				})
+				return Reflow.c('row', null, item.id)
+			})
+		)
+	}
+
+	const app = createComponent(function App() {
+		MemoPage = memo(Page)
+		current.poke(MemoPage)
+		return function () {
+			return R.c(Dynamic, { is: current })
+		}
+	})
+	const node = render(app, R)
+	assert.equal(R.serialize(node), '<list><row>0</row><row>1</row></list>')
+
+	current.value = null
+	await settle(2)
+	assert.equal(R.serialize(node), '')
+	assert.equal(rowDisposals, 2)
+	assert.equal(entries.connected, false)
+	current.value = MemoPage
+	await settle(2)
+	assert.equal(R.serialize(node), '<list><row>0</row><row>1</row></list>')
+	assert.equal(entries.connected, true)
+	entries.value = [{ id: 1 }, { id: 2 }]
+	await settle(2)
+	assert.equal(R.serialize(node), '<list><row>1</row><row>2</row></list>')
+	assert.equal(rowDisposals, 3)
+	dispose(app)
+	assert.equal(rowDisposals, 5)
+	assert.equal(entries.connected, false)
+})
+
+test('keepAlive reattaches one rendered keyed subtree across Dynamic mounts', async function () {
+	const R = createHTMLRenderer()
+	const entries = signal([{ id: 0 }, { id: 1 }])
+	const current = signal(null)
+	let AlivePage
+	let listNode
+	let listRefCalls = 0
+	let pageSetups = 0
+	let rowDisposals = 0
+
+	function Page() {
+		pageSetups += 1
+		return Reflow.c('list', {
+			$ref(node) {
+				listRefCalls += 1
+				if (listNode) assert.equal(node, listNode)
+				else listNode = node
+			}
+		}, Reflow.c(For, { entries, track: 'id' }, function ({ item }) {
+			onDispose(function () {
+				rowDisposals += 1
+			})
+			return Reflow.c('row', null, item.id)
+		}))
+	}
+
+	const app = createComponent(function App() {
+		AlivePage = keepAlive(Page)
+		current.poke(AlivePage)
+		return function () {
+			return R.c(Dynamic, { is: current })
+		}
+	})
+	const node = render(app, R)
+	assert.equal(R.serialize(node), '<list><row>0</row><row>1</row></list>')
+	assert.equal(pageSetups, 1)
+	assert.equal(listRefCalls, 1)
+
+	current.value = null
+	await settle(2)
+	assert.equal(R.serialize(node), '')
+	assert.equal(rowDisposals, 0)
+	assert.equal(entries.connected, true)
+	entries.value = [{ id: 1 }, { id: 2 }]
+	await settle(2)
+	assert.equal(R.serialize(listNode), '<list><row>1</row><row>2</row></list>')
+
+	current.value = AlivePage
+	await settle(2)
+	assert.equal(R.serialize(node), '<list><row>1</row><row>2</row></list>')
+	assert.equal(pageSetups, 1)
+	assert.equal(listRefCalls, 1)
+	assert.equal(rowDisposals, 1)
+
+	dispose(app)
+	assert.equal(rowDisposals, 3)
+	assert.equal(entries.connected, false)
+})
+
+test('useKeepAlive creates independently owned retained subtrees per component instance', async function () {
+	const R = createHTMLRenderer()
+	const source = signal(0)
+	const currentA = signal(null)
+	const currentB = signal(null)
+	const alivePages = new Map()
+	const pageNodes = new Map()
+	const setupCalls = new Map()
+	const refCalls = new Map()
+	const disposals = new Map()
+
+	function Page({ id }) {
+		setupCalls.set(id, (setupCalls.get(id) ?? 0) + 1)
+		onDispose(function () {
+			disposals.set(id, (disposals.get(id) ?? 0) + 1)
+		})
+		return Reflow.c('page', {
+			$ref(node) {
+				refCalls.set(id, (refCalls.get(id) ?? 0) + 1)
+				pageNodes.set(id, node)
+			}
+		}, id, ':', source)
+	}
+
+	const prepareAlive = useKeepAlive(Page)
+	function App({ id, current }) {
+		const AlivePage = prepareAlive()
+		alivePages.set(id, AlivePage)
+		current.poke(AlivePage)
+		return function () {
+			return R.c(Dynamic, { is: current, id })
+		}
+	}
+
+	const appA = createComponent(App, { id: 'A', current: currentA })
+	const appB = createComponent(App, { id: 'B', current: currentB })
+	const nodeA = render(appA, R)
+	const nodeB = render(appB, R)
+
+	assert.equal(R.serialize(nodeA), '<page>A:0</page>')
+	assert.equal(R.serialize(nodeB), '<page>B:0</page>')
+	assert.notEqual(pageNodes.get('A'), pageNodes.get('B'))
+	assert.deepEqual(Object.fromEntries(setupCalls), { A: 1, B: 1 })
+	assert.deepEqual(Object.fromEntries(refCalls), { A: 1, B: 1 })
+
+	currentA.value = null
+	await settle(2)
+	assert.equal(R.serialize(nodeA), '')
+	source.value = 1
+	await settle(2)
+	assert.equal(R.serialize(pageNodes.get('A')), '<page>A:1</page>')
+	assert.equal(R.serialize(pageNodes.get('B')), '<page>B:1</page>')
+
+	currentA.value = alivePages.get('A')
+	await settle(2)
+	assert.equal(R.serialize(nodeA), '<page>A:1</page>')
+	assert.deepEqual(Object.fromEntries(setupCalls), { A: 1, B: 1 })
+	assert.deepEqual(Object.fromEntries(refCalls), { A: 1, B: 1 })
+
+	dispose(appA)
+	assert.deepEqual(Object.fromEntries(disposals), { A: 1 })
+	assert.equal(source.connected, true)
+	source.value = 2
+	await settle(2)
+	assert.equal(R.serialize(pageNodes.get('A')), '<page>A:1</page>')
+	assert.equal(R.serialize(pageNodes.get('B')), '<page>B:2</page>')
+
+	dispose(appB)
+	assert.deepEqual(Object.fromEntries(disposals), { A: 1, B: 1 })
+	assert.equal(source.connected, false)
 })
 
 test('lazy caches successful modules, selects named exports, and rejects missing exports', async function () {
