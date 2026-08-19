@@ -396,7 +396,7 @@ const App = () => {
 
 ## memo
 
-Provides component-scoped memoization for functions that should only run once during an instance's lifetime. Call `memo` inside a component to capture the current rendering context, then reuse the returned function to access the cached result without re-running the original logic.
+Provides component-scoped memoization for one function evaluation. Call `memo` inside a component to capture the current context, then reuse the returned function to access its immediate cached result without re-running the original logic.
 
 **Parameters:**
 
@@ -406,11 +406,11 @@ Provides component-scoped memoization for functions that should only run once du
 
 ### Usage Notes
 
-- The wrapped function runs at most once per parent function evaluation. Subsequent calls return the cached value.
+- The wrapped function runs at most once during the memo wrapper's lifetime. Subsequent calls return the cached value.
 - The captured context ensures that any signals read during the first execution are tracked correctly, and `onDispose` handlers registered inside `fn` are tied to the component lifecycle.
 - Because the value never re-computes automatically, avoid reading reactive data inside `fn` if you expect it to change. Use signals or derived values outside of `memo` when you need updates.
-- Call `memo` inline inside the component factory or inside the returned render function. Hoisting `memo` outside the component will capture the wrong context and break caching. If you prefer to prepare helpers up front, use the provided `useMemo` wrapper and invoke it inside the component.
-- When the memoized value creates components or side effects, the cached instance stays reactive even if you temporarily detach it from the renderer. Cleanup registered inside `fn` is recorded on the captured context, so release references or trigger disposal when the instance is no longer needed.
+- Call `memo` inline inside the component factory or inside the returned render function. Hoisting `memo` outside the component will capture the wrong context and break caching. If you prefer to prepare helpers up front, use the provided `useMemo` wrapper and invoke it inside the component. The corresponding factory for retained subtrees is `useKeepAlive`.
+- `memo(Page)` caches the render function returned by `Page`; it does not cache the concrete renderer node produced by that render function. A later mount can therefore create a fresh renderer subtree while retaining the memoized setup result. Use `keepAlive(Page)` when the concrete subtree must survive temporary detachment.
 - Once the owning component disposes, the memoized wrapper no longer has a live context; calling it after teardown behaves like an untracked function call.
 
 Unlike React or Solid, `memo` here captures the current reactive context and defers execution until the returned function is actually run (for example when a conditional branch is selected). This allows inline usage inside JSX-style control flow without introducing dedicated hooks.
@@ -437,6 +437,58 @@ const ToggleMessage = () => {
 	)
 }
 ```
+
+## keepAlive
+
+Keeps both a component's setup result and its first concrete renderer result alive for the lifetime of the captured owner scope. This is the retained-subtree operation to use for pages or other expensive views that should be detached and later reattached without reconstructing their nodes.
+
+**Parameters:**
+
+- `component`: The component template whose setup and rendered subtree should be retained.
+
+**Returns:** A component template suitable for `Dynamic` or ordinary renderer component creation.
+
+### Usage Notes
+
+- Call `keepAlive` inside the component or scope that should own the retained subtree. It captures that scope in the same way as `memo`.
+- If the helper must be declared outside components, use `useKeepAlive(component)` and invoke the returned factory once inside each intended owner.
+- Removing the result from `Dynamic` detaches its node but does not dispose its signals, effects, keyed `For` cache, or renderer subtree.
+- Re-selecting it reattaches the same concrete node. The component setup and render function do not run again.
+- Disposing the owning scope releases the retained subtree and all of its nested resources.
+- A retained subtree is renderer-specific after its first mount and should not be mounted concurrently into multiple parents.
+
+```jsx
+import { Dynamic, keepAlive, signal } from 'refui'
+
+const currentPage = signal(null)
+
+const App = () => {
+	const PlayerPage = keepAlive(Player)
+	currentPage.value = PlayerPage
+
+	return <Dynamic is={currentPage} />
+}
+```
+
+### `useKeepAlive` Factory Example
+
+`useKeepAlive(component)` prepares a module-safe factory without capturing a component scope yet. Invoke that factory inside a component to create a retained component template owned by that particular component instance. Separate invocations never share their concrete nodes or cleanup lifetimes.
+
+```jsx
+import { Dynamic, signal, useKeepAlive } from 'refui'
+
+const preparePlayerPage = useKeepAlive(Player)
+
+const App = () => {
+	const currentPage = signal(null)
+	const PlayerPage = preparePlayerPage()
+	currentPage.value = PlayerPage
+
+	return <Dynamic is={currentPage} />
+}
+```
+
+This has the same retention behavior as calling `keepAlive(Player)` directly inside `App`: temporary detachment preserves the concrete subtree, while disposal of that `App` instance releases it.
 
 ### `useMemo` Wrapper Example
 

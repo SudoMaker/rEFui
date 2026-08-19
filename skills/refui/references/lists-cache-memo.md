@@ -56,9 +56,13 @@ Guidance:
 Prefer caching primitives when:
 - You have a heavy subtree that is expensive to construct and is shown/hidden or swapped repeatedly.
 
-Common tools (names vary by version; confirm with MCP):
+Common tools:
 - `createCache` / `Cached` (extras) for reusing built fragments
-- `memo` / `useMemo` (components) for reusing component results across parents (not for everyday fine-grained updates)
+- `memo` / `useMemo` for caching one immediate function or component-setup result
+- `keepAlive` for retaining the first concrete renderer subtree across `Dynamic` detach/reattach
+- `useKeepAlive` for preparing that behavior outside components while creating an independent retained subtree in each calling owner
+
+`memo(Page)` and `keepAlive(Page)` intentionally have different lifecycles. An ordinary memoized page reuses `Page`'s cached setup result but creates fresh mount-specific host state, including a fresh keyed `For` cache. A kept-alive page reattaches the same host node and keeps its keyed cache and effects live while detached. Both remain owned by the scope where they were created; final owner disposal cleans them up. `useKeepAlive(Page)` only defers creation of `keepAlive(Page)` until its returned factory is called inside that owner; it does not make retained nodes global or share them between component instances.
 
 `createCache` keeps a component scope for every retained slot. Outside HMR, its
 item template is invoked directly in that scope unless the item requests a
@@ -66,7 +70,7 @@ truthy `$ref`; ref and HMR cases retain the nested component boundary.
 
 Rule of thumb:
 - Do not reach for memoization as the first performance tool. rEFui already updates surgically via signals.
-- Reach for caching/memo only when you’ve identified repeated construction of the same large subtree.
+- Reach for caching or keep-alive only when repeated construction is measured or preserving detached state is an explicit requirement.
 
 ## 5) Virtualization (fallback path)
 
@@ -81,8 +85,3 @@ If the project needs virtualization and rEFui doesn’t ship a dedicated primiti
 - Mutating list items in place without `trigger()` (no downstream updates).
 - Using memoization to “fix” a reactivity bug (usually hides the real issue).
 - Computing selection booleans globally for all rows instead of using `onCondition` locally.
-
-## When unsure
-
-Use MCP to confirm list APIs for your rEFui version:
-- Context7: query “onCondition”, “For track indexed expose”, “UnKeyed extras”, “createCache Cached”, “memo useMemo”.
