@@ -191,6 +191,12 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 		let currentRender = null
 		let currentDispose = null
 
+		onDispose(function (batch) {
+			const disposeCurrent = currentDispose
+			currentRender = currentDispose = null
+			disposeCurrent?.(batch)
+		})
+
 		watch(
 			_capture(function () {
 				const newHandler = read(handler)
