@@ -400,6 +400,38 @@ test('Fn replaces, clears, and recovers rendered output through its error handle
 	dispose(view)
 })
 
+test('Fn disposes its selected branch through the conditional render owner', function () {
+	const R = createHTMLRenderer()
+	const condition = signal(true)
+	const events = []
+
+	function Child() {
+		onDispose(function () {
+			events.push('child')
+		})
+		return function () {
+			return R.c('b', null, 'selected')
+		}
+	}
+
+	const view = createComponent(function View() {
+		return function () {
+			const selected = R.c(If, { condition }, R.c(Child))
+			/* This cleanup follows the conditional in the containing render scope.
+			 * Fn must retire its selected branch before that outer scope proceeds. */
+			onDispose(function () {
+				events.push('outer')
+			})
+			return selected
+		}
+	})
+	render(view, R)
+	dispose(view)
+
+	assert.deepEqual(events, ['child', 'outer'])
+	assert.equal(condition.connected, false)
+})
+
 test('For expose methods retrieve, remove, and clear keyed entries', async function () {
 	const R = createHTMLRenderer()
 	const entries = signal([{ id: 1, label: 'one' }, { id: 2, label: 'two' }])
