@@ -12,7 +12,7 @@
     "serve": "methanol serve"
   },
   "devDependencies": {
-    "methanol": "^0.1.4",
+    "methanol": "^0.1.5",
     "pagefind": "^1.5.2",
     "refui": "link:..",
     "vite-plugin-sitemap": "^0.8.2"
