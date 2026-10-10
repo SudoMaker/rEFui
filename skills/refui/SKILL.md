@@ -13,9 +13,11 @@ Apply rEFui’s retained-mode + signals model correctly, choose the right JSX mo
 
 - JSX is evaluated once; `{signal.value}` in JSX is static. Use `{signal}` or a derived `$(() => ...)`.
 - In-place array/object mutation requires `sig.trigger()` (or replace with a new value).
-- Effects re-run when any read signal changes; avoid writing to those signals without guards.
+- A reactive scope that writes a signal it also reads can schedule itself repeatedly. Audit this as a possible feedback loop, not an automatic error: guarded or convergent updates may be intentional.
 - Context values are stable; provide signals in context if consumers must react.
 - Passing a signal/computed directly to rEFui control-flow is correct: `<If condition={sig}>` and `<If condition={computed}>` are intended usage. The pitfall is conditional `.value` reads inside JS/derived code that skip later dependencies.
+- Prefer lazy `If` branches when setup and cleanup should follow branch visibility: `<If condition={flag}>{() => <Page />}</If>`. Eager children are valid when their earlier evaluation and parent ownership are intentional.
+- `If` consumes its first two children as true/false branches. To show several siblings in one branch, return one Fragment from one function; do not pass those siblings as separate children.
 
 ## General guide
 
@@ -53,11 +55,15 @@ const Counter = () => {
 - `EffectScope` is the ownership basis for components, effects, and disposer scopes. Work created inside a live scope is automatically released with that owner.
 - `connect(signals, callback)` and `signal.connect(callback)` subscribe only to the explicitly supplied signals. Reads inside their callbacks are intentionally untracked; create `watch()` explicitly when a callback needs discovered dependencies.
 - `useAction` listeners are event handlers, not reactive effects. Signal reads and writes inside a listener do not subscribe the listener; listener registration is still disposed with its outer scope.
+- Review writes to a scope's own signal dependencies for repeated scheduling and termination. A guard, stable value, or convergent update can make this intentional. Warn when the intent is unclear; do not block or rewrite an understood design, or keep repeating an acknowledged warning. `peek`/`untrack` reads and deferred event callbacks have different tracking semantics.
 - Scheduling: if you need “after updates applied”, `await nextTick()`.
 
 ### Control flow components
 
 - Conditional UI: `<If condition={cond}>{() => <Then />}{() => <Else />}</If>`
+- Branch functions defer evaluation into the selected branch's scope. Direct children are evaluated before `If`; their setup can belong to the enclosing owner and outlive branch visibility. Choose the form that matches the intended lifetime, accounting for the renderer and JSX/HMR mode.
+- Two branch children mean true and false, not two true-branch siblings. Use `<If condition={cond}>{() => <><First /><Second /></>}</If>` when both belong to the true branch.
+- Lazy branches are a recommendation, not a hard requirement. Preserve intentional eager construction; discuss the ownership tradeoff only when it matters to the observed behavior.
 - Lists: `<For entries={items} track="id">{({ item, index }) => ...}</For>`; its child is an item method, not a component boundary.
 - Inline dynamic subtree with lifecycle: `<Fn ctx={something}>{(ctx) => ...}</Fn>`
 - `For` has **no** `fallback`; for empty states, wrap with `<If>`.
@@ -183,7 +189,7 @@ When implementing a requirement, prefer rEFui’s built-in primitives (signals/c
 	 - Reflow logic-only modules: `refui/reflow` (often injected via `jsxInject: import { R } from 'refui/reflow'` in classic mode).
 3. Confirm the installed **rEFui version** from `package.json` or the lockfile. Match the import paths and APIs already used by the project; if an API described here is absent from the installed package, do not invent it.
 
-The optional `scripts/refui-audit.mjs` command can scan JSX mode and common `.value` mistakes, but the workflow must not depend on that script.
+The optional `scripts/refui-audit.mjs <project-root>` command reports advisory JSX/`If` findings and possible signal feedback in recognizable reactive callbacks. Its syntax checks use the target project's or current workspace's installed `@swc/core`, including its binding metadata. Signal feedback checks cover locally declared signals, inline reactive callbacks, direct `.value`/`get`/`touch` reads, and assignments/`set`/`trigger` writes, plus explicit `connect` sources. Signal aliases, indirect helper calls, named callbacks, and cross-module dependencies still need manual review. When the parser is unavailable, report that coverage gap and use the project's authoritative parser if further investigation is needed. Findings never require a zero-warning gate.
 
 ## When Usage Is Unclear (optional documentation lookup)
 
@@ -284,6 +290,9 @@ Treat lookup results as supporting evidence, not a substitute for the target pro
 ## Validation
 
 - Reproduce lifecycle bugs through public APIs before changing application or framework code.
+- When debugging repeated updates, review scopes that write their own signal dependencies; the optional audit can help locate direct cases. Findings are warnings, not proof of a loop or a requirement to change the code. Preserve intentional, understood feedback and eager `If` children.
+- When changing `If` branches, distinguish an intentional true/false pair from siblings intended for one branch. The syntax alone cannot infer that product intent.
+- Validate a production cold launch as well as development/HMR. HMR component wrappers can mask eager setup that fails in a compiled package.
 - For scheduled reactivity, await `nextTick()` before asserting downstream effects or rendered output.
 - Verify unmount and final-owner disposal separately for `memo`, `keepAlive`, `useKeepAlive`, `Dynamic`, async boundaries, lists, listeners, and external resources.
 - Renderer-neutral tests must not fake browser-only `DocumentFragment` semantics. Test host-specific behavior against the actual host contract, and test HTML behavior with the HTML renderer.
