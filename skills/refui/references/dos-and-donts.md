@@ -106,7 +106,7 @@ Use `useAction` when you need a lightweight event channel (fire-and-forget notif
 ## `<If>` (conditional UI)
 
 ### Do
-- Prefer `<If condition={cond}>{() => <Then/>}{() => <Else/>}</If>` so disposal happens correctly when branches swap.
+- Prefer `<If condition={cond}>{() => <Then/>}{() => <Else/>}</If>` when branch setup and cleanup should follow visibility. Eager children are valid when earlier evaluation and enclosing-owner lifetimes are intentional; lazy branches are not mandatory.
 - Put branch-only subscriptions inside the branch so they dispose when hidden.
 
 ### Don’t
