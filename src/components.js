@@ -20,6 +20,7 @@
 
 import {
 	collectDisposers,
+	tick,
 	nextTick,
 	read,
 	peek,
@@ -175,6 +176,9 @@ function dummyRun(fn, R) {
 	})
 	return [result, cleanup]
 }
+function _fnCleanup() {
+	tick().then(this, this)
+}
 function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 	if (!handler) {
 		return nop
@@ -236,7 +240,7 @@ function Fn({ name = 'Fn', ctx, catch: catchErr }, handler, handleErr) {
 
 						if (newResult !== undefined && newResult !== null) {
 							R.appendNode(fragment, newResult)
-							onDispose(nextTick.bind(null, R.removeNode.bind(null, newResult)))
+							onDispose(_fnCleanup.bind(R.removeNode.bind(null, newResult)))
 						} else {
 							if (errored && prevDispose) {
 								onDispose(prevDispose)

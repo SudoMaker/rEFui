@@ -73,7 +73,7 @@ Smell:
 - Effects created outside a component scope (no automatic disposal).
 
 Loop traps:
-- Avoid writing to signals that you read in the same `watch`/`useEffect` without guards; it can re-run indefinitely.
+- Audit a reactive scope that writes a signal it reads for possible repeated scheduling. This is a warning, not a prohibition: guarded or convergent updates can be intentional. If the user understands the behavior, preserve it and do not repeat the warning. Reads through `peek`/`untrack` and deferred event callbacks have different tracking semantics.
 - `useEffect` cleanup runs before re-run and on dispose; don't treat cleanup as "unmount" if the effect depends on signals.
 - Creating an `AbortController` inside a reactive effect ties it to that dependency; aborts fire whenever the effect re-runs.
 
